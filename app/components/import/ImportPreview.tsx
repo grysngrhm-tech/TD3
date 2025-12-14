@@ -10,32 +10,39 @@ import {
   getWorkbookInfo, 
   parseSheet, 
   detectColumnMappings, 
-  extractMappedData,
-  calculateImportStats 
+  calculateImportStats,
+  prepareColumnExport
 } from '@/lib/spreadsheet'
 import type { SpreadsheetData, ColumnMapping, WorkbookInfo } from '@/lib/spreadsheet'
+import { supabase } from '@/lib/supabase'
+
+type Project = {
+  id: string
+  name: string
+  project_code: string | null
+  builder_name: string | null
+}
 
 type ImportPreviewProps = {
   isOpen: boolean
   onClose: () => void
-  onImport: (data: {
-    categories: string[]
-    budgetAmounts: number[]
-    drawAmounts: { drawNumber: number; amounts: number[] }[]
-  }) => Promise<void> | void
+  onSuccess?: () => void  // Optional callback after successful webhook submission
   importType: 'budget' | 'draw'
 }
 
 type ImportStats = {
   totalRows: number
   rowsWithCategory: number
-  totalBudget: number
-  drawColumns: number
+  totalAmount: number
   emptyCategories: number
-  zeroBudgetRows: number
+  zeroAmountRows: number
 }
 
-export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportPreviewProps) {
+// Get webhook URLs from environment
+const BUDGET_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_BUDGET_WEBHOOK || ''
+const DRAW_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_DRAW_WEBHOOK || ''
+
+export function ImportPreview({ isOpen, onClose, onSuccess, importType }: ImportPreviewProps) {
   const [step, setStep] = useState<'upload' | 'preview'>('upload')
   const [file, setFile] = useState<File | null>(null)
   const [workbookInfo, setWorkbookInfo] = useState<WorkbookInfo | null>(null)
@@ -46,10 +53,40 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  // Project selection state
+  const [projects, setProjects] = useState<Project[]>([])
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('')
+  const [drawNumber, setDrawNumber] = useState<number>(1)
+  const [loadingProjects, setLoadingProjects] = useState(false)
 
+  // Fetch projects when modal opens
   useEffect(() => {
-    if (!isOpen) handleReset()
+    if (isOpen) {
+      fetchProjects()
+    } else {
+      handleReset()
+    }
   }, [isOpen])
+  
+  const fetchProjects = async () => {
+    setLoadingProjects(true)
+    try {
+      const { data: projectsData, error: projectsError } = await supabase
+        .from('projects')
+        .select('id, name, project_code, builder_name')
+        .eq('status', 'active')
+        .order('builder_name', { ascending: true })
+        .order('project_code', { ascending: true })
+      
+      if (projectsError) throw projectsError
+      setProjects(projectsData || [])
+    } catch (err) {
+      console.error('Failed to fetch projects:', err)
+    } finally {
+      setLoadingProjects(false)
+    }
+  }
 
   const handleFileSelect = useCallback(async (selectedFile: File) => {
     setFile(selectedFile)
@@ -102,13 +139,12 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
 
   const handleMappingChange = useCallback((
     columnIndex: number, 
-    newMapping: ColumnMapping['mappedTo'],
-    drawNumber?: number
+    newMapping: ColumnMapping['mappedTo']
   ) => {
     setMappings(prev => {
       const updated = prev.map(m => 
         m.columnIndex === columnIndex 
-          ? { ...m, mappedTo: newMapping, drawNumber, confidence: 1 }
+          ? { ...m, mappedTo: newMapping, confidence: 1 }
           : m
       )
       if (data) {
@@ -120,21 +156,48 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
   }, [data])
 
   const handleImport = useCallback(async () => {
-    if (!data) return
+    if (!data || !file || !selectedProjectId) return
+    
+    const webhookUrl = importType === 'budget' ? BUDGET_WEBHOOK_URL : DRAW_WEBHOOK_URL
+    
+    // Check if webhook URL is configured
+    if (!webhookUrl) {
+      setError(`${importType === 'budget' ? 'Budget' : 'Draw'} import webhook URL not configured. Set NEXT_PUBLIC_N8N_${importType.toUpperCase()}_WEBHOOK in environment.`)
+      return
+    }
+    
     setImporting(true)
     setError(null)
     
     try {
-      const extracted = extractMappedData(data.rows, mappings)
-      await onImport(extracted)
+      const exportData = prepareColumnExport(data, mappings, importType, {
+        projectId: selectedProjectId,
+        drawNumber: importType === 'draw' ? drawNumber : undefined,
+        fileName: file.name
+      })
+      
+      // POST to n8n webhook
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(exportData)
+      })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Webhook failed (${response.status}): ${errorText}`)
+      }
+      
+      // Success - close modal and trigger refresh
       handleReset()
       onClose()
+      onSuccess?.()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Import failed')
     } finally {
       setImporting(false)
     }
-  }, [data, mappings, onImport, onClose])
+  }, [data, file, mappings, importType, selectedProjectId, drawNumber, onClose, onSuccess])
 
   const handleReset = () => {
     setStep('upload')
@@ -146,14 +209,17 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
     setStats(null)
     setError(null)
     setImporting(false)
+    setSelectedProjectId('')
+    setDrawNumber(1)
   }
 
   const hasCategoryMapping = mappings.some(m => m.mappedTo === 'category')
-  const hasAmountMapping = importType === 'budget' 
-    ? mappings.some(m => m.mappedTo === 'budget_amount')
-    : mappings.some(m => m.mappedTo === 'draw_amount')
-  const canImport = hasCategoryMapping && hasAmountMapping
+  const hasAmountMapping = mappings.some(m => m.mappedTo === 'amount')
+  const hasProjectSelected = selectedProjectId !== ''
+  const canImport = hasCategoryMapping && hasAmountMapping && hasProjectSelected
   const detectedCount = mappings.filter(m => m.mappedTo && m.mappedTo !== 'ignore').length
+  
+  const selectedProject = projects.find(p => p.id === selectedProjectId)
 
   const formatCurrency = (amount: number) => {
     if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`
@@ -240,8 +306,53 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
                     exit={{ opacity: 0 }}
                     className="flex-1 flex flex-col min-h-0"
                   >
+                    {/* Project Selection Bar */}
+                    <div className="flex items-center gap-3 px-4 py-2 border-b text-xs" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
+                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Project:</span>
+                      <select
+                        value={selectedProjectId}
+                        onChange={(e) => setSelectedProjectId(e.target.value)}
+                        className="px-2 py-1.5 rounded text-xs min-w-[200px]"
+                        style={{ 
+                          background: 'var(--bg-secondary)', 
+                          color: 'var(--text-primary)', 
+                          border: `1px solid ${!hasProjectSelected ? 'var(--warning)' : 'var(--border)'}`
+                        }}
+                        disabled={loadingProjects}
+                      >
+                        <option value="">Select a project...</option>
+                        {projects.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.project_code || p.name} {p.builder_name ? `(${p.builder_name})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      
+                      {importType === 'draw' && (
+                        <>
+                          <div className="w-px h-4" style={{ background: 'var(--border)' }} />
+                          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Draw #:</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={50}
+                            value={drawNumber}
+                            onChange={(e) => setDrawNumber(parseInt(e.target.value) || 1)}
+                            className="w-14 px-2 py-1.5 rounded text-xs text-center"
+                            style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                          />
+                        </>
+                      )}
+                      
+                      {selectedProject && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full ml-auto" style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}>
+                          {selectedProject.builder_name}
+                        </span>
+                      )}
+                    </div>
+                    
                     {/* Compact Info Bar */}
-                    <div className="flex items-center gap-2 px-4 py-2 border-b text-xs" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
+                    <div className="flex items-center gap-2 px-4 py-2 border-b text-xs" style={{ borderColor: 'var(--border-subtle)' }}>
                       {/* File + Sheet */}
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -275,15 +386,9 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
                           <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatNumber(stats?.rowsWithCategory || 0)}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <span style={{ color: 'var(--text-muted)' }}>Budget:</span>
-                          <span className="font-medium" style={{ color: 'var(--accent)' }}>{formatCurrency(stats?.totalBudget || 0)}</span>
+                          <span style={{ color: 'var(--text-muted)' }}>Total:</span>
+                          <span className="font-medium" style={{ color: 'var(--accent)' }}>{formatCurrency(stats?.totalAmount || 0)}</span>
                         </div>
-                        {(stats?.drawColumns || 0) > 0 && (
-                          <div className="flex items-center gap-1">
-                            <span style={{ color: 'var(--text-muted)' }}>Draws:</span>
-                            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{stats?.drawColumns}</span>
-                          </div>
-                        )}
                         {(stats?.emptyCategories || 0) > 0 && (
                           <div className="flex items-center gap-1">
                             <span style={{ color: 'var(--warning)' }}>⚠ {stats?.emptyCategories} empty</span>
@@ -295,7 +400,9 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
                     {/* Validation Warning */}
                     {!canImport && (
                       <div className="px-4 py-2 text-xs" style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)' }}>
-                        ⚠ Map at least one Category and one {importType === 'budget' ? 'Budget' : 'Draw'} column
+                        ⚠ {!hasProjectSelected 
+                          ? 'Select a project to import to' 
+                          : 'Map at least one Category and one Amount column'}
                       </div>
                     )}
 
@@ -341,10 +448,10 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
                   {importing ? (
                     <>
                       <div className="animate-spin rounded-full h-3 w-3 border-2 border-t-transparent border-white" />
-                      Importing...
+                      Submitting...
                     </>
                   ) : (
-                    <>Import {formatNumber(stats?.rowsWithCategory || 0)} Items</>
+                    <>Submit {formatNumber(stats?.rowsWithCategory || 0)} Items</>
                   )}
                 </button>
               </div>

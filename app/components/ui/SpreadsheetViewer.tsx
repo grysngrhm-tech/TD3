@@ -7,52 +7,49 @@ import type { SpreadsheetData, ColumnMapping } from '@/lib/spreadsheet'
 type SpreadsheetViewerProps = {
   data: SpreadsheetData
   mappings: ColumnMapping[]
-  onMappingChange: (columnIndex: number, newMapping: ColumnMapping['mappedTo'], drawNumber?: number) => void
+  onMappingChange: (columnIndex: number, newMapping: ColumnMapping['mappedTo']) => void
   maxRows?: number
 }
 
 const MAPPING_COLORS: Record<string, string> = {
   category: 'rgba(59, 130, 246, 0.2)',
-  budget_amount: 'rgba(34, 197, 94, 0.2)',
-  draw_amount: 'rgba(168, 85, 247, 0.2)',
+  amount: 'rgba(34, 197, 94, 0.2)',
   ignore: 'transparent',
 }
 
 const MAPPING_BORDER_COLORS: Record<string, string> = {
   category: 'rgb(59, 130, 246)',
-  budget_amount: 'rgb(34, 197, 94)',
-  draw_amount: 'rgb(168, 85, 247)',
+  amount: 'rgb(34, 197, 94)',
   ignore: 'transparent',
 }
 
 const MAPPING_LABELS: Record<string, string> = {
-  category: 'Cat',
-  budget_amount: 'Budget',
-  draw_amount: 'Draw',
+  category: 'Category',
+  amount: 'Amount',
   ignore: '—',
 }
+
+// Available mapping types: Category, Amount, or Ignore
+const AVAILABLE_MAPPINGS: Array<'category' | 'amount' | 'ignore'> = ['category', 'amount', 'ignore']
 
 export function SpreadsheetViewer({ 
   data, 
   mappings, 
   onMappingChange,
-  maxRows = 50 
+  maxRows = 50
 }: SpreadsheetViewerProps) {
   const [selectedColumn, setSelectedColumn] = useState<number | null>(null)
-  const [drawNumberInput, setDrawNumberInput] = useState<number>(1)
 
   const displayRows = useMemo(() => data.rows.slice(0, maxRows), [data.rows, maxRows])
   const getMappingForColumn = (index: number) => mappings.find(m => m.columnIndex === index)
 
   const handleColumnClick = (index: number) => {
     setSelectedColumn(index)
-    const mapping = getMappingForColumn(index)
-    setDrawNumberInput(mapping?.drawNumber || 1)
   }
 
   const handleMappingSelect = (mapping: ColumnMapping['mappedTo']) => {
     if (selectedColumn !== null) {
-      onMappingChange(selectedColumn, mapping, mapping === 'draw_amount' ? drawNumberInput : undefined)
+      onMappingChange(selectedColumn, mapping)
       setSelectedColumn(null)
     }
   }
@@ -62,12 +59,14 @@ export function SpreadsheetViewer({
       {/* Inline Legend */}
       <div className="flex items-center gap-4 mb-2 text-xs">
         <span style={{ color: 'var(--text-muted)' }}>Click headers to map:</span>
-        {(['category', 'budget_amount', 'draw_amount'] as const).map((type) => (
-          <div key={type} className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded-sm" style={{ background: MAPPING_BORDER_COLORS[type] }} />
-            <span style={{ color: 'var(--text-secondary)' }}>{type === 'category' ? 'Category' : type === 'budget_amount' ? 'Budget' : 'Draw'}</span>
-          </div>
-        ))}
+        <div className="flex items-center gap-1">
+          <div className="w-2.5 h-2.5 rounded-sm" style={{ background: MAPPING_BORDER_COLORS.category }} />
+          <span style={{ color: 'var(--text-secondary)' }}>Category</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-2.5 h-2.5 rounded-sm" style={{ background: MAPPING_BORDER_COLORS.amount }} />
+          <span style={{ color: 'var(--text-secondary)' }}>Amount</span>
+        </div>
       </div>
 
       {/* Table */}
@@ -99,7 +98,7 @@ export function SpreadsheetViewer({
                           className="text-[10px] px-1 py-px rounded font-medium flex-shrink-0"
                           style={{ background: MAPPING_BORDER_COLORS[mapping!.mappedTo!], color: 'white' }}
                         >
-                          {MAPPING_LABELS[mapping!.mappedTo!]}{mapping?.drawNumber ? ` #${mapping.drawNumber}` : ''}
+                          {MAPPING_LABELS[mapping!.mappedTo!]}
                         </span>
                       )}
                     </div>
@@ -168,7 +167,7 @@ export function SpreadsheetViewer({
                 top: '50%',
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
-                width: '240px'
+                width: '200px'
               }}
             >
               <div className="flex items-center justify-between mb-2">
@@ -185,51 +184,27 @@ export function SpreadsheetViewer({
               </div>
 
               <div className="space-y-1">
-                {(['category', 'budget_amount', 'draw_amount', 'ignore'] as const).map((type) => {
+                {AVAILABLE_MAPPINGS.map((type) => {
                   const isSelected = getMappingForColumn(selectedColumn)?.mappedTo === type
-                  const isDraw = type === 'draw_amount'
                   
                   return (
-                    <div key={type}>
-                      <button
-                        onClick={() => !isDraw && handleMappingSelect(type)}
-                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors"
-                        style={{ 
-                          background: isSelected ? MAPPING_COLORS[type] : 'transparent',
-                          color: 'var(--text-primary)'
-                        }}
-                      >
-                        <div className="w-3 h-3 rounded-sm" style={{ background: type === 'ignore' ? 'var(--bg-hover)' : MAPPING_BORDER_COLORS[type] }} />
-                        <span>{type === 'category' ? 'Category' : type === 'budget_amount' ? 'Budget Amount' : type === 'draw_amount' ? 'Draw Amount' : 'Ignore'}</span>
-                        {isSelected && !isDraw && (
-                          <svg className="w-3 h-3 ml-auto" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </button>
-                      
-                      {isDraw && (
-                        <div className="flex items-center gap-2 mt-1 ml-5">
-                          <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>#</span>
-                          <input
-                            type="number"
-                            min={1}
-                            max={20}
-                            value={drawNumberInput}
-                            onChange={(e) => setDrawNumberInput(parseInt(e.target.value) || 1)}
-                            className="w-12 px-1.5 py-0.5 rounded text-xs text-center"
-                            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                          />
-                          <button
-                            onClick={() => handleMappingSelect('draw_amount')}
-                            className="px-2 py-0.5 rounded text-[10px] font-medium"
-                            style={{ background: 'var(--accent)', color: 'white' }}
-                          >
-                            Apply
-                          </button>
-                        </div>
+                    <button
+                      key={type}
+                      onClick={() => handleMappingSelect(type)}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors"
+                      style={{ 
+                        background: isSelected ? MAPPING_COLORS[type] : 'transparent',
+                        color: 'var(--text-primary)'
+                      }}
+                    >
+                      <div className="w-3 h-3 rounded-sm" style={{ background: type === 'ignore' ? 'var(--bg-hover)' : MAPPING_BORDER_COLORS[type] }} />
+                      <span>{type === 'category' ? 'Category' : type === 'amount' ? 'Amount' : 'Ignore'}</span>
+                      {isSelected && (
+                        <svg className="w-3 h-3 ml-auto" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
                       )}
-                    </div>
+                    </button>
                   )
                 })}
               </div>

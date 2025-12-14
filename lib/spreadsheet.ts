@@ -87,104 +87,112 @@ export async function parseSpreadsheet(file: File): Promise<SpreadsheetData> {
 export type ColumnMapping = {
   columnIndex: number
   columnName: string
-  mappedTo: 'category' | 'budget_amount' | 'draw_amount' | 'ignore' | null
-  drawNumber?: number
+  mappedTo: 'category' | 'amount' | 'ignore' | null
   confidence: number
 }
 
-// Expanded keyword lists for better detection
+// Keyword lists for header-based detection
 const CATEGORY_KEYWORDS = [
   'category', 'description', 'line item', 'item', 'cost code',
   'division', 'trade', 'scope', 'work item', 'nahb', 'builder category',
   'expense', 'type', 'name'
 ]
 
-const BUDGET_KEYWORDS = [
+// Amount keywords - used for both budget and draw imports
+const AMOUNT_KEYWORDS = [
   'budget', 'budgeted', 'original', 'contract', 'scheduled',
-  'approved amount', 'total budget', 'amount', 'cost', 'estimate',
-  'allocated', 'planned'
+  'approved amount', 'total budget', 'cost', 'estimate',
+  'allocated', 'planned', 'rough budget', 'final budget',
+  'amount', 'total', 'draw', 'funded', 'requested', 'disbursement', 
+  'payment', 'this request', 'current draw', 'release', 'payout'
 ]
 
-const DRAW_KEYWORDS = [
-  'draw', 'funded', 'requested', 'disbursement', 'payment',
-  'this request', 'current draw', 'release', 'payout', 'advance'
-]
-
-export function detectColumnMappings(headers: string[], rows?: (string | number | null)[][]): ColumnMapping[] {
-  const mappings: ColumnMapping[] = []
+/**
+ * Detect column mappings using position-based + pattern analysis
+ * Simplified: just finds Category and Amount columns
+ * The import type (budget vs draw) determines how the amount is interpreted
+ * 
+ * @param headers - Column headers from spreadsheet
+ * @param rows - Data rows for pattern analysis
+ */
+export function detectColumnMappings(
+  headers: string[], 
+  rows?: (string | number | null)[][]
+): ColumnMapping[] {
+  const mappings: ColumnMapping[] = headers.map((header, index) => ({
+    columnIndex: index,
+    columnName: header,
+    mappedTo: null,
+    confidence: 0,
+  }))
   
-  headers.forEach((header, index) => {
-    const lowerHeader = header.toLowerCase().trim()
-    let mappedTo: ColumnMapping['mappedTo'] = null
-    let confidence = 0
-    let drawNumber: number | undefined
+  // Analyze each column's data pattern (sample first 30 rows for better accuracy)
+  const columnAnalysis = headers.map((_, index) => {
+    if (!rows || rows.length === 0) return null
+    const columnData = rows.slice(0, 30).map(row => row[index])
+    return analyzeColumnData(columnData)
+  })
+  
+  // Step 1: Find category column (leftmost text column with diverse values)
+  let categoryIndex = -1
+  for (let i = 0; i < headers.length; i++) {
+    const header = headers[i].toLowerCase().trim()
+    const analysis = columnAnalysis[i]
     
-    // Check for category keywords
-    for (const keyword of CATEGORY_KEYWORDS) {
-      if (lowerHeader.includes(keyword)) {
-        mappedTo = 'category'
-        confidence = keyword === 'category' || keyword === 'builder category' ? 0.95 : 0.75
+    // Check header keywords first
+    if (CATEGORY_KEYWORDS.some(kw => header.includes(kw))) {
+      categoryIndex = i
+      mappings[i].mappedTo = 'category'
+      mappings[i].confidence = 0.95
+      break
+    }
+    
+    // Pattern-based: leftmost text column with diverse values
+    if (analysis && analysis.isText && !analysis.isNumeric && analysis.uniqueValues > 3) {
+      categoryIndex = i
+      mappings[i].mappedTo = 'category'
+      mappings[i].confidence = 0.75
+      break
+    }
+  }
+  
+  // Step 2: Find amount column (first column with real numbers, preferably with amount keyword)
+  let amountIndex = -1
+  
+  // First try header keywords - must have actual numbers, not just placeholders
+  for (let i = 0; i < headers.length; i++) {
+    if (mappings[i].mappedTo) continue // Skip already mapped (category)
+    
+    const header = headers[i].toLowerCase().trim()
+    if (AMOUNT_KEYWORDS.some(kw => header.includes(kw))) {
+      const analysis = columnAnalysis[i]
+      // Require hasRealNumbers to avoid columns with just "-" placeholders
+      if (analysis && analysis.hasRealNumbers) {
+        amountIndex = i
+        mappings[i].mappedTo = 'amount'
+        mappings[i].confidence = 0.95  // High confidence when keyword + real numbers
         break
       }
     }
-    
-    // Check for budget keywords (only if not already mapped)
-    if (!mappedTo) {
-      for (const keyword of BUDGET_KEYWORDS) {
-        if (lowerHeader.includes(keyword)) {
-          mappedTo = 'budget_amount'
-          confidence = keyword === 'budget' || keyword === 'budgeted' ? 0.9 : 0.7
-          break
-        }
-      }
-    }
-    
-    // Check for draw keywords (only if not already mapped)
-    if (!mappedTo) {
-      for (const keyword of DRAW_KEYWORDS) {
-        if (lowerHeader.includes(keyword)) {
-          mappedTo = 'draw_amount'
-          confidence = 0.85
-          
-          // Try to extract draw number
-          const drawMatch = lowerHeader.match(/draw\s*#?\s*(\d+)/i) || 
-                           lowerHeader.match(/(\d+)\s*(st|nd|rd|th)?\s*draw/i)
-          if (drawMatch) {
-            drawNumber = parseInt(drawMatch[1])
-          }
-          break
-        }
-      }
-    }
-    
-    // Pattern-based detection using actual data
-    if (!mappedTo && rows && rows.length > 0) {
-      const columnData = rows.slice(0, 10).map(row => row[index])
-      const dataPattern = analyzeColumnData(columnData)
+  }
+  
+  // Fallback: first column with actual numbers after category
+  if (amountIndex === -1) {
+    const startIdx = categoryIndex >= 0 ? categoryIndex + 1 : 0
+    for (let i = startIdx; i < headers.length; i++) {
+      if (mappings[i].mappedTo) continue // Skip already mapped
       
-      if (dataPattern.isNumeric && dataPattern.hasCurrency) {
-        // Numeric column with currency - likely an amount
-        if (!mappings.some(m => m.mappedTo === 'budget_amount')) {
-          mappedTo = 'budget_amount'
-          confidence = 0.6
-        }
-      } else if (dataPattern.isText && !dataPattern.isNumeric) {
-        // Text-only column - could be category
-        if (!mappings.some(m => m.mappedTo === 'category')) {
-          mappedTo = 'category'
-          confidence = 0.5
-        }
+      const analysis = columnAnalysis[i]
+      
+      // Require hasRealNumbers - column must have actual numeric values
+      if (analysis && analysis.hasRealNumbers) {
+        amountIndex = i
+        mappings[i].mappedTo = 'amount'
+        mappings[i].confidence = 0.7
+        break
       }
     }
-    
-    mappings.push({
-      columnIndex: index,
-      columnName: header,
-      mappedTo,
-      drawNumber,
-      confidence,
-    })
-  })
+  }
   
   return mappings
 }
@@ -195,31 +203,58 @@ function analyzeColumnData(values: (string | number | null)[]): {
   isText: boolean
   hasCurrency: boolean
   hasDate: boolean
+  uniqueValues: number
+  validCount: number
+  hasRealNumbers: boolean  // Has actual numbers, not just placeholders
+  realNumberCount: number  // Count of actual numeric values
 } {
   let numericCount = 0
   let textCount = 0
   let currencyCount = 0
   let dateCount = 0
   let validCount = 0
+  let realNumberCount = 0  // Actual numbers (not just "-" placeholders)
+  const uniqueSet = new Set<string>()
   
   for (const value of values) {
     if (value === null || value === undefined || value === '') continue
     validCount++
+    uniqueSet.add(String(value).trim().toLowerCase())
     
     if (typeof value === 'number') {
       numericCount++
+      if (value !== 0) realNumberCount++  // Count non-zero numbers
     } else {
       const strValue = String(value)
       
-      // Check for currency
-      if (/^\$?[\d,]+\.?\d*$/.test(strValue.trim())) {
+      // Check for currency patterns: "$1,234.56", "1,234", "1234.56", etc.
+      // Must have at least one digit
+      if (/^[\s]*[\$]?[\s]*[\d,]+\.?\d*[\s]*$/.test(strValue) && /\d/.test(strValue)) {
         currencyCount++
         numericCount++
+        // Check if it's a real number (not just "0" or empty-ish)
+        const numVal = parseFloat(strValue.replace(/[$,\s]/g, ''))
+        if (!isNaN(numVal) && numVal !== 0) realNumberCount++
+      }
+      // Check for negative currency: ($1,234) or -$1,234
+      else if (/^[\s]*\([\s]*[\$]?[\s]*[\d,]+\.?\d*[\s]*\)[\s]*$/.test(strValue) ||
+               /^[\s]*-[\s]*[\$]?[\s]*[\d,]+\.?\d*[\s]*$/.test(strValue)) {
+        if (/\d/.test(strValue)) {  // Must have actual digits
+          currencyCount++
+          numericCount++
+          realNumberCount++  // Negative numbers are real numbers
+        }
       }
       // Check for date patterns
       else if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(strValue.trim()) ||
                /^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(strValue.trim())) {
         dateCount++
+      }
+      // Check for special values like " - " or "-" which are often zero placeholders
+      // These count as "numeric" for type detection but NOT as real numbers
+      else if (/^[\s]*-[\s]*$/.test(strValue)) {
+        numericCount++ // Treat as zero/numeric for type detection
+        // Don't increment realNumberCount - this is just a placeholder
       }
       // Otherwise it's text
       else if (strValue.trim().length > 0) {
@@ -228,13 +263,17 @@ function analyzeColumnData(values: (string | number | null)[]): {
     }
   }
   
-  const threshold = validCount * 0.5
+  const threshold = Math.max(validCount * 0.4, 1) // Lower threshold, at least 1
   
   return {
     isNumeric: numericCount >= threshold,
     isText: textCount >= threshold,
     hasCurrency: currencyCount >= threshold,
-    hasDate: dateCount >= threshold
+    hasDate: dateCount >= threshold,
+    uniqueValues: uniqueSet.size,
+    validCount,
+    hasRealNumbers: realNumberCount >= 10,  // At least 10 real numbers to be considered a numeric column
+    realNumberCount
   }
 }
 
@@ -243,24 +282,13 @@ export function extractMappedData(
   mappings: ColumnMapping[]
 ): {
   categories: string[]
-  budgetAmounts: number[]
-  drawAmounts: { drawNumber: number; amounts: number[] }[]
+  amounts: number[]
 } {
   const categoryCol = mappings.find(m => m.mappedTo === 'category')
-  const budgetCol = mappings.find(m => m.mappedTo === 'budget_amount')
-  const drawCols = mappings.filter(m => m.mappedTo === 'draw_amount')
+  const amountCol = mappings.find(m => m.mappedTo === 'amount')
   
   const categories: string[] = []
-  const budgetAmounts: number[] = []
-  const drawAmounts: { drawNumber: number; amounts: number[] }[] = []
-  
-  // Initialize draw amounts arrays
-  drawCols.forEach((col, idx) => {
-    drawAmounts.push({
-      drawNumber: col.drawNumber || idx + 1,
-      amounts: [],
-    })
-  })
+  const amounts: number[] = []
   
   rows.forEach(row => {
     // Category
@@ -269,20 +297,14 @@ export function extractMappedData(
       categories.push(val ? String(val) : '')
     }
     
-    // Budget amount
-    if (budgetCol) {
-      const val = row[budgetCol.columnIndex]
-      budgetAmounts.push(parseAmount(val))
+    // Amount
+    if (amountCol) {
+      const val = row[amountCol.columnIndex]
+      amounts.push(parseAmount(val))
     }
-    
-    // Draw amounts
-    drawCols.forEach((col, idx) => {
-      const val = row[col.columnIndex]
-      drawAmounts[idx].amounts.push(parseAmount(val))
-    })
   })
   
-  return { categories, budgetAmounts, drawAmounts }
+  return { categories, amounts }
 }
 
 function parseAmount(value: string | number | null): number {
@@ -302,19 +324,17 @@ export function calculateImportStats(
 ): {
   totalRows: number
   rowsWithCategory: number
-  totalBudget: number
-  drawColumns: number
+  totalAmount: number
   emptyCategories: number
-  zeroBudgetRows: number
+  zeroAmountRows: number
 } {
   const categoryCol = mappings.find(m => m.mappedTo === 'category')
-  const budgetCol = mappings.find(m => m.mappedTo === 'budget_amount')
-  const drawCols = mappings.filter(m => m.mappedTo === 'draw_amount')
+  const amountCol = mappings.find(m => m.mappedTo === 'amount')
   
   let rowsWithCategory = 0
-  let totalBudget = 0
+  let totalAmount = 0
   let emptyCategories = 0
-  let zeroBudgetRows = 0
+  let zeroAmountRows = 0
   
   rows.forEach(row => {
     if (categoryCol) {
@@ -326,11 +346,11 @@ export function calculateImportStats(
       }
     }
     
-    if (budgetCol) {
-      const amount = parseAmount(row[budgetCol.columnIndex])
-      totalBudget += amount
+    if (amountCol) {
+      const amount = parseAmount(row[amountCol.columnIndex])
+      totalAmount += amount
       if (amount === 0) {
-        zeroBudgetRows++
+        zeroAmountRows++
       }
     }
   })
@@ -338,9 +358,83 @@ export function calculateImportStats(
   return {
     totalRows: rows.length,
     rowsWithCategory,
-    totalBudget,
-    drawColumns: drawCols.length,
+    totalAmount,
     emptyCategories,
-    zeroBudgetRows
+    zeroAmountRows
+  }
+}
+
+// Type for data export to n8n webhook
+export type ColumnExport = {
+  type: 'budget' | 'draw'
+  projectId: string
+  drawNumber?: number
+  columns: {
+    category: { header: string; values: string[] }
+    amount: { header: string; values: (number | null)[] }
+  }
+  metadata: {
+    fileName: string
+    sheetName: string
+    totalRows: number
+  }
+}
+
+/**
+ * Prepare column data for export to n8n webhook
+ * Extracts only the user-selected columns (category + amount)
+ * The 'type' field tells the n8n workflow how to interpret the data
+ */
+export function prepareColumnExport(
+  data: SpreadsheetData,
+  mappings: ColumnMapping[],
+  importType: 'budget' | 'draw',
+  options: { 
+    projectId: string
+    drawNumber?: number
+    fileName: string
+  }
+): ColumnExport {
+  const categoryCol = mappings.find(m => m.mappedTo === 'category')
+  const amountCol = mappings.find(m => m.mappedTo === 'amount')
+  
+  if (!categoryCol) {
+    throw new Error('No category column mapped')
+  }
+  if (!amountCol) {
+    throw new Error('No amount column mapped')
+  }
+  
+  // Extract values from selected columns
+  const categoryValues: string[] = []
+  const amountValues: (number | null)[] = []
+  
+  for (const row of data.rows) {
+    const catValue = row[categoryCol.columnIndex]
+    const amtValue = row[amountCol.columnIndex]
+    
+    categoryValues.push(catValue ? String(catValue).trim() : '')
+    amountValues.push(parseAmount(amtValue))
+  }
+  
+  return {
+    type: importType,
+    projectId: options.projectId,
+    drawNumber: importType === 'draw' ? options.drawNumber : undefined,
+    columns: {
+      category: {
+        header: categoryCol.columnName,
+        values: categoryValues
+      },
+      amount: {
+        header: amountCol.columnName,
+        values: amountValues
+      }
+    },
+    metadata: {
+      fileName: options.fileName,
+      sheetName: data.sheetName,
+      totalRows: data.rows.length
+    }
   }
 }
