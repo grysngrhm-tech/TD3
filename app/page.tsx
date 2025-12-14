@@ -6,6 +6,7 @@ import { FilterSidebar } from '@/app/components/ui/FilterSidebar'
 import { ProjectTile } from '@/app/components/ui/ProjectTile'
 import { DetailPanel } from '@/app/components/ui/DetailPanel'
 import { ImportPreview } from '@/app/components/import/ImportPreview'
+import { toast } from '@/app/components/ui/Toast'
 import { useFilters } from '@/app/hooks/useFilters'
 
 type ProjectWithBudget = {
@@ -180,10 +181,31 @@ export default function Dashboard() {
     budgetAmounts: number[]
     drawAmounts: { drawNumber: number; amounts: number[] }[]
   }) => {
-    // For now, just log the data - this will be sent to n8n workflow
     console.log('Import data:', data)
-    // TODO: Send to n8n workflow for processing
-    alert(`Parsed ${data.categories.length} line items. n8n workflow integration coming soon!`)
+    
+    // Calculate totals for the toast
+    const totalBudget = data.budgetAmounts.reduce((sum, amt) => sum + amt, 0)
+    const validItems = data.categories.filter(c => c && c.trim()).length
+    
+    // Format currency for display
+    const formatCurrency = (amt: number) => {
+      if (amt >= 1000000) return `$${(amt / 1000000).toFixed(2)}M`
+      if (amt >= 1000) return `$${(amt / 1000).toFixed(0)}K`
+      return `$${amt.toFixed(0)}`
+    }
+    
+    // TODO: In the future, send to n8n workflow:
+    // const result = await triggerBudgetImport({ ... })
+    
+    // For now, show success toast with the parsed data summary
+    toast({
+      type: 'success',
+      title: 'Budget Parsed Successfully',
+      message: `${validItems} line items · ${formatCurrency(totalBudget)} total${data.drawAmounts.length > 0 ? ` · ${data.drawAmounts.length} draw column${data.drawAmounts.length > 1 ? 's' : ''}` : ''}`
+    })
+    
+    // Refresh projects list
+    await loadProjects()
   }
 
   if (loading) {

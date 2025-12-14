@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeToggle } from '@/app/components/ui/ThemeToggle'
+import { ToastContainer } from '@/app/components/ui/Toast'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -53,6 +54,9 @@ export default function RootLayout({
           <main className="pt-14">
             {children}
           </main>
+          
+          {/* Toast Notifications */}
+          <ToastContainer />
         </div>
       </body>
     </html>
