@@ -364,6 +364,12 @@ export function calculateImportStats(
   }
 }
 
+// Invoice type for draw imports
+export type Invoice = {
+  fileName: string
+  fileData: string  // base64 encoded PDF
+}
+
 // Type for data export to n8n webhook
 export type ColumnExport = {
   type: 'budget' | 'draw'
@@ -373,11 +379,30 @@ export type ColumnExport = {
     category: { header: string; values: string[] }
     amount: { header: string; values: (number | null)[] }
   }
+  invoices?: Invoice[]  // Optional for draw imports
   metadata: {
     fileName: string
     sheetName: string
     totalRows: number
   }
+}
+
+/**
+ * Convert a File to base64 string
+ * Used for encoding PDF invoices for transmission to n8n
+ */
+export function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      // Remove the data URL prefix (e.g., "data:application/pdf;base64,")
+      const base64 = result.split(',')[1]
+      resolve(base64)
+    }
+    reader.onerror = () => reject(new Error('Failed to read file'))
+    reader.readAsDataURL(file)
+  })
 }
 
 /**
@@ -393,6 +418,7 @@ export function prepareColumnExport(
     projectId: string
     drawNumber?: number
     fileName: string
+    invoices?: Invoice[]  // Optional invoices for draw imports
   }
 ): ColumnExport {
   const categoryCol = mappings.find(m => m.mappedTo === 'category')
@@ -431,6 +457,7 @@ export function prepareColumnExport(
         values: amountValues
       }
     },
+    invoices: options.invoices,  // Include invoices in export
     metadata: {
       fileName: options.fileName,
       sheetName: data.sheetName,

@@ -11,9 +11,10 @@ import {
   parseSheet, 
   detectColumnMappings, 
   calculateImportStats,
-  prepareColumnExport
+  prepareColumnExport,
+  fileToBase64
 } from '@/lib/spreadsheet'
-import type { SpreadsheetData, ColumnMapping, WorkbookInfo } from '@/lib/spreadsheet'
+import type { SpreadsheetData, ColumnMapping, WorkbookInfo, Invoice } from '@/lib/spreadsheet'
 import { supabase } from '@/lib/supabase'
 
 type Project = {
@@ -59,6 +60,9 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType }: Import
   const [selectedProjectId, setSelectedProjectId] = useState<string>('')
   const [drawNumber, setDrawNumber] = useState<number>(1)
   const [loadingProjects, setLoadingProjects] = useState(false)
+  
+  // Invoice files state (for draw imports)
+  const [invoiceFiles, setInvoiceFiles] = useState<File[]>([])
 
   // Fetch projects when modal opens
   useEffect(() => {
@@ -170,10 +174,22 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType }: Import
     setError(null)
     
     try {
+      // Convert invoice files to base64 for draw imports
+      let invoices: Invoice[] | undefined
+      if (importType === 'draw' && invoiceFiles.length > 0) {
+        invoices = await Promise.all(
+          invoiceFiles.map(async (invoiceFile) => ({
+            fileName: invoiceFile.name,
+            fileData: await fileToBase64(invoiceFile)
+          }))
+        )
+      }
+      
       const exportData = prepareColumnExport(data, mappings, importType, {
         projectId: selectedProjectId,
         drawNumber: importType === 'draw' ? drawNumber : undefined,
-        fileName: file.name
+        fileName: file.name,
+        invoices
       })
       
       // POST to n8n webhook
@@ -197,7 +213,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType }: Import
     } finally {
       setImporting(false)
     }
-  }, [data, file, mappings, importType, selectedProjectId, drawNumber, onClose, onSuccess])
+  }, [data, file, mappings, importType, selectedProjectId, drawNumber, invoiceFiles, onClose, onSuccess])
 
   const handleReset = () => {
     setStep('upload')
@@ -211,6 +227,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType }: Import
     setImporting(false)
     setSelectedProjectId('')
     setDrawNumber(1)
+    setInvoiceFiles([])
   }
 
   const hasCategoryMapping = mappings.some(m => m.mappedTo === 'category')
@@ -341,6 +358,29 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType }: Import
                             className="w-14 px-2 py-1.5 rounded text-xs text-center"
                             style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
                           />
+                          <div className="w-px h-4" style={{ background: 'var(--border)' }} />
+                          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Invoices:</span>
+                          <label className="px-2 py-1.5 rounded text-xs cursor-pointer hover:opacity-80" style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}>
+                            <input
+                              type="file"
+                              accept=".pdf"
+                              multiple
+                              className="hidden"
+                              onChange={(e) => {
+                                const files = Array.from(e.target.files || [])
+                                // Limit: max 10 files, 5MB each
+                                const validFiles = files.filter(f => f.size <= 5 * 1024 * 1024).slice(0, 10 - invoiceFiles.length)
+                                setInvoiceFiles(prev => [...prev, ...validFiles].slice(0, 10))
+                                e.target.value = '' // Reset input
+                              }}
+                            />
+                            + Add PDFs
+                          </label>
+                          {invoiceFiles.length > 0 && (
+                            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                              {invoiceFiles.length} file{invoiceFiles.length !== 1 ? 's' : ''}
+                            </span>
+                          )}
                         </>
                       )}
                       
@@ -350,6 +390,43 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType }: Import
                         </span>
                       )}
                     </div>
+                    
+                    {/* Invoice Files List (for draw imports) */}
+                    {importType === 'draw' && invoiceFiles.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b text-xs" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
+                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        {invoiceFiles.map((invoiceFile, idx) => (
+                          <div 
+                            key={idx} 
+                            className="flex items-center gap-1 px-2 py-1 rounded"
+                            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+                          >
+                            <span className="truncate max-w-[150px]" style={{ color: 'var(--text-secondary)' }}>
+                              {invoiceFile.name}
+                            </span>
+                            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                              ({(invoiceFile.size / 1024).toFixed(0)}KB)
+                            </span>
+                            <button
+                              onClick={() => setInvoiceFiles(prev => prev.filter((_, i) => i !== idx))}
+                              className="w-4 h-4 flex items-center justify-center rounded hover:bg-[var(--bg-hover)]"
+                              style={{ color: 'var(--text-muted)' }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => setInvoiceFiles([])}
+                          className="text-xs hover:underline"
+                          style={{ color: 'var(--error)' }}
+                        >
+                          Clear all
+                        </button>
+                      </div>
+                    )}
                     
                     {/* Compact Info Bar */}
                     <div className="flex items-center gap-2 px-4 py-2 border-b text-xs" style={{ borderColor: 'var(--border-subtle)' }}>
