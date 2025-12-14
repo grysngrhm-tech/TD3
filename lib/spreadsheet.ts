@@ -180,6 +180,7 @@ export type RowAnalysis = {
     hasHeaderKeyword: boolean  // Contains header keywords
     hasTotalKeyword: boolean   // Contains total keywords
     hasClosingKeyword: boolean // Contains closing cost keywords
+    closingKeywordScore: number // Weighted score for closing keywords
     isBold: boolean            // Cell is bold formatted
     amountMatchesSum: boolean  // Amount ≈ running total
     precedesGap: boolean       // Followed by empty rows
@@ -310,10 +311,29 @@ const TOTAL_KEYWORDS = [
 ]
 
 // Keywords that indicate closing costs / non-budget items (should stop BEFORE these)
-const CLOSING_COST_KEYWORDS = [
-  'interest', 'closing cost', 'closing costs', 'loan fee', 'points',
-  'title', 'escrow', 'recording', 'appraisal fee', 'inspection fee',
-  'origination', 'discount points', 'prepaid'
+// Closing cost keywords with weighted scores
+// Higher weight = stronger indicator of closing costs section
+const CLOSING_COST_KEYWORDS: { keyword: string; weight: number }[] = [
+  // Strong indicators (40 points) - these almost always indicate closing costs
+  { keyword: 'interest', weight: 40 },
+  { keyword: 'realtor', weight: 40 },
+  { keyword: 'closing cost', weight: 40 },
+  { keyword: 'closing costs', weight: 40 },
+  
+  // Medium indicators (25 points) - usually closing costs but could be expenses
+  { keyword: 'finance', weight: 25 },
+  { keyword: 'loan fee', weight: 25 },
+  { keyword: 'points', weight: 25 },
+  { keyword: 'origination', weight: 25 },
+  { keyword: 'discount points', weight: 25 },
+  
+  // Weak indicators (15 points) - often legitimate budget items
+  { keyword: 'title', weight: 15 },
+  { keyword: 'escrow', weight: 15 },
+  { keyword: 'recording', weight: 15 },
+  { keyword: 'appraisal fee', weight: 15 },
+  { keyword: 'inspection fee', weight: 15 },
+  { keyword: 'prepaid', weight: 15 }
 ]
 
 // Keywords that indicate a header row (should skip these for start row)
@@ -367,6 +387,7 @@ export function analyzeRows(
         hasHeaderKeyword: false,
         hasTotalKeyword: false,
         hasClosingKeyword: false,
+        closingKeywordScore: 0,
         isBold: false,
         amountMatchesSum: false,
         precedesGap: false,
@@ -400,7 +421,12 @@ export function analyzeRows(
     })
     
     const hasTotalKeyword = TOTAL_KEYWORDS.some(kw => catLower.includes(kw))
-    const hasClosingKeyword = CLOSING_COST_KEYWORDS.some(kw => catLower.includes(kw))
+    
+    // Calculate closing keyword score (weighted)
+    const closingKeywordScore = CLOSING_COST_KEYWORDS
+      .filter(({ keyword }) => catLower.includes(keyword))
+      .reduce((sum, { weight }) => sum + weight, 0)
+    const hasClosingKeyword = closingKeywordScore > 0
     
     return {
       index,
@@ -410,6 +436,7 @@ export function analyzeRows(
         hasHeaderKeyword,
         hasTotalKeyword,
         hasClosingKeyword,
+        closingKeywordScore, // Weighted score for closing cost keywords
         isBold,
         amountMatchesSum: false, // Will be calculated in second pass
         precedesGap: false,      // Will be calculated
@@ -460,8 +487,7 @@ export function analyzeRows(
     }
   }
   
-  // Third pass: calculate scores (but DON'T classify yet - that happens in boundary detection)
-  // We store the raw scores for the boundary detection to pick the BEST single header/total/closing
+  // Third pass: calculate scores and classify
   for (let i = 0; i < analyses.length; i++) {
     const a = analyses[i]
     const s = a.signals
@@ -473,15 +499,13 @@ export function analyzeRows(
       continue
     }
     
-    // Calculate header score with position penalty
+    // Calculate header score
     let headerScore = 0
     if (s.hasHeaderKeyword) headerScore += 50
     if (s.isBold && !s.hasAmount) headerScore += 20
     if (!s.hasAmount && s.hasCategory) headerScore += 10
     if (s.followsGap && i < 5) headerScore += 15
     if (i < 3) headerScore += 25  // First 3 rows likely headers
-    // POSITION PENALTY: Headers below row 5 are heavily penalized
-    if (i > 5) headerScore -= 40
     
     // Calculate total score
     let totalScore = 0
@@ -490,24 +514,28 @@ export function analyzeRows(
     if (s.isBold && s.hasAmount) totalScore += 20
     if (s.precedesGap) totalScore += 10
     
-    // Calculate closing cost score
-    let closingScore = 0
-    if (s.hasClosingKeyword) closingScore += 35
+    // Calculate closing cost score (using weighted keyword scores)
+    let closingScore = s.closingKeywordScore // Use the weighted score directly
     if (s.isBold) closingScore += 10
     
-    // Store scores in confidence for now (will be used by boundary detection)
-    // Mark as 'unknown' initially - the boundary detection will pick the BEST ones
-    a.classification = 'unknown'
-    // Store the max score as confidence, and encode which type it would be
-    const maxScore = Math.max(headerScore, totalScore, closingScore)
-    a.confidence = maxScore
-    
-    // Store individual scores in signals for boundary detection to use
-    // Using a custom property pattern: confidence encodes the dominant score
-    // We'll add a helper to extract scores
-    ;(a as any)._headerScore = headerScore
-    ;(a as any)._totalScore = totalScore
-    ;(a as any)._closingScore = closingScore
+    // Classify based on scores
+    if (headerScore >= 50) {
+      a.classification = 'header'
+      a.confidence = Math.min(100, headerScore)
+    } else if (totalScore >= 45) {
+      a.classification = 'total'
+      a.confidence = Math.min(100, totalScore)
+    } else if (closingScore >= 35) {
+      a.classification = 'closing'
+      a.confidence = Math.min(100, closingScore)
+    } else if (s.hasCategory) {
+      a.classification = 'data'
+      // Confidence based on how clearly it's NOT a header/total
+      a.confidence = Math.max(50, 100 - headerScore - totalScore)
+    } else {
+      a.classification = 'unknown'
+      a.confidence = 30
+    }
   }
   
   return analyses
@@ -515,7 +543,6 @@ export function analyzeRows(
 
 /**
  * Detect row boundaries with full analysis
- * Uses SINGLE-BEST selection: picks exactly one header, one total, one closing cost
  * Returns start/end plus detailed analysis of each row
  */
 export function detectRowBoundariesWithAnalysis(
@@ -529,145 +556,56 @@ export function detectRowBoundariesWithAnalysis(
     return { startRow: 0, endRow: 0, analysis: [], confidence: 0 }
   }
   
-  // Helper to get stored scores
-  const getScores = (a: RowAnalysis) => ({
-    header: (a as any)._headerScore ?? 0,
-    total: (a as any)._totalScore ?? 0,
-    closing: (a as any)._closingScore ?? 0,
-  })
+  // Find START: First 'data' row
+  let startRow = analysis.findIndex(a => a.classification === 'data')
+  if (startRow < 0) startRow = 0
   
-  // STEP 1: Find the SINGLE BEST header row (highest header score >= 30)
-  let bestHeaderIdx = -1
-  let bestHeaderScore = 30 // Minimum threshold
-  for (let i = 0; i < analysis.length; i++) {
-    const scores = getScores(analysis[i])
-    if (scores.header > bestHeaderScore) {
-      bestHeaderScore = scores.header
-      bestHeaderIdx = i
+  // Find END using multiple signals
+  const amountCol = mappings.find(m => m.mappedTo === 'amount')
+  const amtIndex = amountCol?.columnIndex ?? -1
+  
+  let endRow = startRow
+  let runningSum = 0
+  let lastDataRow = startRow
+  
+  for (let i = startRow; i < rows.length; i++) {
+    const a = analysis[i]
+    const amount = amtIndex >= 0 ? parseAmountValue(rows[i][amtIndex]) : 0
+    
+    // If this row is classified as total or closing, stop before it
+    if (a.classification === 'total' || a.classification === 'closing') {
+      endRow = lastDataRow
+      break
     }
-  }
-  
-  // If we found a header, mark it and set start row after it
-  let startRow = 0
-  if (bestHeaderIdx >= 0) {
-    analysis[bestHeaderIdx].classification = 'header'
-    analysis[bestHeaderIdx].confidence = bestHeaderScore
-    startRow = bestHeaderIdx + 1
-  }
-  
-  // STEP 2: Find the SINGLE BEST total row (after header, highest total score >= 40)
-  // NOTE: Check raw score against threshold, use penalty only for ranking
-  const TOTAL_THRESHOLD = 40
-  let bestTotalIdx = -1
-  let bestTotalRanking = -Infinity // For ranking (with penalty)
-  for (let i = startRow; i < analysis.length; i++) {
-    const scores = getScores(analysis[i])
-    // First check if raw score meets minimum threshold
-    if (scores.total < TOTAL_THRESHOLD) continue
     
-    // Apply penalty for ranking only (totals too close to header)
-    let rankingScore = scores.total
-    if (i < startRow + 3) rankingScore -= 30
-    
-    if (rankingScore > bestTotalRanking) {
-      bestTotalRanking = rankingScore
-      bestTotalIdx = i
-    }
-  }
-  
-  // STEP 3: Find the SINGLE BEST closing cost row (after header, highest closing score >= 30)
-  // NOTE: Check raw score against threshold, use penalty only for ranking
-  const CLOSING_THRESHOLD = 30
-  let bestClosingIdx = -1
-  let bestClosingRanking = -Infinity // For ranking (with penalty)
-  for (let i = startRow; i < analysis.length; i++) {
-    const scores = getScores(analysis[i])
-    // First check if raw score meets minimum threshold
-    if (scores.closing < CLOSING_THRESHOLD) continue
-    
-    // Apply penalty for ranking only (closing costs too close to header)
-    let rankingScore = scores.closing
-    if (i < startRow + 3) rankingScore -= 25
-    
-    if (rankingScore > bestClosingRanking) {
-      bestClosingRanking = rankingScore
-      bestClosingIdx = i
-    }
-  }
-  
-  // Mark the best total and closing if found
-  if (bestTotalIdx >= 0) {
-    analysis[bestTotalIdx].classification = 'total'
-    analysis[bestTotalIdx].confidence = getScores(analysis[bestTotalIdx]).total
-  }
-  if (bestClosingIdx >= 0 && bestClosingIdx !== bestTotalIdx) {
-    analysis[bestClosingIdx].classification = 'closing'
-    analysis[bestClosingIdx].confidence = getScores(analysis[bestClosingIdx]).closing
-  }
-  
-  // STEP 4: Determine end row - stop BEFORE whichever comes first (total or closing)
-  let endRow = analysis.length - 1
-  
-  // Find the earliest boundary marker
-  const boundaryIdx = Math.min(
-    bestTotalIdx >= 0 ? bestTotalIdx : Infinity,
-    bestClosingIdx >= 0 ? bestClosingIdx : Infinity
-  )
-  
-  if (boundaryIdx < Infinity) {
-    endRow = boundaryIdx - 1
-  } else {
-    // No total or closing found - find last row with category data
-    for (let i = analysis.length - 1; i >= startRow; i--) {
-      if (analysis[i].signals.hasCategory) {
-        endRow = i
+    // Amount-based total detection: if amount ≈ running sum, this is likely a total
+    if (runningSum > 1000 && amount > 0) {
+      const diff = Math.abs(amount - runningSum) / runningSum
+      if (diff < 0.1) {
+        endRow = lastDataRow
         break
       }
     }
-  }
-  
-  // Ensure valid range
-  endRow = Math.max(startRow, endRow)
-  
-  // STEP 5: Classify all rows between start and end as 'data'
-  for (let i = startRow; i <= endRow; i++) {
-    if (analysis[i].classification === 'unknown' || analysis[i].classification === 'empty') {
-      if (analysis[i].signals.hasCategory) {
-        analysis[i].classification = 'data'
-        analysis[i].confidence = 80
-      }
+    
+    // Track data rows
+    if (a.classification === 'data') {
+      lastDataRow = i
+      endRow = i
+      runningSum += Math.abs(amount)
     }
   }
   
-  // Mark rows outside the range appropriately
-  for (let i = 0; i < analysis.length; i++) {
-    if (analysis[i].classification === 'unknown') {
-      if (analysis[i].signals.hasCategory) {
-        // Row has content but wasn't selected - mark as excluded data
-        analysis[i].classification = 'data'
-        analysis[i].confidence = 40  // Low confidence = excluded
-      } else {
-        analysis[i].classification = 'empty'
-        analysis[i].confidence = 100
-      }
-    }
-  }
-  
-  // Calculate overall confidence based on how clear the detection was
-  const hasHeader = bestHeaderIdx >= 0
-  const hasBoundary = bestTotalIdx >= 0 || bestClosingIdx >= 0
-  const dataCount = endRow - startRow + 1
-  
-  let overallConfidence = 50
-  if (hasHeader) overallConfidence += 20
-  if (hasBoundary) overallConfidence += 20
-  if (dataCount > 5) overallConfidence += 10
+  // Calculate overall confidence
+  const dataRows = analysis.slice(startRow, endRow + 1).filter(a => a.classification === 'data')
+  const avgConfidence = dataRows.length > 0
+    ? dataRows.reduce((sum, a) => sum + a.confidence, 0) / dataRows.length
+    : 50
   
   return {
     startRow,
     endRow,
     analysis,
-    confidence: Math.min(100, overallConfidence)
+    confidence: Math.round(avgConfidence)
   }
 }
 
