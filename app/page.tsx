@@ -28,7 +28,7 @@ export default function Dashboard() {
   const [projects, setProjects] = useState<ProjectWithBudget[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
-  const [showImport, setShowImport] = useState(false)
+  const [importModal, setImportModal] = useState<'budget' | 'draw' | null>(null)
   const { filters, toggleFilter, clearAll } = useFilters()
 
   useEffect(() => {
@@ -176,36 +176,16 @@ export default function Dashboard() {
     }).format(amount)
   }
 
-  const handleImport = async (data: {
-    categories: string[]
-    budgetAmounts: number[]
-    drawAmounts: { drawNumber: number; amounts: number[] }[]
-  }) => {
-    console.log('Import data:', data)
-    
-    // Calculate totals for the toast
-    const totalBudget = data.budgetAmounts.reduce((sum, amt) => sum + amt, 0)
-    const validItems = data.categories.filter(c => c && c.trim()).length
-    
-    // Format currency for display
-    const formatCurrency = (amt: number) => {
-      if (amt >= 1000000) return `$${(amt / 1000000).toFixed(2)}M`
-      if (amt >= 1000) return `$${(amt / 1000).toFixed(0)}K`
-      return `$${amt.toFixed(0)}`
-    }
-    
-    // TODO: In the future, send to n8n workflow:
-    // const result = await triggerBudgetImport({ ... })
-    
-    // For now, show success toast with the parsed data summary
+  const handleImportSuccess = () => {
+    // Show success toast
     toast({
       type: 'success',
-      title: 'Budget Parsed Successfully',
-      message: `${validItems} line items · ${formatCurrency(totalBudget)} total${data.drawAmounts.length > 0 ? ` · ${data.drawAmounts.length} draw column${data.drawAmounts.length > 1 ? 's' : ''}` : ''}`
+      title: importModal === 'budget' ? 'Budget Submitted' : 'Draw Submitted',
+      message: 'Data sent to processing workflow. Refresh in a moment to see updates.'
     })
     
-    // Refresh projects list
-    await loadProjects()
+    // Refresh projects list after a short delay to allow workflow to process
+    setTimeout(() => loadProjects(), 2000)
   }
 
   if (loading) {
@@ -246,15 +226,26 @@ export default function Dashboard() {
               <div className="text-2xl font-bold" style={{ color: 'var(--accent)' }}>{formatCurrency(totals.spent)}</div>
             </div>
             <div className="flex-1" />
-            <button 
-              onClick={() => setShowImport(true)}
-              className="btn-primary flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Upload Budget
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setImportModal('budget')}
+                className="btn-secondary flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Upload Budget
+              </button>
+              <button 
+                onClick={() => setImportModal('draw')}
+                className="btn-primary flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Upload Draw
+              </button>
+            </div>
           </div>
 
           {/* Project Grid */}
@@ -274,7 +265,7 @@ export default function Dashboard() {
                   ? 'Try adjusting your filters'
                   : 'Upload a budget to get started'}
               </p>
-              <button className="btn-primary">Upload Budget</button>
+              <button onClick={() => setImportModal('budget')} className="btn-primary">Upload Budget</button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -303,12 +294,18 @@ export default function Dashboard() {
         onClose={() => setSelectedProject(null)} 
       />
 
-      {/* Import Modal */}
+      {/* Import Modals */}
       <ImportPreview
-        isOpen={showImport}
-        onClose={() => setShowImport(false)}
-        onImport={handleImport}
+        isOpen={importModal === 'budget'}
+        onClose={() => setImportModal(null)}
+        onSuccess={handleImportSuccess}
         importType="budget"
+      />
+      <ImportPreview
+        isOpen={importModal === 'draw'}
+        onClose={() => setImportModal(null)}
+        onSuccess={handleImportSuccess}
+        importType="draw"
       />
     </div>
   )
