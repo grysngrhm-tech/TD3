@@ -374,11 +374,14 @@ export type Database = {
           loan_amount: number | null
           loan_start_date: string | null
           loan_term_months: number | null
+          lot_number: string | null
           maturity_date: string | null
           name: string
           origination_fee_pct: number | null
           project_code: string | null
           status: string | null
+          subdivision_abbrev: string | null
+          subdivision_name: string | null
           updated_at: string | null
         }
         Insert: {
@@ -391,11 +394,14 @@ export type Database = {
           loan_amount?: number | null
           loan_start_date?: string | null
           loan_term_months?: number | null
+          lot_number?: string | null
           maturity_date?: string | null
           name: string
           origination_fee_pct?: number | null
           project_code?: string | null
           status?: string | null
+          subdivision_abbrev?: string | null
+          subdivision_name?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -408,11 +414,14 @@ export type Database = {
           loan_amount?: number | null
           loan_start_date?: string | null
           loan_term_months?: number | null
+          lot_number?: string | null
           maturity_date?: string | null
           name?: string
           origination_fee_pct?: number | null
           project_code?: string | null
           status?: string | null
+          subdivision_abbrev?: string | null
+          subdivision_name?: string | null
           updated_at?: string | null
         }
         Relationships: []
