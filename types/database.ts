@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
       approvals: {
@@ -45,15 +40,7 @@ export type Database = {
           id?: string
           step_number?: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "approvals_draw_request_id_fkey"
-            columns: ["draw_request_id"]
-            isOneToOne: false
-            referencedRelation: "draw_requests"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       audit_events: {
         Row: {
@@ -149,15 +136,7 @@ export type Database = {
           spent_amount?: number
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "budgets_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       documents: {
         Row: {
@@ -199,29 +178,7 @@ export type Database = {
           project_id?: string | null
           uploaded_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "documents_draw_request_id_fkey"
-            columns: ["draw_request_id"]
-            isOneToOne: false
-            referencedRelation: "draw_requests"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "documents_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "documents_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       draw_request_lines: {
         Row: {
@@ -260,7 +217,7 @@ export type Database = {
           invoice_vendor_name?: string | null
           matched_invoice_amount?: number | null
           notes?: string | null
-          variance?: string | null
+          variance?: number | null
         }
         Update: {
           amount_approved?: number | null
@@ -281,22 +238,7 @@ export type Database = {
           notes?: string | null
           variance?: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "draw_request_lines_budget_id_fkey"
-            columns: ["budget_id"]
-            isOneToOne: false
-            referencedRelation: "budgets"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "draw_request_lines_draw_request_id_fkey"
-            columns: ["draw_request_id"]
-            isOneToOne: false
-            referencedRelation: "draw_requests"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       draw_requests: {
         Row: {
@@ -332,15 +274,7 @@ export type Database = {
           total_amount?: number
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "draw_requests_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       invoices: {
         Row: {
@@ -403,29 +337,7 @@ export type Database = {
           updated_at?: string | null
           vendor_name?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "invoices_draw_request_id_fkey"
-            columns: ["draw_request_id"]
-            isOneToOne: false
-            referencedRelation: "draw_requests"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_draw_request_line_id_fkey"
-            columns: ["draw_request_line_id"]
-            isOneToOne: false
-            referencedRelation: "draw_request_lines"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       nahb_cost_codes: {
         Row: {
@@ -506,163 +418,32 @@ export type Database = {
         Relationships: []
       }
     }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      [_ in never]: never
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+    Views: Record<string, never>
+    Functions: Record<string, never>
+    Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+// Helper type aliases
+export type Project = Database["public"]["Tables"]["projects"]["Row"]
+export type Budget = Database["public"]["Tables"]["budgets"]["Row"]
+export type DrawRequest = Database["public"]["Tables"]["draw_requests"]["Row"]
+export type DrawRequestLine = Database["public"]["Tables"]["draw_request_lines"]["Row"]
+export type NahbCostCode = Database["public"]["Tables"]["nahb_cost_codes"]["Row"]
+export type Invoice = Database["public"]["Tables"]["invoices"]["Row"]
+export type Document = Database["public"]["Tables"]["documents"]["Row"]
+export type Approval = Database["public"]["Tables"]["approvals"]["Row"]
+export type AuditEvent = Database["public"]["Tables"]["audit_events"]["Row"]
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
-
-export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
-    }
-    ? R
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
-    : never
-
-export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
-    }
-    ? I
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
-    : never
-
-export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
-    }
-    ? U
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
-    : never
-
-export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
-
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
-
-export const Constants = {
-  public: {
-    Enums: {},
-  },
-} as const
-
-// Helper type aliases for convenience
-export type Project = Database['public']['Tables']['projects']['Row']
-export type Budget = Database['public']['Tables']['budgets']['Row']
-export type DrawRequest = Database['public']['Tables']['draw_requests']['Row']
-export type DrawRequestLine = Database['public']['Tables']['draw_request_lines']['Row']
-export type NahbCostCode = Database['public']['Tables']['nahb_cost_codes']['Row']
-export type Invoice = Database['public']['Tables']['invoices']['Row']
-export type Document = Database['public']['Tables']['documents']['Row']
-export type Approval = Database['public']['Tables']['approvals']['Row']
-export type AuditEvent = Database['public']['Tables']['audit_events']['Row']
-
-export type ProjectInsert = Database['public']['Tables']['projects']['Insert']
-export type BudgetInsert = Database['public']['Tables']['budgets']['Insert']
-export type DrawRequestInsert = Database['public']['Tables']['draw_requests']['Insert']
-export type DrawRequestLineInsert = Database['public']['Tables']['draw_request_lines']['Insert']
-export type InvoiceInsert = Database['public']['Tables']['invoices']['Insert']
-export type DocumentInsert = Database['public']['Tables']['documents']['Insert']
-export type ApprovalInsert = Database['public']['Tables']['approvals']['Insert']
-export type AuditEventInsert = Database['public']['Tables']['audit_events']['Insert']
+export type ProjectInsert = Database["public"]["Tables"]["projects"]["Insert"]
+export type BudgetInsert = Database["public"]["Tables"]["budgets"]["Insert"]
+export type DrawRequestInsert = Database["public"]["Tables"]["draw_requests"]["Insert"]
+export type DrawRequestLineInsert = Database["public"]["Tables"]["draw_request_lines"]["Insert"]
+export type InvoiceInsert = Database["public"]["Tables"]["invoices"]["Insert"]
+export type DocumentInsert = Database["public"]["Tables"]["documents"]["Insert"]
+export type ApprovalInsert = Database["public"]["Tables"]["approvals"]["Insert"]
+export type AuditEventInsert = Database["public"]["Tables"]["audit_events"]["Insert"]
 
 // Validation Types
 export type ValidationResult = {
