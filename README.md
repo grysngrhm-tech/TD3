@@ -51,6 +51,112 @@ Your team reviews AI recommendations instead of doing manual data entry. Tasks t
 
 ---
 
+## System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              USER INTERFACE                              │
+│                          (Next.js Web Application)                       │
+│                                                                          │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐  │
+│  │ Upload Budget   │  │  Upload Draw    │  │   Dashboard / Reports   │  │
+│  │ (Excel/CSV)     │  │  (Excel/CSV)    │  │   Project Management    │  │
+│  └────────┬────────┘  └────────┬────────┘  └────────────┬────────────┘  │
+│           │                    │                        │               │
+│           ▼                    ▼                        │               │
+│  ┌────────────────────────────────────────┐             │               │
+│  │     Smart Column Detection (SheetJS)   │             │               │
+│  │  • Pattern analysis for Category/Amount │             │               │
+│  │  • Interactive column mapping UI        │             │               │
+│  │  • User confirmation before submit      │             │               │
+│  └────────────────┬───────────────────────┘             │               │
+└───────────────────┼─────────────────────────────────────┼───────────────┘
+                    │                                     │
+                    ▼                                     │
+┌─────────────────────────────────────────────────────────┼───────────────┐
+│                         N8N WORKFLOWS                   │               │
+│                    (AI Processing Engine)               │               │
+│                                                         │               │
+│  ┌─────────────────────────────────────────────────────┐│               │
+│  │              Budget Import Workflow                 ││               │
+│  │  1. Receive: {categories[], amounts[], metadata}    ││               │
+│  │  2. AI: Filter valid budget rows                    ││               │
+│  │  3. AI: Standardize to NAHB cost codes              ││               │
+│  │  4. Insert: budgets table                           ││               │
+│  └─────────────────────────────────────────────────────┘│               │
+│                                                         │               │
+│  ┌─────────────────────────────────────────────────────┐│               │
+│  │               Draw Import Workflow                  ││               │
+│  │  1. Receive: {categories[], amounts[], drawNumber}  ││               │
+│  │  2. AI: Match categories to existing budget lines   ││               │
+│  │  3. Create: draw_request + draw_request_lines       ││               │
+│  │  4. Update: budget spent_amount                     ││               │
+│  └─────────────────────────────────────────────────────┘│               │
+│                          │                              │               │
+│                          ▼                              │               │
+│              ┌───────────────────────┐                  │               │
+│              │   OpenAI GPT-4o-mini  │                  │               │
+│              │   • Row filtering     │                  │               │
+│              │   • NAHB mapping      │                  │               │
+│              │   • Category matching │                  │               │
+│              └───────────────────────┘                  │               │
+└──────────────────────────┬──────────────────────────────┼───────────────┘
+                           │                              │
+                           ▼                              ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            SUPABASE                                      │
+│                    (PostgreSQL + Auth + Storage)                         │
+│                                                                          │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────────────────┐│
+│  │  projects  │ │  budgets   │ │draw_requests│ │ draw_request_lines    ││
+│  │            │ │            │ │             │ │                       ││
+│  │ • name     │ │ • category │ │ • draw_num  │ │ • amount_requested    ││
+│  │ • builder  │ │ • amount   │ │ • status    │ │ • budget_id (FK)      ││
+│  │ • loan_amt │ │ • nahb_code│ │ • total     │ │ • invoice data        ││
+│  └────────────┘ └────────────┘ └─────────────┘ └────────────────────────┘│
+│                                                                          │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────────────────┐│
+│  │  invoices  │ │ documents  │ │ approvals  │ │    audit_events       ││
+│  │            │ │            │ │            │ │                       ││
+│  │ • vendor   │ │ • file_url │ │ • decision │ │ • entity_type/id      ││
+│  │ • amount   │ │ • hash     │ │ • comments │ │ • action + timestamp  ││
+│  └────────────┘ └────────────┘ └────────────┘ └────────────────────────┘│
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Data Flow
+
+### Budget Upload Flow
+
+```
+┌──────────┐    ┌───────────┐    ┌──────────────┐    ┌───────────┐    ┌──────────┐
+│  User    │───▶│  WebApp   │───▶│   n8n        │───▶│  OpenAI   │───▶│ Supabase │
+│          │    │           │    │              │    │           │    │          │
+│ 1. Upload│    │ 2. Parse  │    │ 4. Filter    │    │ 5. Map to │    │ 6. Insert│
+│ Excel    │    │ & detect  │    │ valid rows   │    │ NAHB codes│    │ budgets  │
+│          │    │ columns   │    │              │    │           │    │          │
+│          │◀───│ 3. User   │◀───│              │◀───│           │◀───│ 7. Return│
+│          │    │ confirms  │    │              │    │           │    │ success  │
+└──────────┘    └───────────┘    └──────────────┘    └───────────┘    └──────────┘
+```
+
+### Draw Request Upload Flow
+
+```
+┌──────────┐    ┌───────────┐    ┌──────────────┐    ┌───────────┐    ┌──────────┐
+│  User    │───▶│  WebApp   │───▶│   n8n        │───▶│  OpenAI   │───▶│ Supabase │
+│          │    │           │    │              │    │           │    │          │
+│ 1. Upload│    │ 2. Parse  │    │ 4. Match     │    │ 5. Link   │    │ 6. Create│
+│ Draw CSV │    │ & select  │    │ categories   │    │ to budget │    │ draw_req │
+│          │    │ project   │    │ to budgets   │    │ line items│    │ + lines  │
+│          │    │ + draw #  │    │              │    │           │    │          │
+└──────────┘    └───────────┘    └──────────────┘    └───────────┘    └──────────┘
+```
+
+---
+
 ## Key Features
 
 | Feature | Description |
@@ -59,6 +165,7 @@ Your team reviews AI recommendations instead of doing manual data entry. Tasks t
 | **Budget Tracking** | Line-item budgets with NAHB cost code classification and real-time remaining balances |
 | **Draw Requests** | Submit, review, and approve draw requests with full documentation |
 | **Invoice Processing** | Upload invoices and let AI extract and match data automatically |
+| **Smart Import** | Client-side spreadsheet parsing with intelligent column detection |
 | **Validation Engine** | Automatic checks prevent errors before they happen |
 | **Progress Reports** | Generate printable reports showing budget status and draw history |
 | **Audit Trail** | Complete history of every action for compliance and accountability |
@@ -67,20 +174,8 @@ Your team reviews AI recommendations instead of doing manual data entry. Tasks t
 
 ## How It Works
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│                 │     │                 │     │                 │
-│  Import Budget  │────▶│  Submit Draws   │────▶│  Review & Pay   │
-│                 │     │                 │     │                 │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-        │                       │                       │
-        ▼                       ▼                       ▼
-   AI categorizes          AI matches            Full audit trail
-   to NAHB codes         invoices to lines       in database
-```
-
-1. **Import** — Upload a builder's budget; AI standardizes categories automatically
-2. **Submit** — Create draw requests with supporting invoices; AI matches and validates
+1. **Import** — Upload a builder's budget spreadsheet; the webapp detects categories and amounts, you confirm, and AI standardizes categories to NAHB codes
+2. **Submit** — Create draw requests by uploading the updated spreadsheet; AI matches draw amounts to existing budget lines
 3. **Review** — Approve or reject with full visibility into validation results
 4. **Track** — Real-time dashboards show budget status, draw history, and portfolio health
 
@@ -88,16 +183,75 @@ Your team reviews AI recommendations instead of doing manual data entry. Tasks t
 
 ## Built With
 
-- **Next.js 14** — Modern React framework for fast, responsive interfaces
-- **PostgreSQL** — Enterprise-grade database via Supabase for reliable data storage
-- **n8n** — Workflow automation platform powering AI integrations
-- **OpenAI** — GPT models for intelligent categorization and document extraction
+- **Next.js 14** — React framework with App Router for fast, responsive interfaces
+- **Tailwind CSS** — Utility-first styling with dark mode support
+- **PostgreSQL** — Enterprise-grade database via Supabase
+- **n8n Cloud** — Workflow automation platform powering AI integrations
+- **OpenAI GPT-4o-mini** — Intelligent categorization and document extraction
+- **SheetJS (xlsx)** — Client-side spreadsheet parsing
+- **Framer Motion** — Smooth animations and transitions
+
+---
+
+## Environment Variables
+
+```bash
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+
+# n8n Webhooks
+NEXT_PUBLIC_N8N_BUDGET_WEBHOOK=https://your-n8n.app.n8n.cloud/webhook/budget-import
+NEXT_PUBLIC_N8N_DRAW_WEBHOOK=https://your-n8n.app.n8n.cloud/webhook/draw-import
+```
+
+---
+
+## Project Structure
+
+```
+TD3/
+├── app/                    # Next.js App Router pages
+│   ├── components/         # React components
+│   │   ├── import/         # Budget/Draw import UI
+│   │   └── ui/             # Shared UI components
+│   ├── hooks/              # Custom React hooks
+│   └── page.tsx            # Main dashboard
+├── lib/                    # Shared utilities
+│   ├── spreadsheet.ts      # SheetJS parsing + column detection
+│   ├── supabase.ts         # Database client
+│   └── validations.ts      # Business logic validation
+├── types/                  # TypeScript definitions
+│   └── database.ts         # Supabase generated types
+├── n8n/workflows/          # Workflow documentation
+└── docs/                   # Technical documentation
+```
 
 ---
 
 ## Status
 
-TD3 is currently in active development. Core functionality for project management, budget tracking, draw processing, and AI automation is implemented.
+TD3 is currently in active development. 
+
+**Completed:**
+- ✅ Project management dashboard with iOS-style dark mode UI
+- ✅ Budget and Draw upload with smart column detection
+- ✅ Interactive spreadsheet preview and column mapping
+- ✅ Webhook integration ready for n8n workflows
+
+**In Progress:**
+- 🔄 n8n workflow implementation for AI-powered categorization
+- 🔄 Invoice upload and automatic matching
+
+---
+
+## Technical Documentation
+
+See the `/docs` folder for detailed technical documentation:
+
+- [Architecture Overview](docs/ARCHITECTURE.md) - System design and data flow
+- [n8n Workflows](n8n/workflows/README.md) - Webhook payloads and workflow specs
+- [Database Schema](types/README.md) - Table structures and relationships
 
 ---
 
