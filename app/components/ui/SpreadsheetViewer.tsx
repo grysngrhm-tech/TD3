@@ -1,17 +1,27 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { SpreadsheetData, ColumnMapping, RowRange, CellStyle } from '@/lib/spreadsheet'
+import type { SpreadsheetData, ColumnMapping, RowRange, CellStyle, RowRangeWithAnalysis, RowAnalysis, RowClassification } from '@/lib/spreadsheet'
 
 type SpreadsheetViewerProps = {
   data: SpreadsheetData
   mappings: ColumnMapping[]
-  rowRange: RowRange | null
+  rowRangeAnalysis: RowRangeWithAnalysis | null
   onMappingChange: (columnIndex: number, newMapping: ColumnMapping['mappedTo']) => void
   onRowRangeChange: (range: RowRange) => void
   onResetRowRange?: () => void  // Optional callback to reset to auto-detected range
   maxRows?: number
+}
+
+// Classification badge labels
+const CLASSIFICATION_BADGES: Record<RowClassification, { label: string; color: string } | null> = {
+  header: { label: 'H', color: 'rgb(107, 114, 128)' },    // Gray
+  total: { label: 'T', color: 'rgb(239, 68, 68)' },       // Red
+  closing: { label: 'C', color: 'rgb(249, 115, 22)' },    // Orange
+  data: null,  // No badge for data rows
+  empty: null,
+  unknown: null,
 }
 
 // RGB Color System - Base colors (30% opacity for columns, 25% for rows)
@@ -49,16 +59,31 @@ const AVAILABLE_MAPPINGS: Array<'category' | 'amount' | 'ignore'> = ['category',
 export function SpreadsheetViewer({ 
   data, 
   mappings, 
-  rowRange,
+  rowRangeAnalysis,
   onMappingChange,
   onRowRangeChange,
   onResetRowRange,
   maxRows = 100
 }: SpreadsheetViewerProps) {
   const [selectedColumn, setSelectedColumn] = useState<number | null>(null)
+  
+  // Drag state for adjusting row range
+  const [isDragging, setIsDragging] = useState<'start' | 'end' | null>(null)
+  const [dragPreviewRow, setDragPreviewRow] = useState<number | null>(null)
 
   const displayRows = useMemo(() => data.rows.slice(0, maxRows), [data.rows, maxRows])
   const getMappingForColumn = (index: number) => mappings.find(m => m.columnIndex === index)
+  
+  // Extract simple range for convenience
+  const rowRange = rowRangeAnalysis ? { 
+    startRow: rowRangeAnalysis.startRow, 
+    endRow: rowRangeAnalysis.endRow 
+  } : null
+
+  // Get analysis for a specific row
+  const getRowAnalysis = useCallback((rowIndex: number): RowAnalysis | null => {
+    return rowRangeAnalysis?.analysis?.[rowIndex] ?? null
+  }, [rowRangeAnalysis])
 
   const handleColumnClick = (index: number) => {
     setSelectedColumn(index)
@@ -98,18 +123,41 @@ export function SpreadsheetViewer({
     return 'transparent'
   }, [getMappingForColumn, isRowInRange])
 
-  // Handle row click to set start/end of range
+  // Handle row click to toggle inclusion in range
   const handleRowClick = (rowIndex: number, event: React.MouseEvent) => {
     if (!rowRange) return
     
-    // Shift+click sets end row, regular click sets start row
+    // Don't handle click if it was on the drag handle
+    if ((event.target as HTMLElement).closest('[data-drag-handle]')) return
+
+    const inRange = isRowInRange(rowIndex)
+    
     if (event.shiftKey) {
-      onRowRangeChange({ 
-        startRow: Math.min(rowRange.startRow, rowIndex), 
-        endRow: Math.max(rowRange.startRow, rowIndex) 
+      // Shift+click: set end row (extend/shrink from current start)
+      onRowRangeChange({
+        startRow: Math.min(rowRange.startRow, rowIndex),
+        endRow: Math.max(rowRange.startRow, rowIndex)
       })
+    } else if (inRange) {
+      // Click inside range: shrink range
+      // If clicking the start row, move start down by 1
+      // If clicking the end row, move end up by 1
+      // If clicking in middle, set as new end row
+      if (rowIndex === rowRange.startRow && rowRange.startRow < rowRange.endRow) {
+        onRowRangeChange({ startRow: rowRange.startRow + 1, endRow: rowRange.endRow })
+      } else if (rowIndex === rowRange.endRow && rowRange.endRow > rowRange.startRow) {
+        onRowRangeChange({ startRow: rowRange.startRow, endRow: rowRange.endRow - 1 })
+      } else {
+        // Click in middle - use as new end (common case: "stop here")
+        onRowRangeChange({ startRow: rowRange.startRow, endRow: rowIndex })
+      }
     } else {
-      onRowRangeChange({ startRow: rowIndex, endRow: rowRange.endRow })
+      // Click outside range: expand range to include this row
+      if (rowIndex < rowRange.startRow) {
+        onRowRangeChange({ startRow: rowIndex, endRow: rowRange.endRow })
+      } else if (rowIndex > rowRange.endRow) {
+        onRowRangeChange({ startRow: rowRange.startRow, endRow: rowIndex })
+      }
     }
   }
 
@@ -134,13 +182,132 @@ export function SpreadsheetViewer({
     }
   }
 
+  // Drag handle mouse down - start dragging
+  const handleDragStart = (type: 'start' | 'end', event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setIsDragging(type)
+    setDragPreviewRow(type === 'start' ? rowRange?.startRow ?? 0 : rowRange?.endRow ?? 0)
+    
+    // Add global mouse event listeners
+    document.addEventListener('mousemove', handleDragMove)
+    document.addEventListener('mouseup', handleDragEnd)
+  }
+
+  // Drag move - update preview
+  const handleDragMove = useCallback((event: MouseEvent) => {
+    if (!isDragging) return
+    
+    // Find the row element under the mouse
+    const tableBody = document.querySelector('.spreadsheet-tbody')
+    if (!tableBody) return
+    
+    const rows = tableBody.querySelectorAll('tr')
+    for (let i = 0; i < rows.length; i++) {
+      const rect = rows[i].getBoundingClientRect()
+      if (event.clientY >= rect.top && event.clientY <= rect.bottom) {
+        setDragPreviewRow(i)
+        break
+      }
+    }
+  }, [isDragging])
+
+  // Drag end - apply the change
+  const handleDragEnd = useCallback(() => {
+    if (isDragging && dragPreviewRow !== null && rowRange) {
+      if (isDragging === 'start') {
+        onRowRangeChange({
+          startRow: Math.min(dragPreviewRow, rowRange.endRow),
+          endRow: rowRange.endRow
+        })
+      } else {
+        onRowRangeChange({
+          startRow: rowRange.startRow,
+          endRow: Math.max(dragPreviewRow, rowRange.startRow)
+        })
+      }
+    }
+    
+    setIsDragging(null)
+    setDragPreviewRow(null)
+    
+    // Remove global listeners
+    document.removeEventListener('mousemove', handleDragMove)
+    document.removeEventListener('mouseup', handleDragEnd)
+  }, [isDragging, dragPreviewRow, rowRange, onRowRangeChange, handleDragMove])
+
+  // Keyboard shortcuts for row range adjustment
+  const containerRef = useRef<HTMLDivElement>(null)
+  
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle if our container or a child has focus
+      if (!containerRef.current?.contains(document.activeElement) && 
+          document.activeElement !== containerRef.current) {
+        return
+      }
+      
+      if (!rowRange) return
+      
+      // Ignore if typing in an input
+      if ((event.target as HTMLElement).tagName === 'INPUT') return
+      
+      switch (event.key) {
+        case 'ArrowUp':
+          event.preventDefault()
+          if (event.shiftKey) {
+            // Shift+Up: Move end row up
+            if (rowRange.endRow > rowRange.startRow) {
+              onRowRangeChange({ startRow: rowRange.startRow, endRow: rowRange.endRow - 1 })
+            }
+          } else {
+            // Up: Move start row up
+            if (rowRange.startRow > 0) {
+              onRowRangeChange({ startRow: rowRange.startRow - 1, endRow: rowRange.endRow })
+            }
+          }
+          break
+        case 'ArrowDown':
+          event.preventDefault()
+          if (event.shiftKey) {
+            // Shift+Down: Move end row down
+            if (rowRange.endRow < data.rows.length - 1) {
+              onRowRangeChange({ startRow: rowRange.startRow, endRow: rowRange.endRow + 1 })
+            }
+          } else {
+            // Down: Move start row down
+            if (rowRange.startRow < rowRange.endRow) {
+              onRowRangeChange({ startRow: rowRange.startRow + 1, endRow: rowRange.endRow })
+            }
+          }
+          break
+        case 'r':
+        case 'R':
+          // R: Reset to auto-detected range
+          if (!event.ctrlKey && !event.metaKey && onResetRowRange) {
+            event.preventDefault()
+            onResetRowRange()
+          }
+          break
+      }
+    }
+    
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [rowRange, data.rows.length, onRowRangeChange, onResetRowRange])
+
   return (
-    <div className="flex flex-col h-full">
+    <div 
+      ref={containerRef} 
+      className="flex flex-col h-full outline-none" 
+      tabIndex={0}
+      title="Use arrow keys to adjust selection (Shift for end row)"
+    >
       {/* Legend and Row Range Controls */}
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-        {/* Legend - only 3 base colors */}
-        <div className="flex items-center gap-4 text-xs">
-          <span style={{ color: 'var(--text-muted)' }}>Click headers to map:</span>
+        {/* Legend - columns and row classifications */}
+        <div className="flex items-center gap-3 text-xs">
+          <span style={{ color: 'var(--text-muted)' }}>Legend:</span>
           <div className="flex items-center gap-1">
             <div className="w-2.5 h-2.5 rounded-sm" style={{ background: BORDER_COLORS.category }} />
             <span style={{ color: 'var(--text-secondary)' }}>Category</span>
@@ -149,15 +316,34 @@ export function SpreadsheetViewer({
             <div className="w-2.5 h-2.5 rounded-sm" style={{ background: BORDER_COLORS.amount }} />
             <span style={{ color: 'var(--text-secondary)' }}>Amount</span>
           </div>
+          <span style={{ color: 'var(--border)' }}>|</span>
           <div className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded-sm" style={{ background: 'rgb(250, 204, 21)' }} />
-            <span style={{ color: 'var(--text-secondary)' }}>Rows</span>
+            <span className="text-[8px] px-1 rounded font-bold" style={{ background: 'rgb(107, 114, 128)', color: 'white' }}>H</span>
+            <span style={{ color: 'var(--text-muted)' }}>Header</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[8px] px-1 rounded font-bold" style={{ background: 'rgb(239, 68, 68)', color: 'white' }}>T</span>
+            <span style={{ color: 'var(--text-muted)' }}>Total</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span style={{ color: 'var(--accent)' }}>◆</span>
+            <span style={{ color: 'var(--text-muted)' }}>Selected</span>
           </div>
         </div>
 
-        {/* Row Range Controls */}
+        {/* Row Range Controls with confidence */}
         {rowRange && (
           <div className="flex items-center gap-2 text-xs">
+            {/* Confidence indicator */}
+            {rowRangeAnalysis && rowRangeAnalysis.confidence < 70 && (
+              <span 
+                className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                style={{ background: 'rgba(251, 191, 36, 0.2)', color: 'rgb(217, 119, 6)' }}
+                title={`Detection confidence: ${rowRangeAnalysis.confidence}%`}
+              >
+                ⚠ Low confidence
+              </span>
+            )}
             <span style={{ color: 'var(--text-muted)' }}>Rows:</span>
             <input
               type="number"
@@ -166,8 +352,8 @@ export function SpreadsheetViewer({
               value={rowRange.startRow}
               onChange={(e) => handleStartRowChange(e.target.value)}
               className="w-14 px-1.5 py-0.5 rounded text-center"
-              style={{ 
-                background: 'var(--bg-secondary)', 
+              style={{
+                background: 'var(--bg-secondary)',
                 border: '1px solid var(--border)',
                 color: 'var(--text-primary)'
               }}
@@ -180,28 +366,39 @@ export function SpreadsheetViewer({
               value={rowRange.endRow}
               onChange={(e) => handleEndRowChange(e.target.value)}
               className="w-14 px-1.5 py-0.5 rounded text-center"
-              style={{ 
-                background: 'var(--bg-secondary)', 
+              style={{
+                background: 'var(--bg-secondary)',
                 border: '1px solid var(--border)',
                 color: 'var(--text-primary)'
               }}
             />
-            <span style={{ color: 'var(--text-muted)' }}>
-              ({rowRange.endRow - rowRange.startRow + 1} selected)
+            <span 
+              className="px-1.5 py-0.5 rounded font-medium"
+              style={{ background: 'rgba(34, 197, 94, 0.15)', color: 'rgb(22, 163, 74)' }}
+            >
+              {rowRange.endRow - rowRange.startRow + 1} rows
             </span>
             {onResetRowRange && (
               <button
                 onClick={onResetRowRange}
                 className="px-2 py-0.5 rounded text-xs hover:opacity-80 transition-opacity"
-                style={{ 
-                  background: 'var(--accent-glow)', 
+                style={{
+                  background: 'var(--accent-glow)',
                   color: 'var(--accent)'
                 }}
-                title="Reset row selection to auto-detected range"
+                title="Reset row selection to auto-detected range (R)"
               >
-                Reset to Auto
+                Reset
               </button>
             )}
+            {/* Keyboard shortcut hint */}
+            <span 
+              className="text-[10px] opacity-60"
+              style={{ color: 'var(--text-muted)' }}
+              title="↑↓ adjust start, Shift+↑↓ adjust end, R to reset"
+            >
+              ⌨
+            </span>
           </div>
         )}
       </div>
@@ -279,29 +476,88 @@ export function SpreadsheetViewer({
               })}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="spreadsheet-tbody">
             {displayRows.map((row, rowIndex) => {
               const inRange = isRowInRange(rowIndex)
+              const analysis = getRowAnalysis(rowIndex)
+              const classification = analysis?.classification ?? 'unknown'
+              const badge = CLASSIFICATION_BADGES[classification]
+              const isStartRow = rowRange && rowIndex === rowRange.startRow
+              const isEndRow = rowRange && rowIndex === rowRange.endRow
+              
+              // Row styling based on classification
+              const isExcluded = classification === 'header' || classification === 'total' || classification === 'closing'
+              const rowOpacity = isExcluded && !inRange ? 0.5 : 1
+              
+              // Build detailed tooltip
+              const tooltipParts = [`Row ${rowIndex}: ${classification}`]
+              if (analysis) {
+                tooltipParts.push(`Confidence: ${analysis.confidence}%`)
+                const signals = []
+                if (analysis.signals.hasHeaderKeyword) signals.push('header keyword')
+                if (analysis.signals.hasTotalKeyword) signals.push('total keyword')
+                if (analysis.signals.hasClosingKeyword) signals.push('closing cost keyword')
+                if (analysis.signals.isBold) signals.push('bold text')
+                if (analysis.signals.amountMatchesSum) signals.push('amount = running total')
+                if (signals.length > 0) tooltipParts.push(`Signals: ${signals.join(', ')}`)
+              }
+              tooltipParts.push(inRange ? 'Click to adjust range' : 'Click to include')
               
               return (
-                <tr 
-                  key={rowIndex} 
-                  className="hover:brightness-95 cursor-pointer"
+                <tr
+                  key={rowIndex}
+                  className="hover:brightness-95 cursor-pointer transition-opacity duration-150"
                   onClick={(e) => handleRowClick(rowIndex, e)}
-                  title={inRange ? 'Click to set start row, Shift+click to set end row' : 'Click to include this row'}
+                  title={tooltipParts.join('\n')}
+                  style={{ opacity: rowOpacity }}
                 >
-                  {/* Row number cell */}
+                  {/* Row number cell with drag handle and classification badge */}
                   <td
-                    className="px-2 py-1 text-center font-mono sticky left-0"
-                    style={{ 
-                      background: inRange ? 'rgba(250, 204, 21, 0.4)' : 'var(--bg-secondary)',
+                    className="px-1 py-1 font-mono sticky left-0 select-none group"
+                    style={{
+                      background: isDragging && dragPreviewRow === rowIndex 
+                        ? 'rgba(59, 130, 246, 0.3)'
+                        : inRange ? 'rgba(250, 204, 21, 0.4)' 
+                        : isExcluded ? 'rgba(156, 163, 175, 0.15)' : 'var(--bg-secondary)',
                       color: inRange ? 'var(--text-primary)' : 'var(--text-muted)',
                       borderBottom: '1px solid var(--border-subtle)',
                       borderRight: '1px solid var(--border)',
-                      fontWeight: inRange ? 600 : 400
+                      borderLeft: (isStartRow || isEndRow) ? '3px solid var(--accent)' : undefined,
+                      fontWeight: inRange ? 600 : 400,
+                      minWidth: '65px',
+                      cursor: (isStartRow || isEndRow) ? 'ns-resize' : 'pointer'
                     }}
                   >
-                    {rowIndex}
+                    <div className="flex items-center gap-1">
+                      {/* Drag handle for start/end rows */}
+                      {(isStartRow || isEndRow) && (
+                        <span
+                          data-drag-handle
+                          className="cursor-ns-resize opacity-40 group-hover:opacity-100 transition-opacity text-[10px]"
+                          onMouseDown={(e) => handleDragStart(isStartRow ? 'start' : 'end', e)}
+                          title={isStartRow ? 'Drag to adjust start row' : 'Drag to adjust end row'}
+                          style={{ color: 'var(--accent)' }}
+                        >
+                          ≡
+                        </span>
+                      )}
+                      <span className="text-[10px]">{rowIndex}</span>
+                      {badge && (
+                        <span
+                          className="text-[8px] px-1 rounded font-bold ml-auto"
+                          style={{
+                            background: badge.color,
+                            color: 'white'
+                          }}
+                          title={classification}
+                        >
+                          {badge.label}
+                        </span>
+                      )}
+                      {inRange && !badge && (
+                        <span className="ml-auto" style={{ color: 'var(--accent)' }}>◆</span>
+                      )}
+                    </div>
                   </td>
                   {data.headers.map((_, colIndex) => {
                     const value = row[colIndex]

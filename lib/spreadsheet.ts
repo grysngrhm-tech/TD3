@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx'
+import * as XLSX from 'xlsx-js-style'
 
 // Cell styling information extracted from Excel
 export type CellStyle = {
@@ -162,6 +162,42 @@ export type RowRange = {
   endRow: number    // 0-indexed, last data row (inclusive)
 }
 
+// Row classification for smart detection
+export type RowClassification = 
+  | 'header'      // Detected as header row (skip)
+  | 'data'        // Valid budget data row
+  | 'total'       // Detected as total/summary row
+  | 'closing'     // Closing cost item
+  | 'empty'       // Empty row
+  | 'unknown'     // Could not classify
+
+// Analysis result for a single row
+export type RowAnalysis = {
+  index: number
+  classification: RowClassification
+  confidence: number           // 0-100 score
+  signals: {
+    hasHeaderKeyword: boolean  // Contains header keywords
+    hasTotalKeyword: boolean   // Contains total keywords
+    hasClosingKeyword: boolean // Contains closing cost keywords
+    isBold: boolean            // Cell is bold formatted
+    amountMatchesSum: boolean  // Amount ≈ running total
+    precedesGap: boolean       // Followed by empty rows
+    followsGap: boolean        // Preceded by empty rows
+    hasAmount: boolean         // Has non-zero amount
+    hasCategory: boolean       // Has category text
+  }
+  manualOverride?: 'include' | 'exclude'  // User override
+}
+
+// Extended row range with full analysis
+export type RowRangeWithAnalysis = {
+  startRow: number
+  endRow: number
+  analysis: RowAnalysis[]      // Classification for each row
+  confidence: number           // Overall confidence in detection (0-100)
+}
+
 // Keyword lists for header-based detection
 const CATEGORY_KEYWORDS = [
   'category', 'description', 'line item', 'item', 'cost code',
@@ -288,94 +324,16 @@ const HEADER_KEYWORDS = [
 ]
 
 /**
- * Detect row boundaries for import using smarter logic:
- * - Start: First row with category text that's NOT a header keyword
- * - End: Scan backwards from last row with category, stop at totals/closing costs
- * - Don't require amounts - rows with category but no amount are valid placeholders
+ * Detect row boundaries for import using multi-signal analysis
+ * Wrapper for backwards compatibility - returns simple RowRange
  */
 export function detectRowBoundaries(
   rows: (string | number | null)[][],
-  mappings: ColumnMapping[]
+  mappings: ColumnMapping[],
+  styles?: (CellStyle | null)[][]
 ): RowRange {
-  const categoryCol = mappings.find(m => m.mappedTo === 'category')
-  
-  if (!categoryCol) {
-    // Fallback: return all rows
-    return { startRow: 0, endRow: Math.max(0, rows.length - 1) }
-  }
-  
-  const catIndex = categoryCol.columnIndex
-  
-  // Helper to check if a category string looks like a header
-  const isHeaderRow = (catStr: string): boolean => {
-    const lower = catStr.toLowerCase()
-    // Check if it matches header keywords exactly or closely
-    return HEADER_KEYWORDS.some(kw => {
-      // Exact match or the category is just the keyword
-      if (lower === kw) return true
-      // Category starts with keyword and is short (likely a header)
-      if (lower.startsWith(kw) && lower.length < kw.length + 5) return true
-      return false
-    })
-  }
-  
-  // Helper to check if a category string is a total/closing cost
-  const isTotalOrClosingCost = (catStr: string): boolean => {
-    const lower = catStr.toLowerCase()
-    return TOTAL_KEYWORDS.some(kw => lower.includes(kw)) ||
-           CLOSING_COST_KEYWORDS.some(kw => lower.includes(kw))
-  }
-  
-  // STEP 1: Find START row - first row with category text that's NOT a header
-  let startRow = 0
-  for (let i = 0; i < rows.length; i++) {
-    const category = rows[i][catIndex]
-    const catStr = category ? String(category).trim() : ''
-    
-    if (catStr && !isHeaderRow(catStr) && !isTotalOrClosingCost(catStr)) {
-      startRow = i
-      break
-    }
-  }
-  
-  // STEP 2: Find END row by scanning BACKWARDS
-  // First, find the last row that has ANY category text
-  let lastRowWithCategory = -1
-  for (let i = rows.length - 1; i >= startRow; i--) {
-    const category = rows[i][catIndex]
-    const catStr = category ? String(category).trim() : ''
-    
-    if (catStr) {
-      lastRowWithCategory = i
-      break
-    }
-  }
-  
-  if (lastRowWithCategory < 0) {
-    // No categories found at all
-    return { startRow: 0, endRow: Math.max(0, rows.length - 1) }
-  }
-  
-  // STEP 3: From that last row, work backwards to find first non-total/non-closing-cost row
-  let endRow = lastRowWithCategory
-  for (let i = lastRowWithCategory; i >= startRow; i--) {
-    const category = rows[i][catIndex]
-    const catStr = category ? String(category).trim() : ''
-    
-    if (catStr && !isTotalOrClosingCost(catStr)) {
-      endRow = i
-      break
-    }
-    // If this row is a total/closing cost, keep moving backwards
-    if (catStr && isTotalOrClosingCost(catStr)) {
-      endRow = i - 1
-    }
-  }
-  
-  // Ensure valid range
-  endRow = Math.max(startRow, Math.min(endRow, rows.length - 1))
-  
-  return { startRow, endRow }
+  const result = detectRowBoundariesWithAnalysis(rows, mappings, styles)
+  return { startRow: result.startRow, endRow: result.endRow }
 }
 
 // Helper to parse amount values
@@ -385,6 +343,244 @@ function parseAmountValue(value: string | number | null): number {
   const cleaned = String(value).replace(/[$,\s()]/g, '').trim()
   const num = parseFloat(cleaned)
   return isNaN(num) ? 0 : num
+}
+
+/**
+ * Analyze all rows using multi-signal scoring system
+ * Returns detailed classification for each row
+ */
+export function analyzeRows(
+  rows: (string | number | null)[][],
+  mappings: ColumnMapping[],
+  styles?: (CellStyle | null)[][]
+): RowAnalysis[] {
+  const categoryCol = mappings.find(m => m.mappedTo === 'category')
+  const amountCol = mappings.find(m => m.mappedTo === 'amount')
+  
+  if (!categoryCol) {
+    // Return all as unknown if no category column
+    return rows.map((_, index) => ({
+      index,
+      classification: 'unknown' as RowClassification,
+      confidence: 0,
+      signals: {
+        hasHeaderKeyword: false,
+        hasTotalKeyword: false,
+        hasClosingKeyword: false,
+        isBold: false,
+        amountMatchesSum: false,
+        precedesGap: false,
+        followsGap: false,
+        hasAmount: false,
+        hasCategory: false,
+      }
+    }))
+  }
+  
+  const catIndex = categoryCol.columnIndex
+  const amtIndex = amountCol?.columnIndex ?? -1
+  
+  // First pass: gather basic signals for each row
+  const analyses: RowAnalysis[] = rows.map((row, index) => {
+    const category = row[catIndex]
+    const catStr = category ? String(category).trim() : ''
+    const catLower = catStr.toLowerCase()
+    
+    const amount = amtIndex >= 0 ? parseAmountValue(row[amtIndex]) : 0
+    
+    // Check for cell style (styles array includes header at index 0, so data row 0 = styles[1])
+    const cellStyle = styles?.[index + 1]?.[catIndex]
+    const isBold = cellStyle?.bold ?? false
+    
+    // Check keywords
+    const hasHeaderKeyword = HEADER_KEYWORDS.some(kw => {
+      if (catLower === kw) return true
+      if (catLower.startsWith(kw) && catLower.length < kw.length + 5) return true
+      return false
+    })
+    
+    const hasTotalKeyword = TOTAL_KEYWORDS.some(kw => catLower.includes(kw))
+    const hasClosingKeyword = CLOSING_COST_KEYWORDS.some(kw => catLower.includes(kw))
+    
+    return {
+      index,
+      classification: 'unknown' as RowClassification,
+      confidence: 0,
+      signals: {
+        hasHeaderKeyword,
+        hasTotalKeyword,
+        hasClosingKeyword,
+        isBold,
+        amountMatchesSum: false, // Will be calculated in second pass
+        precedesGap: false,      // Will be calculated
+        followsGap: false,       // Will be calculated
+        hasAmount: amount !== 0,
+        hasCategory: catStr.length > 0,
+      }
+    }
+  })
+  
+  // Second pass: calculate gap signals and running sum matching
+  let runningSum = 0
+  for (let i = 0; i < analyses.length; i++) {
+    const row = rows[i]
+    const amount = amtIndex >= 0 ? parseAmountValue(row[amtIndex]) : 0
+    
+    // Check if preceded by empty rows (gap detection)
+    if (i > 0) {
+      let gapCount = 0
+      for (let j = i - 1; j >= 0 && j >= i - 3; j--) {
+        if (!analyses[j].signals.hasCategory) gapCount++
+        else break
+      }
+      analyses[i].signals.followsGap = gapCount >= 2
+    }
+    
+    // Check if followed by empty rows
+    if (i < analyses.length - 1) {
+      let gapCount = 0
+      for (let j = i + 1; j < analyses.length && j <= i + 3; j++) {
+        if (!analyses[j].signals.hasCategory) gapCount++
+        else break
+      }
+      analyses[i].signals.precedesGap = gapCount >= 2
+    }
+    
+    // Check if amount matches running sum (total detection)
+    if (runningSum > 0 && amount > 0) {
+      const diff = Math.abs(amount - runningSum) / runningSum
+      if (diff < 0.1) { // Within 10%
+        analyses[i].signals.amountMatchesSum = true
+      }
+    }
+    
+    // Accumulate running sum for data rows (will refine after classification)
+    if (analyses[i].signals.hasCategory && amount > 0) {
+      runningSum += amount
+    }
+  }
+  
+  // Third pass: calculate scores and classify
+  for (let i = 0; i < analyses.length; i++) {
+    const a = analyses[i]
+    const s = a.signals
+    
+    // Empty row check
+    if (!s.hasCategory) {
+      a.classification = 'empty'
+      a.confidence = 100
+      continue
+    }
+    
+    // Calculate header score
+    let headerScore = 0
+    if (s.hasHeaderKeyword) headerScore += 50
+    if (s.isBold && !s.hasAmount) headerScore += 20
+    if (!s.hasAmount && s.hasCategory) headerScore += 10
+    if (s.followsGap && i < 5) headerScore += 15
+    if (i < 3) headerScore += 25  // First 3 rows likely headers
+    
+    // Calculate total score
+    let totalScore = 0
+    if (s.hasTotalKeyword) totalScore += 40
+    if (s.amountMatchesSum) totalScore += 50
+    if (s.isBold && s.hasAmount) totalScore += 20
+    if (s.precedesGap) totalScore += 10
+    
+    // Calculate closing cost score
+    let closingScore = 0
+    if (s.hasClosingKeyword) closingScore += 35
+    if (s.isBold) closingScore += 10
+    
+    // Classify based on scores
+    if (headerScore >= 50) {
+      a.classification = 'header'
+      a.confidence = Math.min(100, headerScore)
+    } else if (totalScore >= 45) {
+      a.classification = 'total'
+      a.confidence = Math.min(100, totalScore)
+    } else if (closingScore >= 35) {
+      a.classification = 'closing'
+      a.confidence = Math.min(100, closingScore)
+    } else if (s.hasCategory) {
+      a.classification = 'data'
+      // Confidence based on how clearly it's NOT a header/total
+      a.confidence = Math.max(50, 100 - headerScore - totalScore)
+    } else {
+      a.classification = 'unknown'
+      a.confidence = 30
+    }
+  }
+  
+  return analyses
+}
+
+/**
+ * Detect row boundaries with full analysis
+ * Returns start/end plus detailed analysis of each row
+ */
+export function detectRowBoundariesWithAnalysis(
+  rows: (string | number | null)[][],
+  mappings: ColumnMapping[],
+  styles?: (CellStyle | null)[][]
+): RowRangeWithAnalysis {
+  const analysis = analyzeRows(rows, mappings, styles)
+  
+  if (analysis.length === 0) {
+    return { startRow: 0, endRow: 0, analysis: [], confidence: 0 }
+  }
+  
+  // Find START: First 'data' row
+  let startRow = analysis.findIndex(a => a.classification === 'data')
+  if (startRow < 0) startRow = 0
+  
+  // Find END using multiple signals
+  const amountCol = mappings.find(m => m.mappedTo === 'amount')
+  const amtIndex = amountCol?.columnIndex ?? -1
+  
+  let endRow = startRow
+  let runningSum = 0
+  let lastDataRow = startRow
+  
+  for (let i = startRow; i < rows.length; i++) {
+    const a = analysis[i]
+    const amount = amtIndex >= 0 ? parseAmountValue(rows[i][amtIndex]) : 0
+    
+    // If this row is classified as total or closing, stop before it
+    if (a.classification === 'total' || a.classification === 'closing') {
+      endRow = lastDataRow
+      break
+    }
+    
+    // Amount-based total detection: if amount ≈ running sum, this is likely a total
+    if (runningSum > 1000 && amount > 0) {
+      const diff = Math.abs(amount - runningSum) / runningSum
+      if (diff < 0.1) {
+        endRow = lastDataRow
+        break
+      }
+    }
+    
+    // Track data rows
+    if (a.classification === 'data') {
+      lastDataRow = i
+      endRow = i
+      runningSum += Math.abs(amount)
+    }
+  }
+  
+  // Calculate overall confidence
+  const dataRows = analysis.slice(startRow, endRow + 1).filter(a => a.classification === 'data')
+  const avgConfidence = dataRows.length > 0
+    ? dataRows.reduce((sum, a) => sum + a.confidence, 0) / dataRows.length
+    : 50
+  
+  return {
+    startRow,
+    endRow,
+    analysis,
+    confidence: Math.round(avgConfidence)
+  }
 }
 
 // Analyze column data patterns
