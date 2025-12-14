@@ -248,24 +248,26 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType }: Import
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Overlay asChild>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 overlay"
-          />
-        </Dialog.Overlay>
-        
-        <Dialog.Content asChild>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            className="fixed z-50 inset-3 rounded-ios flex flex-col overflow-hidden"
-            style={{ background: 'var(--bg-secondary)' }}
-          >
+      <AnimatePresence>
+        {isOpen && (
+          <Dialog.Portal forceMount>
+            <Dialog.Overlay asChild>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 overlay"
+              />
+            </Dialog.Overlay>
+            
+            <Dialog.Content asChild>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                className="fixed z-50 inset-3 rounded-ios flex flex-col overflow-hidden"
+                style={{ background: 'var(--bg-secondary)' }}
+              >
             {/* Compact Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center gap-3">
@@ -535,7 +537,9 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType }: Import
             )}
           </motion.div>
         </Dialog.Content>
-      </Dialog.Portal>
+          </Dialog.Portal>
+        )}
+      </AnimatePresence>
     </Dialog.Root>
   )
 }
