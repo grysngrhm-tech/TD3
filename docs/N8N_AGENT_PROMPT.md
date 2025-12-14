@@ -75,13 +75,23 @@ for (let i = 0; i < $input.all().length; i++) {
   const originalItem = filterItems[i]?.json || {};
   const aiOutput = item.json;
   
-  // The AI output is in output[0].content[0].text as a JSON object
-  const mapping = aiOutput.output?.[0]?.content?.[0]?.text ?? {
+  // The AI output is in output[0].content[0].text as a JSON STRING - must parse it!
+  const textContent = aiOutput.output?.[0]?.content?.[0]?.text;
+  
+  let mapping = {
     nahb_code: 'UNKNOWN',
     nahb_category: 'Unmapped',
     nahb_subcategory: 'Unmapped',
     confidence: 0.0
   };
+  
+  if (textContent) {
+    try {
+      mapping = JSON.parse(textContent);
+    } catch (e) {
+      // Keep default mapping if JSON parse fails
+    }
+  }
   
   outputItems.push({
     json: {
