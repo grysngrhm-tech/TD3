@@ -72,9 +72,9 @@ export function SpreadsheetViewer({
   }
 
   return (
-    <div className="relative">
+    <div className="flex flex-col h-full min-h-0">
       {/* Color Legend */}
-      <div className="flex flex-wrap gap-4 mb-4 p-3 rounded-ios-sm" style={{ background: 'var(--bg-card)' }}>
+      <div className="flex flex-wrap gap-4 p-3 rounded-ios-sm flex-shrink-0" style={{ background: 'var(--bg-card)' }}>
         <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
           Column Types:
         </span>
@@ -92,10 +92,10 @@ export function SpreadsheetViewer({
         ))}
       </div>
 
-      {/* Spreadsheet Table */}
+      {/* Spreadsheet Table - Scrollable */}
       <div 
-        className="overflow-x-auto rounded-ios-sm border"
-        style={{ borderColor: 'var(--border)', maxHeight: '400px' }}
+        className="flex-1 overflow-auto rounded-ios-sm border mt-4 min-h-0"
+        style={{ borderColor: 'var(--border)' }}
       >
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 z-10">
@@ -119,7 +119,6 @@ export function SpreadsheetViewer({
                     }}
                   >
                     <div className="flex flex-col gap-1">
-                      {/* Header name + mapping badge */}
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate font-medium">{header || '(empty)'}</span>
                         {mapping?.mappedTo && mapping.mappedTo !== 'ignore' && (
@@ -136,7 +135,6 @@ export function SpreadsheetViewer({
                         )}
                       </div>
                       
-                      {/* Confidence bar */}
                       {mapping?.confidence && mapping.confidence > 0 && (
                         <div className="h-1 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
                           <motion.div 
@@ -189,7 +187,7 @@ export function SpreadsheetViewer({
 
       {/* Row count indicator */}
       {data.rows.length > maxRows && (
-        <p className="text-sm mt-3 text-center" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-sm mt-2 text-center flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
           Showing {maxRows} of {data.rows.length} rows
         </p>
       )}
@@ -198,33 +196,31 @@ export function SpreadsheetViewer({
       <AnimatePresence>
         {selectedColumn !== null && (
           <>
-            {/* Backdrop */}
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50"
+              className="fixed inset-0 z-[60]"
               style={{ background: 'rgba(0,0,0,0.5)' }}
               onClick={closeModal}
             />
             
-            {/* Modal */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed z-50 p-4 rounded-ios shadow-2xl"
+              className="fixed z-[70] p-4 rounded-ios shadow-2xl"
               style={{ 
                 background: 'var(--bg-card)',
                 border: '1px solid var(--border)',
                 top: '50%',
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
-                minWidth: '280px'
+                minWidth: '280px',
+                maxWidth: '90vw'
               }}
             >
-              {/* Modal Header */}
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                   Map Column
@@ -239,7 +235,6 @@ export function SpreadsheetViewer({
                 </button>
               </div>
 
-              {/* Column Name */}
               <div className="mb-4 p-3 rounded-ios-sm" style={{ background: 'var(--bg-secondary)' }}>
                 <p className="text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
                   Column
@@ -249,7 +244,6 @@ export function SpreadsheetViewer({
                 </p>
               </div>
 
-              {/* Mapping Options */}
               <div className="space-y-2">
                 <p className="text-xs uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
                   Map to
@@ -287,7 +281,6 @@ export function SpreadsheetViewer({
                         )}
                       </div>
                       
-                      {/* Draw number input for draw_amount */}
                       {type === 'draw_amount' && (
                         <div className="mt-3 flex items-center gap-3">
                           <label className="text-xs" style={{ color: 'var(--text-muted)' }}>
