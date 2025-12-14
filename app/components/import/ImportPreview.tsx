@@ -10,12 +10,12 @@ import {
   getWorkbookInfo, 
   parseSheet, 
   detectColumnMappings, 
-  detectRowBoundaries,
+  detectRowBoundariesWithAnalysis,
   calculateImportStats,
   prepareColumnExport,
   fileToBase64
 } from '@/lib/spreadsheet'
-import type { SpreadsheetData, ColumnMapping, WorkbookInfo, Invoice, RowRange } from '@/lib/spreadsheet'
+import type { SpreadsheetData, ColumnMapping, WorkbookInfo, Invoice, RowRange, RowRangeWithAnalysis, RowAnalysis } from '@/lib/spreadsheet'
 import { supabase } from '@/lib/supabase'
 
 type Project = {
@@ -66,8 +66,8 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
   // Invoice files state (for draw imports)
   const [invoiceFiles, setInvoiceFiles] = useState<File[]>([])
   
-  // Row range state for filtering which rows to import
-  const [rowRange, setRowRange] = useState<RowRange | null>(null)
+  // Row range state with analysis for filtering which rows to import
+  const [rowRangeAnalysis, setRowRangeAnalysis] = useState<RowRangeWithAnalysis | null>(null)
 
   // Fetch projects when modal opens
   useEffect(() => {
@@ -125,12 +125,12 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       const parsedData = parseSheet(info.workbook, mainSheet.name)
       const detectedMappings = detectColumnMappings(parsedData.headers, parsedData.rows)
       
-      // Detect row boundaries for import
-      const detectedRowRange = detectRowBoundaries(parsedData.rows, detectedMappings)
-      setRowRange(detectedRowRange)
+      // Detect row boundaries with full analysis (pass styles for bold detection)
+      const detectedAnalysis = detectRowBoundariesWithAnalysis(parsedData.rows, detectedMappings, parsedData.styles)
+      setRowRangeAnalysis(detectedAnalysis)
       
       // Calculate stats with row range
-      const importStats = calculateImportStats(parsedData.rows, detectedMappings, detectedRowRange)
+      const importStats = calculateImportStats(parsedData.rows, detectedMappings, detectedAnalysis)
       
       setData(parsedData)
       setMappings(detectedMappings)
@@ -152,11 +152,11 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       const parsedData = parseSheet(workbookInfo.workbook, sheetName)
       const detectedMappings = detectColumnMappings(parsedData.headers, parsedData.rows)
       
-      // Detect row boundaries for the new sheet
-      const detectedRowRange = detectRowBoundaries(parsedData.rows, detectedMappings)
-      setRowRange(detectedRowRange)
+      // Detect row boundaries with full analysis for the new sheet
+      const detectedAnalysis = detectRowBoundariesWithAnalysis(parsedData.rows, detectedMappings, parsedData.styles)
+      setRowRangeAnalysis(detectedAnalysis)
       
-      const importStats = calculateImportStats(parsedData.rows, detectedMappings, detectedRowRange)
+      const importStats = calculateImportStats(parsedData.rows, detectedMappings, detectedAnalysis)
       
       setData(parsedData)
       setMappings(detectedMappings)
@@ -180,9 +180,9 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       )
       if (data) {
         // Re-detect row boundaries with new mappings
-        const newRowRange = detectRowBoundaries(data.rows, updated)
-        setRowRange(newRowRange)
-        const newStats = calculateImportStats(data.rows, updated, newRowRange)
+        const newAnalysis = detectRowBoundariesWithAnalysis(data.rows, updated, data.styles)
+        setRowRangeAnalysis(newAnalysis)
+        const newStats = calculateImportStats(data.rows, updated, newAnalysis)
         setStats(newStats)
       }
       return updated
@@ -191,7 +191,12 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
 
   // Handle row range changes from the spreadsheet viewer
   const handleRowRangeChange = useCallback((newRange: RowRange) => {
-    setRowRange(newRange)
+    // Update the range while preserving existing analysis
+    setRowRangeAnalysis(prev => prev ? {
+      ...prev,
+      startRow: newRange.startRow,
+      endRow: newRange.endRow
+    } : null)
     if (data) {
       const newStats = calculateImportStats(data.rows, mappings, newRange)
       setStats(newStats)
@@ -201,9 +206,9 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
   // Reset row range to auto-detected values
   const handleResetRowRange = useCallback(() => {
     if (data) {
-      const detectedRowRange = detectRowBoundaries(data.rows, mappings)
-      setRowRange(detectedRowRange)
-      const newStats = calculateImportStats(data.rows, mappings, detectedRowRange)
+      const detectedAnalysis = detectRowBoundariesWithAnalysis(data.rows, mappings, data.styles)
+      setRowRangeAnalysis(detectedAnalysis)
+      const newStats = calculateImportStats(data.rows, mappings, detectedAnalysis)
       setStats(newStats)
     }
   }, [data, mappings])
@@ -239,7 +244,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
         drawNumber: importType === 'draw' ? drawNumber : undefined,
         fileName: file.name,
         invoices,
-        rowRange: rowRange || undefined
+        rowRange: rowRangeAnalysis ? { startRow: rowRangeAnalysis.startRow, endRow: rowRangeAnalysis.endRow } : undefined
       })
       
       // POST to n8n webhook
@@ -263,7 +268,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     } finally {
       setImporting(false)
     }
-  }, [data, file, mappings, importType, selectedProjectId, drawNumber, invoiceFiles, rowRange, onClose, onSuccess])
+  }, [data, file, mappings, importType, selectedProjectId, drawNumber, invoiceFiles, rowRangeAnalysis, onClose, onSuccess])
 
   const handleReset = () => {
     setStep('upload')
@@ -273,7 +278,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     setData(null)
     setMappings([])
     setStats(null)
-    setRowRange(null)
+    setRowRangeAnalysis(null)
     setError(null)
     setImporting(false)
     setSelectedProjectId('')
@@ -546,7 +551,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                         <SpreadsheetViewer
                           data={data}
                           mappings={mappings}
-                          rowRange={rowRange}
+                          rowRangeAnalysis={rowRangeAnalysis}
                           onMappingChange={handleMappingChange}
                           onRowRangeChange={handleRowRangeChange}
                           onResetRowRange={handleResetRowRange}
