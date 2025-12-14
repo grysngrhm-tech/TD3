@@ -181,51 +181,33 @@ Your team reviews AI recommendations instead of doing manual data entry. Tasks t
 
 ---
 
-## Built With
+## Security and Compliance
 
-- **Next.js 14** — React framework with App Router for fast, responsive interfaces
-- **Tailwind CSS** — Utility-first styling with dark mode support
-- **PostgreSQL** — Enterprise-grade database via Supabase
-- **n8n Cloud** — Workflow automation platform powering AI integrations
-- **OpenAI GPT-4o-mini** — Intelligent categorization and document extraction
-- **SheetJS (xlsx)** — Client-side spreadsheet parsing
-- **Framer Motion** — Smooth animations and transitions
-
----
-
-## Environment Variables
-
-```bash
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-
-# n8n Webhooks
-NEXT_PUBLIC_N8N_BUDGET_WEBHOOK=https://your-n8n.app.n8n.cloud/webhook/budget-import
-NEXT_PUBLIC_N8N_DRAW_WEBHOOK=https://your-n8n.app.n8n.cloud/webhook/draw-import
-```
+- **Complete Audit Trail** — Every action logged with timestamps and user attribution
+- **Role-Based Access** — Configurable approval workflows and permissions
+- **Data Integrity** — Immutable audit records prevent tampering
+- **Enterprise Database** — PostgreSQL with row-level security
+- **Document Verification** — Hash-based duplicate detection prevents fraud
+- **SOC 2 Architecture** — Built on Supabase's compliant infrastructure
 
 ---
 
-## Project Structure
+## Roadmap
 
-```
-TD3/
-├── app/                    # Next.js App Router pages
-│   ├── components/         # React components
-│   │   ├── import/         # Budget/Draw import UI
-│   │   └── ui/             # Shared UI components
-│   ├── hooks/              # Custom React hooks
-│   └── page.tsx            # Main dashboard
-├── lib/                    # Shared utilities
-│   ├── spreadsheet.ts      # SheetJS parsing + column detection
-│   ├── supabase.ts         # Database client
-│   └── validations.ts      # Business logic validation
-├── types/                  # TypeScript definitions
-│   └── database.ts         # Supabase generated types
-├── n8n/workflows/          # Workflow documentation
-└── docs/                   # Technical documentation
-```
+**Current**
+- Budget import with AI categorization
+- Draw request processing
+- Basic validation engine
+
+**In Progress**
+- Full invoice-to-budget AI matching
+- Multi-level approval workflows
+- Inspection scheduling integration
+
+**Planned**
+- Portfolio analytics dashboard
+- LOS system integrations
+- Mobile inspection app for field photos
 
 ---
 
@@ -249,13 +231,9 @@ TD3 is currently in active development.
 
 ---
 
-## Technical Documentation
+## Built With
 
-See the `/docs` folder for detailed technical documentation:
-
-- [Architecture Overview](docs/ARCHITECTURE.md) - System design and data flow
-- [n8n Workflows](n8n/workflows/README.md) - Webhook payloads and workflow specs
-- [Database Schema](types/README.md) - Table structures and relationships
+Next.js, Tailwind CSS, PostgreSQL (Supabase), n8n Cloud, OpenAI
 
 ---
 
