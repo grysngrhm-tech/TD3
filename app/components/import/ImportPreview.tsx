@@ -188,10 +188,10 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
         
         <Dialog.Content asChild>
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-ios flex flex-col"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="fixed z-50 inset-4 rounded-ios flex flex-col overflow-hidden"
             style={{ background: 'var(--bg-secondary)' }}
           >
             {/* Header */}
@@ -216,7 +216,7 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-hidden p-6 flex flex-col min-h-0">
               <AnimatePresence mode="wait">
                 {step === 'upload' && (
                   <motion.div
@@ -248,10 +248,10 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20 }}
-                    className="space-y-4"
+                    className="flex flex-col gap-4 h-full min-h-0"
                   >
                     {/* File info + Sheet selector */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-shrink-0">
                       {/* File info */}
                       <div className="flex items-center gap-3 p-3 rounded-ios-sm" style={{ background: 'var(--bg-card)' }}>
                         <svg className="w-8 h-8 flex-shrink-0" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -283,7 +283,7 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
                     </div>
 
                     {/* AI Detection Banner */}
-                    <div className="flex items-center gap-3 p-4 rounded-ios-sm" style={{ background: 'var(--accent-glow)', border: '1px solid var(--accent)' }}>
+                    <div className="flex items-center gap-3 p-4 rounded-ios-sm flex-shrink-0" style={{ background: 'var(--accent-glow)', border: '1px solid var(--accent)' }}>
                       <svg className="w-6 h-6 flex-shrink-0" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
@@ -299,7 +299,7 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
 
                     {/* Validation Messages */}
                     {!canImport && (
-                      <div className="p-3 rounded-ios-sm" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--error)' }}>
+                      <div className="p-3 rounded-ios-sm flex-shrink-0" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--error)' }}>
                         <p className="text-sm" style={{ color: 'var(--error)' }}>
                           Please map at least one column to "Category" and one to "{importType === 'budget' ? 'Budget' : 'Draw'}"
                         </p>
@@ -308,7 +308,7 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
 
                     {/* Import Stats */}
                     {stats && canImport && (
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 flex-shrink-0">
                         <div className="p-3 rounded-ios-sm" style={{ background: 'var(--bg-card)' }}>
                           <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Line Items</p>
                           <p className="text-xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>
@@ -339,23 +339,25 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
                       </div>
                     )}
 
-                    {/* Spreadsheet Preview */}
-                    {loading ? (
-                      <div className="flex items-center justify-center py-12">
-                        <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)' }} />
-                      </div>
-                    ) : (
-                      <SpreadsheetViewer
-                        data={data}
-                        mappings={mappings}
-                        onMappingChange={handleMappingChange}
-                        maxRows={15}
-                      />
-                    )}
+                    {/* Spreadsheet Preview - Fills remaining space */}
+                    <div className="flex-1 min-h-0">
+                      {loading ? (
+                        <div className="flex items-center justify-center h-full">
+                          <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)' }} />
+                        </div>
+                      ) : (
+                        <SpreadsheetViewer
+                          data={data}
+                          mappings={mappings}
+                          onMappingChange={handleMappingChange}
+                          maxRows={50}
+                        />
+                      )}
+                    </div>
 
                     {/* Error display */}
                     {error && (
-                      <div className="p-4 rounded-ios-sm" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--error)' }}>
+                      <div className="p-4 rounded-ios-sm flex-shrink-0" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--error)' }}>
                         <p className="font-medium" style={{ color: 'var(--error)' }}>Import Error</p>
                         <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{error}</p>
                         <button
