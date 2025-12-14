@@ -1,18 +1,105 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import type { Project, Budget, LifecycleStage } from '@/types/database'
 import { ImportPreview } from '@/app/components/import/ImportPreview'
+import { DocumentUploadSection } from './DocumentUploadSection'
+import { BudgetEditor } from './BudgetEditor'
 import { toast } from '@/app/components/ui/Toast'
+import { generateProjectCode } from '@/lib/projectCode'
+import { supabase } from '@/lib/supabase'
+
+// Default term sheet values
+const DEFAULT_TERMS = {
+  interest_rate_annual: 0.11, // 11%
+  origination_fee_pct: 0.02, // 2%
+  loan_term_months: 12,
+  document_fee: 1000,
+}
+
+type FormData = {
+  name: string
+  subdivision_name: string
+  lot_number: string
+  builder_name: string
+  borrower_name: string
+  address: string
+  loan_amount: string
+  appraised_value: string
+  sales_price: string
+  square_footage: string
+  interest_rate_annual: string
+  origination_fee_pct: string
+  loan_term_months: string
+}
 
 type OriginationTabProps = {
-  project: Project & { lifecycle_stage: LifecycleStage }
+  project?: Project & { lifecycle_stage: LifecycleStage }
   budgets: Budget[]
+  isNew?: boolean
+  onSave?: (projectId: string) => void
+  onCancel?: () => void
   onBudgetImported?: () => void
 }
 
-export function OriginationTab({ project, budgets, onBudgetImported }: OriginationTabProps) {
+export function OriginationTab({ 
+  project, 
+  budgets, 
+  isNew = false,
+  onSave,
+  onCancel,
+  onBudgetImported 
+}: OriginationTabProps) {
+  const [isEditing, setIsEditing] = useState(isNew)
   const [showBudgetImport, setShowBudgetImport] = useState(false)
+  const [saving, setSaving] = useState(false)
+  
+  // Form state
+  const [formData, setFormData] = useState<FormData>({
+    name: '',
+    subdivision_name: '',
+    lot_number: '',
+    builder_name: '',
+    borrower_name: '',
+    address: '',
+    loan_amount: '',
+    appraised_value: '',
+    sales_price: '',
+    square_footage: '',
+    interest_rate_annual: (DEFAULT_TERMS.interest_rate_annual * 100).toString(),
+    origination_fee_pct: (DEFAULT_TERMS.origination_fee_pct * 100).toString(),
+    loan_term_months: DEFAULT_TERMS.loan_term_months.toString(),
+  })
+
+  // Initialize form data from project when not new
+  useEffect(() => {
+    if (project && !isNew) {
+      setFormData({
+        name: project.name || '',
+        subdivision_name: project.subdivision_name || '',
+        lot_number: project.lot_number || '',
+        builder_name: project.builder_name || '',
+        borrower_name: project.borrower_name || '',
+        address: project.address || '',
+        loan_amount: project.loan_amount?.toString() || '',
+        appraised_value: project.appraised_value?.toString() || '',
+        sales_price: project.sales_price?.toString() || '',
+        square_footage: project.square_footage?.toString() || '',
+        interest_rate_annual: project.interest_rate_annual 
+          ? (project.interest_rate_annual * 100).toString() 
+          : (DEFAULT_TERMS.interest_rate_annual * 100).toString(),
+        origination_fee_pct: project.origination_fee_pct 
+          ? (project.origination_fee_pct * 100).toString() 
+          : (DEFAULT_TERMS.origination_fee_pct * 100).toString(),
+        loan_term_months: project.loan_term_months?.toString() || DEFAULT_TERMS.loan_term_months.toString(),
+      })
+    }
+  }, [project, isNew])
+
+  // Auto-generate project code
+  const projectCode = useMemo(() => {
+    return generateProjectCode(formData.subdivision_name, formData.lot_number)
+  }, [formData.subdivision_name, formData.lot_number])
 
   const formatCurrency = (amount: number | null) => {
     if (amount === null || amount === undefined) return '—'
@@ -26,14 +113,19 @@ export function OriginationTab({ project, budgets, onBudgetImported }: Originati
 
   // Calculate metrics
   const totalBudget = budgets.reduce((sum, b) => sum + (b.current_amount || 0), 0)
-  const ltvRatio = project.appraised_value && project.loan_amount 
-    ? (project.loan_amount / project.appraised_value) * 100 
+  
+  const loanAmountNum = parseFloat(formData.loan_amount) || 0
+  const appraisedValueNum = parseFloat(formData.appraised_value) || 0
+  const squareFootageNum = parseFloat(formData.square_footage) || 0
+  
+  const ltvRatio = appraisedValueNum > 0 && loanAmountNum > 0
+    ? (loanAmountNum / appraisedValueNum) * 100 
     : null
-  const costPerSqft = project.square_footage && project.loan_amount
-    ? project.loan_amount / project.square_footage
+  const costPerSqft = squareFootageNum > 0 && loanAmountNum > 0
+    ? loanAmountNum / squareFootageNum
     : null
 
-  const isPending = project.lifecycle_stage === 'pending'
+  const isPending = project?.lifecycle_stage === 'pending' || isNew
 
   // LTV gauge color
   const getLtvColor = (ltv: number) => {
@@ -42,9 +134,212 @@ export function OriginationTab({ project, budgets, onBudgetImported }: Originati
     return 'var(--error)'
   }
 
+  const handleInputChange = (field: keyof FormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleSave = async () => {
+    if (!formData.name.trim()) {
+      toast({ type: 'error', title: 'Error', message: 'Loan name is required' })
+      return
+    }
+
+    setSaving(true)
+    try {
+      const projectData = {
+        name: formData.name.trim(),
+        project_code: projectCode || null,
+        subdivision_name: formData.subdivision_name.trim() || null,
+        lot_number: formData.lot_number.trim() || null,
+        builder_name: formData.builder_name.trim() || null,
+        borrower_name: formData.borrower_name.trim() || null,
+        address: formData.address.trim() || null,
+        loan_amount: formData.loan_amount ? parseFloat(formData.loan_amount) : null,
+        appraised_value: formData.appraised_value ? parseFloat(formData.appraised_value) : null,
+        sales_price: formData.sales_price ? parseFloat(formData.sales_price) : null,
+        square_footage: formData.square_footage ? parseFloat(formData.square_footage) : null,
+        interest_rate_annual: formData.interest_rate_annual 
+          ? parseFloat(formData.interest_rate_annual) / 100 
+          : DEFAULT_TERMS.interest_rate_annual,
+        origination_fee_pct: formData.origination_fee_pct 
+          ? parseFloat(formData.origination_fee_pct) / 100 
+          : DEFAULT_TERMS.origination_fee_pct,
+        loan_term_months: formData.loan_term_months 
+          ? parseInt(formData.loan_term_months) 
+          : DEFAULT_TERMS.loan_term_months,
+      }
+
+      if (isNew) {
+        // Create new project
+        const { data, error } = await supabase
+          .from('projects')
+          .insert({
+            ...projectData,
+            status: 'active',
+            lifecycle_stage: 'pending',
+          })
+          .select('id')
+          .single()
+
+        if (error) throw error
+
+        toast({ type: 'success', title: 'Success', message: 'Loan created successfully' })
+        onSave?.(data.id)
+      } else if (project) {
+        // Update existing project
+        const { error } = await supabase
+          .from('projects')
+          .update(projectData)
+          .eq('id', project.id)
+
+        if (error) throw error
+
+        toast({ type: 'success', title: 'Success', message: 'Loan updated successfully' })
+        setIsEditing(false)
+        onBudgetImported?.() // Refresh data
+      }
+    } catch (err: any) {
+      console.error('Save error:', err)
+      toast({ type: 'error', title: 'Error', message: err.message || 'Failed to save loan' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleCancel = () => {
+    if (isNew) {
+      onCancel?.()
+    } else {
+      // Reset form to original values
+      if (project) {
+        setFormData({
+          name: project.name || '',
+          subdivision_name: project.subdivision_name || '',
+          lot_number: project.lot_number || '',
+          builder_name: project.builder_name || '',
+          borrower_name: project.borrower_name || '',
+          address: project.address || '',
+          loan_amount: project.loan_amount?.toString() || '',
+          appraised_value: project.appraised_value?.toString() || '',
+          sales_price: project.sales_price?.toString() || '',
+          square_footage: project.square_footage?.toString() || '',
+          interest_rate_annual: project.interest_rate_annual 
+            ? (project.interest_rate_annual * 100).toString() 
+            : (DEFAULT_TERMS.interest_rate_annual * 100).toString(),
+          origination_fee_pct: project.origination_fee_pct 
+            ? (project.origination_fee_pct * 100).toString() 
+            : (DEFAULT_TERMS.origination_fee_pct * 100).toString(),
+          loan_term_months: project.loan_term_months?.toString() || DEFAULT_TERMS.loan_term_months.toString(),
+        })
+      }
+      setIsEditing(false)
+    }
+  }
+
+  // Render a field - either as input (edit mode) or as static text (view mode)
+  const renderField = (
+    label: string, 
+    field: keyof FormData, 
+    type: 'text' | 'currency' | 'percent' | 'number' = 'text',
+    placeholder?: string
+  ) => {
+    const value = formData[field]
+    
+    if (!isEditing) {
+      // View mode - static display
+      let displayValue: string = '—'
+      if (value) {
+        if (type === 'currency') {
+          displayValue = formatCurrency(parseFloat(value))
+        } else if (type === 'percent') {
+          displayValue = `${value}%`
+        } else if (type === 'number' && field === 'square_footage') {
+          displayValue = `${parseInt(value).toLocaleString()} sq ft`
+        } else if (field === 'loan_term_months') {
+          displayValue = `${value} months`
+        } else {
+          displayValue = value
+        }
+      }
+      
+      return (
+        <div>
+          <div style={{ color: 'var(--text-muted)' }}>{label}</div>
+          <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+            {displayValue}
+          </div>
+        </div>
+      )
+    }
+
+    // Edit mode - input field
+    return (
+      <div>
+        <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
+          {label}
+        </label>
+        <div className="relative">
+          {type === 'currency' && (
+            <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>$</span>
+          )}
+          <input
+            type={type === 'text' ? 'text' : 'number'}
+            value={value}
+            onChange={(e) => handleInputChange(field, e.target.value)}
+            placeholder={placeholder}
+            className="input w-full"
+            style={{ 
+              paddingLeft: type === 'currency' ? '1.75rem' : undefined,
+              paddingRight: type === 'percent' ? '2rem' : undefined,
+            }}
+          />
+          {type === 'percent' && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>%</span>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      {/* Qualification Metrics */}
+      {/* Header with Edit/Save buttons */}
+      {!isNew && (
+        <div className="flex justify-end">
+          {isEditing ? (
+            <div className="flex gap-2">
+              <button 
+                onClick={handleCancel}
+                className="btn-secondary"
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSave}
+                className="btn-primary"
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          ) : (
+            isPending && (
+              <button 
+                onClick={() => setIsEditing(true)}
+                className="btn-secondary flex items-center gap-1.5"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit
+              </button>
+            )
+          )}
+        </div>
+      )}
+
+      {/* Qualification Metrics - Always visible */}
       <div className="grid grid-cols-3 gap-4">
         {/* LTV Ratio */}
         <div className="card-ios">
@@ -85,9 +380,9 @@ export function OriginationTab({ project, budgets, onBudgetImported }: Originati
           <div className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
             {costPerSqft ? `$${costPerSqft.toFixed(0)}` : '—'}
           </div>
-          {project.square_footage && (
+          {squareFootageNum > 0 && (
             <div className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>
-              {project.square_footage.toLocaleString()} sq ft
+              {squareFootageNum.toLocaleString()} sq ft
             </div>
           )}
         </div>
@@ -106,166 +401,91 @@ export function OriginationTab({ project, budgets, onBudgetImported }: Originati
 
       {/* Project Details */}
       <div className="card-ios">
-        <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Project Details</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-          <div>
-            <div style={{ color: 'var(--text-muted)' }}>Builder</div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-              {project.builder_name || '—'}
-            </div>
-          </div>
-          <div>
-            <div style={{ color: 'var(--text-muted)' }}>Borrower</div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-              {project.borrower_name || '—'}
-            </div>
-          </div>
-          <div>
-            <div style={{ color: 'var(--text-muted)' }}>Address</div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-              {project.address || '—'}
-            </div>
-          </div>
-          <div>
-            <div style={{ color: 'var(--text-muted)' }}>Subdivision</div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-              {project.subdivision_name || '—'}
-            </div>
-          </div>
-          <div>
-            <div style={{ color: 'var(--text-muted)' }}>Loan Amount</div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-              {formatCurrency(project.loan_amount)}
-            </div>
-          </div>
-          <div>
-            <div style={{ color: 'var(--text-muted)' }}>Appraised Value</div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-              {formatCurrency(project.appraised_value)}
-            </div>
-          </div>
-          <div>
-            <div style={{ color: 'var(--text-muted)' }}>Sales Price</div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-              {formatCurrency(project.sales_price)}
-            </div>
-          </div>
-          <div>
-            <div style={{ color: 'var(--text-muted)' }}>Interest Rate</div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-              {project.interest_rate_annual 
-                ? `${(project.interest_rate_annual * 100).toFixed(2)}%` 
-                : '—'}
-            </div>
-          </div>
-          <div>
-            <div style={{ color: 'var(--text-muted)' }}>Term</div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-              {project.loan_term_months ? `${project.loan_term_months} months` : '—'}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Budget Section */}
-      <div className="card-ios p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-subtle)' }}>
-          <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Budget</h3>
-          {isPending && (
-            <button 
-              onClick={() => setShowBudgetImport(true)}
-              className="btn-secondary text-sm flex items-center gap-1.5"
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Loan Details</h3>
+          {projectCode && (
+            <span 
+              className="px-3 py-1 rounded-full text-sm font-mono font-medium"
+              style={{ background: 'var(--bg-hover)', color: 'var(--accent)' }}
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Upload Budget
-            </button>
+              {projectCode}
+            </span>
           )}
         </div>
-
-        {budgets.length === 0 ? (
-          <div className="text-center py-12">
-            <div 
-              className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center"
-              style={{ background: 'var(--bg-hover)' }}
-            >
-              <svg className="w-6 h-6" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <p className="mb-3" style={{ color: 'var(--text-muted)' }}>No budget uploaded yet</p>
-            {isPending && (
-              <button 
-                onClick={() => setShowBudgetImport(true)}
-                className="btn-primary"
-              >
-                Upload Budget
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="max-h-96 overflow-y-auto">
-            <table className="w-full">
-              <thead className="sticky top-0" style={{ background: 'var(--bg-secondary)' }}>
-                <tr>
-                  <th className="table-header">Category</th>
-                  <th className="table-header text-right">Budget</th>
-                  <th className="table-header">NAHB Code</th>
-                </tr>
-              </thead>
-              <tbody>
-                {budgets.map((budget) => (
-                  <tr key={budget.id} className="table-row">
-                    <td className="table-cell">
-                      <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                        {budget.category}
-                      </div>
-                      {budget.builder_category_raw && budget.builder_category_raw !== budget.category && (
-                        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                          {budget.builder_category_raw}
-                        </div>
-                      )}
-                    </td>
-                    <td className="table-cell text-right font-medium">
-                      {formatCurrency(budget.current_amount)}
-                    </td>
-                    <td className="table-cell" style={{ color: 'var(--text-muted)' }}>
-                      {budget.cost_code || '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr style={{ background: 'var(--bg-hover)' }}>
-                  <td className="table-cell font-semibold">Total</td>
-                  <td className="table-cell text-right font-semibold">
-                    {formatCurrency(totalBudget)}
-                  </td>
-                  <td className="table-cell"></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+          {renderField('Loan Name', 'name', 'text', 'Enter loan name')}
+          {renderField('Subdivision', 'subdivision_name', 'text', 'e.g., Discovery West')}
+          {renderField('Lot Number', 'lot_number', 'text', 'e.g., 244')}
+          {renderField('Builder', 'builder_name', 'text', 'Builder name')}
+          {renderField('Borrower', 'borrower_name', 'text', 'Borrower name')}
+          {renderField('Address', 'address', 'text', 'Property address')}
+          {renderField('Loan Amount', 'loan_amount', 'currency', '0')}
+          {renderField('Appraised Value', 'appraised_value', 'currency', '0')}
+          {renderField('Sales Price', 'sales_price', 'currency', '0')}
+          {renderField('Square Footage', 'square_footage', 'number', '0')}
+          {renderField('Interest Rate', 'interest_rate_annual', 'percent', '11')}
+          {renderField('Origination Fee', 'origination_fee_pct', 'percent', '2')}
+          {renderField('Term', 'loan_term_months', 'number', '12')}
+        </div>
       </div>
 
-      {/* Budget Import Modal */}
-      <ImportPreview
-        isOpen={showBudgetImport}
-        onClose={() => setShowBudgetImport(false)}
-        onSuccess={() => {
-          setShowBudgetImport(false)
-          toast({
-            type: 'success',
-            title: 'Budget Submitted',
-            message: 'Budget sent for processing. Refresh in a moment to see updates.'
-          })
-          onBudgetImported?.()
-        }}
-        importType="budget"
-        preselectedProjectId={project.id}
-      />
+      {/* Save/Cancel for New Loan */}
+      {isNew && (
+        <div className="flex justify-end gap-3">
+          <button 
+            onClick={handleCancel}
+            className="btn-secondary"
+            disabled={saving}
+          >
+            Cancel
+          </button>
+          <button 
+            onClick={handleSave}
+            className="btn-primary"
+            disabled={saving}
+          >
+            {saving ? 'Creating...' : 'Create Loan'}
+          </button>
+        </div>
+      )}
+
+      {/* Documents Section - Only show after loan is created */}
+      {!isNew && project && (
+        <DocumentUploadSection 
+          projectId={project.id}
+          onDocumentChange={onBudgetImported}
+        />
+      )}
+
+      {/* Budget Section - Only show after loan is created */}
+      {!isNew && project && (
+        <>
+          <BudgetEditor
+            budgets={budgets}
+            projectId={project.id}
+            isEditing={isEditing || isPending}
+            onBudgetsChange={onBudgetImported}
+            onUploadClick={() => setShowBudgetImport(true)}
+          />
+
+          {/* Budget Import Modal */}
+          <ImportPreview
+            isOpen={showBudgetImport}
+            onClose={() => setShowBudgetImport(false)}
+            onSuccess={() => {
+              setShowBudgetImport(false)
+              toast({
+                type: 'success',
+                title: 'Budget Submitted',
+                message: 'Budget sent for processing. Refresh in a moment to see updates.'
+              })
+              onBudgetImported?.()
+            }}
+            importType="budget"
+            preselectedProjectId={project.id}
+          />
+        </>
+      )}
     </div>
   )
 }

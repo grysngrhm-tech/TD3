@@ -1,122 +1,64 @@
 'use client'
 
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import { ProjectInsert } from '@/types/database'
+import { OriginationTab } from '@/app/components/projects/OriginationTab'
 
-export default function NewProjectPage() {
+export default function NewLoanPage() {
   const router = useRouter()
-  const [name, setName] = useState('')
-  const [address, setAddress] = useState('')
-  const [loanAmount, setLoanAmount] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+  const handleSave = (projectId: string) => {
+    // Navigate to the newly created project
+    router.push(`/projects/${projectId}`)
+  }
 
-    if (!name.trim()) {
-      setError('Project name is required')
-      return
-    }
-
-    setSaving(true)
-
-    try {
-      const project: ProjectInsert = {
-        name: name.trim(),
-        address: address.trim() || null,
-        loan_amount: loanAmount ? parseFloat(loanAmount) : null,
-        status: 'active',
-      }
-
-      const { error: insertError } = await supabase
-        .from('projects')
-        .insert(project)
-
-      if (insertError) throw insertError
-
-      router.push('/projects')
-    } catch (err: any) {
-      setError(err.message || 'Failed to create project')
-    } finally {
-      setSaving(false)
-    }
+  const handleCancel = () => {
+    router.push('/')
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">New Project</h1>
-        <p className="text-slate-600 mt-1">Create a new construction project</p>
+    <div className="min-h-[calc(100vh-3.5rem)]" style={{ background: 'var(--bg-primary)' }}>
+      {/* Header */}
+      <div className="border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-secondary)' }}>
+        <div className="max-w-6xl mx-auto px-6 py-6">
+          {/* Back button */}
+          <button 
+            onClick={handleCancel}
+            className="flex items-center gap-1 text-sm mb-4 transition-colors hover:opacity-70"
+            style={{ color: 'var(--accent)' }}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Dashboard
+          </button>
+
+          {/* Title */}
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+              New Loan
+            </h1>
+            <span 
+              className="px-3 py-1 rounded-full text-sm font-medium"
+              style={{ background: 'rgba(251, 191, 36, 0.1)', color: 'var(--warning)' }}
+            >
+              In Origination
+            </span>
+          </div>
+          <p className="mt-1" style={{ color: 'var(--text-muted)' }}>
+            Fill in the loan details to get started
+          </p>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="card space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Project Name *
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g., 123 Main Street Renovation"
-            className="input"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Property Address
-          </label>
-          <input
-            type="text"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="e.g., 123 Main Street, City, State 12345"
-            className="input"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Loan Amount
-          </label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
-            <input
-              type="number"
-              value={loanAmount}
-              onChange={(e) => setLoanAmount(e.target.value)}
-              placeholder="0.00"
-              min="0"
-              step="0.01"
-              className="input pl-8"
-            />
-          </div>
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            {error}
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex gap-4 justify-end pt-4">
-          <a href="/projects" className="btn-secondary">
-            Cancel
-          </a>
-          <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? 'Creating...' : 'Create Project'}
-          </button>
-        </div>
-      </form>
+      {/* Content */}
+      <div className="max-w-6xl mx-auto px-6 py-6">
+        <OriginationTab 
+          budgets={[]}
+          isNew={true}
+          onSave={handleSave}
+          onCancel={handleCancel}
+        />
+      </div>
     </div>
   )
 }
-

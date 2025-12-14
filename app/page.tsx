@@ -7,7 +7,6 @@ import { FilterSidebar } from '@/app/components/ui/FilterSidebar'
 import { ProjectTile } from '@/app/components/ui/ProjectTile'
 import { StageSelector } from '@/app/components/ui/StageSelector'
 import { ImportPreview } from '@/app/components/import/ImportPreview'
-import { NewProjectModal } from '@/app/components/projects/NewProjectModal'
 import { toast } from '@/app/components/ui/Toast'
 import { useFilters } from '@/app/hooks/useFilters'
 import type { LifecycleStage } from '@/types/database'
@@ -37,7 +36,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [selectedStage, setSelectedStage] = useState<LifecycleStage>('active')
   const [importModal, setImportModal] = useState<'budget' | 'draw' | null>(null)
-  const [showNewProjectModal, setShowNewProjectModal] = useState(false)
   const { filters, toggleFilter, clearAll } = useFilters()
 
   useEffect(() => {
@@ -254,7 +252,7 @@ export default function Dashboard() {
             <div className="flex-1" />
             <div className="flex items-center gap-2">
               <button 
-                onClick={() => setShowNewProjectModal(true)}
+                onClick={() => router.push('/projects/new')}
                 className="btn-secondary flex items-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -300,7 +298,7 @@ export default function Dashboard() {
                       : 'No completed loans yet'}
               </p>
               {selectedStage === 'pending' && (
-                <button onClick={() => setShowNewProjectModal(true)} className="btn-primary">
+                <button onClick={() => router.push('/projects/new')} className="btn-primary">
                   New Loan
                 </button>
               )}
@@ -340,21 +338,6 @@ export default function Dashboard() {
         onClose={() => setImportModal(null)}
         onSuccess={handleImportSuccess}
         importType="draw"
-      />
-
-      {/* New Project Modal */}
-      <NewProjectModal
-        isOpen={showNewProjectModal}
-        onClose={() => setShowNewProjectModal(false)}
-        onSuccess={() => {
-          toast({
-            type: 'success',
-            title: 'Loan Created',
-            message: 'New loan added to Pending. Go to the loan page to upload a budget.'
-          })
-          setSelectedStage('pending')
-          loadProjects()
-        }}
       />
     </div>
   )

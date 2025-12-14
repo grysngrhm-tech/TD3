@@ -140,6 +140,7 @@ export type Database = {
       }
       documents: {
         Row: {
+          document_type: string | null
           draw_request_id: string | null
           file_hash: string | null
           file_name: string
@@ -153,6 +154,7 @@ export type Database = {
           uploaded_at: string | null
         }
         Insert: {
+          document_type?: string | null
           draw_request_id?: string | null
           file_hash?: string | null
           file_name: string
@@ -166,6 +168,7 @@ export type Database = {
           uploaded_at?: string | null
         }
         Update: {
+          document_type?: string | null
           draw_request_id?: string | null
           file_hash?: string | null
           file_name?: string
@@ -537,4 +540,25 @@ export type ProjectWithBudget = Project & {
   lifecycle_stage: LifecycleStage
   total_budget: number
   total_spent: number
+}
+
+// Document Types for origination
+export type DocumentType = 'floorplan' | 'valuation' | 'loan_agreement' | 'insurance' | 'other'
+
+export const DOCUMENT_TYPES: { id: DocumentType; label: string }[] = [
+  { id: 'floorplan', label: 'Floor Plans / Construction Drawings' },
+  { id: 'valuation', label: 'Valuation Document' },
+  { id: 'loan_agreement', label: 'Loan Agreement' },
+  { id: 'insurance', label: 'Insurance Certificate' },
+  { id: 'other', label: 'Other Documents' },
+]
+
+// Default Term Sheet Values
+export const DEFAULT_TERM_SHEET = {
+  interest_rate_annual: 11, // 11%
+  origination_fee_pct: 2, // 2%
+  fee_escalation_pct: 0.25, // +0.25% per month after 6 months
+  fee_escalation_after_months: 6,
+  document_fee: 1000, // $1,000
+  loan_term_months: 12, // 12 months
 }
