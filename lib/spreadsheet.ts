@@ -1,8 +1,18 @@
 import * as XLSX from 'xlsx'
 
+// Cell styling information extracted from Excel
+export type CellStyle = {
+  bold?: boolean
+  borderTop?: boolean
+  borderBottom?: boolean
+  borderLeft?: boolean
+  borderRight?: boolean
+}
+
 export type SpreadsheetData = {
   headers: string[]
   rows: (string | number | null)[][]
+  styles: (CellStyle | null)[][]  // Parallel array of cell styles (includes header row at index 0)
   sheetName: string
 }
 
@@ -25,7 +35,8 @@ export async function getWorkbookInfo(file: File): Promise<WorkbookInfo> {
     reader.onload = (e) => {
       try {
         const data = e.target?.result
-        const workbook = XLSX.read(data, { type: 'binary' })
+        // Enable cellStyles to extract formatting (bold, borders)
+        const workbook = XLSX.read(data, { type: 'binary', cellStyles: true })
         
         const sheets: SheetInfo[] = workbook.SheetNames.map(name => {
           const sheet = workbook.Sheets[name]
@@ -69,7 +80,61 @@ export function parseSheet(workbook: XLSX.WorkBook, sheetName: string): Spreadsh
   const headers = (jsonData[0] as any[]).map(h => String(h || ''))
   const rows = jsonData.slice(1) as (string | number | null)[][]
   
-  return { headers, rows, sheetName }
+  // Extract cell styles (bold, borders)
+  const styles = extractCellStyles(sheet, jsonData.length, headers.length)
+  
+  return { headers, rows, styles, sheetName }
+}
+
+/**
+ * Extract cell styles from an Excel sheet
+ * Returns a 2D array of styles matching the data rows (including header at index 0)
+ */
+function extractCellStyles(
+  sheet: XLSX.WorkSheet, 
+  rowCount: number, 
+  colCount: number
+): (CellStyle | null)[][] {
+  const styles: (CellStyle | null)[][] = []
+  
+  for (let r = 0; r < rowCount; r++) {
+    const rowStyles: (CellStyle | null)[] = []
+    
+    for (let c = 0; c < colCount; c++) {
+      const cellAddress = XLSX.utils.encode_cell({ r, c })
+      const cell = sheet[cellAddress]
+      
+      if (cell && cell.s) {
+        const cellStyle: CellStyle = {}
+        
+        // Extract bold from font
+        if (cell.s.font?.bold) {
+          cellStyle.bold = true
+        }
+        
+        // Extract borders
+        if (cell.s.border) {
+          if (cell.s.border.top?.style) cellStyle.borderTop = true
+          if (cell.s.border.bottom?.style) cellStyle.borderBottom = true
+          if (cell.s.border.left?.style) cellStyle.borderLeft = true
+          if (cell.s.border.right?.style) cellStyle.borderRight = true
+        }
+        
+        // Only add style if it has any properties
+        if (Object.keys(cellStyle).length > 0) {
+          rowStyles.push(cellStyle)
+        } else {
+          rowStyles.push(null)
+        }
+      } else {
+        rowStyles.push(null)
+      }
+    }
+    
+    styles.push(rowStyles)
+  }
+  
+  return styles
 }
 
 // Legacy function for backwards compatibility
@@ -215,112 +280,96 @@ const CLOSING_COST_KEYWORDS = [
   'origination', 'discount points', 'prepaid'
 ]
 
-// Keywords that indicate a valid budget line (contingency is often the last real item)
-const VALID_BUDGET_MARKERS = [
-  'contingency', 'contingencies', 'reserve', 'allowance'
+// Keywords that indicate a header row (should skip these for start row)
+const HEADER_KEYWORDS = [
+  'item', 'description', 'category', 'budget', 'amount',
+  'cost', 'rough', 'final', 'adjust', 'column', 'header',
+  'line item', 'expense', 'name'
 ]
 
 /**
- * Detect row boundaries for import
- * Start: First row with non-empty category AND non-zero amount
- * End: Row before totals/closing costs, or after contingency if found
+ * Detect row boundaries for import using smarter logic:
+ * - Start: First row with category text that's NOT a header keyword
+ * - End: Scan backwards from last row with category, stop at totals/closing costs
+ * - Don't require amounts - rows with category but no amount are valid placeholders
  */
 export function detectRowBoundaries(
   rows: (string | number | null)[][],
   mappings: ColumnMapping[]
 ): RowRange {
   const categoryCol = mappings.find(m => m.mappedTo === 'category')
-  const amountCol = mappings.find(m => m.mappedTo === 'amount')
   
-  if (!categoryCol || !amountCol) {
+  if (!categoryCol) {
     // Fallback: return all rows
     return { startRow: 0, endRow: Math.max(0, rows.length - 1) }
   }
   
-  let startRow = 0
-  let endRow = rows.length - 1
-  let runningTotal = 0
-  let lastValidBudgetRow = -1
-  let contingencyRow = -1
+  const catIndex = categoryCol.columnIndex
   
-  // Find start row (first row with category AND amount)
+  // Helper to check if a category string looks like a header
+  const isHeaderRow = (catStr: string): boolean => {
+    const lower = catStr.toLowerCase()
+    // Check if it matches header keywords exactly or closely
+    return HEADER_KEYWORDS.some(kw => {
+      // Exact match or the category is just the keyword
+      if (lower === kw) return true
+      // Category starts with keyword and is short (likely a header)
+      if (lower.startsWith(kw) && lower.length < kw.length + 5) return true
+      return false
+    })
+  }
+  
+  // Helper to check if a category string is a total/closing cost
+  const isTotalOrClosingCost = (catStr: string): boolean => {
+    const lower = catStr.toLowerCase()
+    return TOTAL_KEYWORDS.some(kw => lower.includes(kw)) ||
+           CLOSING_COST_KEYWORDS.some(kw => lower.includes(kw))
+  }
+  
+  // STEP 1: Find START row - first row with category text that's NOT a header
+  let startRow = 0
   for (let i = 0; i < rows.length; i++) {
-    const category = rows[i][categoryCol.columnIndex]
-    const amount = parseAmountValue(rows[i][amountCol.columnIndex])
+    const category = rows[i][catIndex]
+    const catStr = category ? String(category).trim() : ''
     
-    if (category && String(category).trim() && amount !== 0) {
+    if (catStr && !isHeaderRow(catStr) && !isTotalOrClosingCost(catStr)) {
       startRow = i
       break
     }
   }
   
-  // Scan through rows to find end boundary
-  for (let i = startRow; i < rows.length; i++) {
-    const category = rows[i][categoryCol.columnIndex]
-    const categoryStr = category ? String(category).trim().toLowerCase() : ''
-    const amount = parseAmountValue(rows[i][amountCol.columnIndex])
+  // STEP 2: Find END row by scanning BACKWARDS
+  // First, find the last row that has ANY category text
+  let lastRowWithCategory = -1
+  for (let i = rows.length - 1; i >= startRow; i--) {
+    const category = rows[i][catIndex]
+    const catStr = category ? String(category).trim() : ''
     
-    // Check if this is a contingency/reserve row (valid budget item, often last)
-    if (categoryStr && VALID_BUDGET_MARKERS.some(kw => categoryStr.includes(kw))) {
-      contingencyRow = i
-      lastValidBudgetRow = i
-      runningTotal += amount
-      continue
-    }
-    
-    // Check if this looks like a total row
-    if (categoryStr && TOTAL_KEYWORDS.some(kw => categoryStr.includes(kw))) {
-      // Stop before this row
-      endRow = i - 1
+    if (catStr) {
+      lastRowWithCategory = i
       break
-    }
-    
-    // Check if this looks like a closing cost item
-    if (categoryStr && CLOSING_COST_KEYWORDS.some(kw => categoryStr.includes(kw))) {
-      // Stop before this row
-      endRow = i - 1
-      break
-    }
-    
-    // Check if this row's amount is suspiciously large (>50% of running total = likely a total)
-    if (amount > 0 && runningTotal > 0 && amount > runningTotal * 0.5 && i > startRow + 5) {
-      // This might be a total row - stop before it
-      endRow = i - 1
-      break
-    }
-    
-    // Track valid budget rows
-    if (categoryStr && amount !== 0) {
-      lastValidBudgetRow = i
-      runningTotal += Math.abs(amount)
-    }
-    
-    // If we hit empty rows after valid data, might be end of budget
-    if (!categoryStr && amount === 0 && lastValidBudgetRow >= 0) {
-      // Count consecutive empty rows
-      let emptyCount = 0
-      for (let j = i; j < Math.min(i + 3, rows.length); j++) {
-        const cat = rows[j][categoryCol.columnIndex]
-        const amt = parseAmountValue(rows[j][amountCol.columnIndex])
-        if (!cat || !String(cat).trim()) emptyCount++
-        else break
-      }
-      // If 2+ empty rows, stop here
-      if (emptyCount >= 2) {
-        endRow = lastValidBudgetRow
-        break
-      }
     }
   }
   
-  // If we found contingency and it's near the detected end, use it as the end
-  if (contingencyRow >= 0 && contingencyRow >= endRow - 2) {
-    endRow = contingencyRow
+  if (lastRowWithCategory < 0) {
+    // No categories found at all
+    return { startRow: 0, endRow: Math.max(0, rows.length - 1) }
   }
   
-  // Use lastValidBudgetRow if endRow seems too short
-  if (lastValidBudgetRow > endRow) {
-    endRow = lastValidBudgetRow
+  // STEP 3: From that last row, work backwards to find first non-total/non-closing-cost row
+  let endRow = lastRowWithCategory
+  for (let i = lastRowWithCategory; i >= startRow; i--) {
+    const category = rows[i][catIndex]
+    const catStr = category ? String(category).trim() : ''
+    
+    if (catStr && !isTotalOrClosingCost(catStr)) {
+      endRow = i
+      break
+    }
+    // If this row is a total/closing cost, keep moving backwards
+    if (catStr && isTotalOrClosingCost(catStr)) {
+      endRow = i - 1
+    }
   }
   
   // Ensure valid range

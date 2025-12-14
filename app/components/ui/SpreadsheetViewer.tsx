@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { SpreadsheetData, ColumnMapping, RowRange } from '@/lib/spreadsheet'
+import type { SpreadsheetData, ColumnMapping, RowRange, CellStyle } from '@/lib/spreadsheet'
 
 type SpreadsheetViewerProps = {
   data: SpreadsheetData
@@ -10,6 +10,7 @@ type SpreadsheetViewerProps = {
   rowRange: RowRange | null
   onMappingChange: (columnIndex: number, newMapping: ColumnMapping['mappedTo']) => void
   onRowRangeChange: (range: RowRange) => void
+  onResetRowRange?: () => void  // Optional callback to reset to auto-detected range
   maxRows?: number
 }
 
@@ -51,6 +52,7 @@ export function SpreadsheetViewer({
   rowRange,
   onMappingChange,
   onRowRangeChange,
+  onResetRowRange,
   maxRows = 100
 }: SpreadsheetViewerProps) {
   const [selectedColumn, setSelectedColumn] = useState<number | null>(null)
@@ -187,6 +189,19 @@ export function SpreadsheetViewer({
             <span style={{ color: 'var(--text-muted)' }}>
               ({rowRange.endRow - rowRange.startRow + 1} selected)
             </span>
+            {onResetRowRange && (
+              <button
+                onClick={onResetRowRange}
+                className="px-2 py-0.5 rounded text-xs hover:opacity-80 transition-opacity"
+                style={{ 
+                  background: 'var(--accent-glow)', 
+                  color: 'var(--accent)'
+                }}
+                title="Reset row selection to auto-detected range"
+              >
+                Reset to Auto
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -215,6 +230,9 @@ export function SpreadsheetViewer({
                 const hasMapping = mapping?.mappedTo && mapping.mappedTo !== 'ignore'
                 const mappingType = mapping?.mappedTo
                 
+                // Get header cell style (index 0 in styles array)
+                const headerStyle = data.styles?.[0]?.[index]
+                
                 // Header background
                 let headerBg = 'var(--bg-secondary)'
                 let borderColor = 'var(--border)'
@@ -231,13 +249,15 @@ export function SpreadsheetViewer({
                   <th
                     key={index}
                     onClick={() => handleColumnClick(index)}
-                    className="px-2 py-1.5 text-left font-medium cursor-pointer select-none whitespace-nowrap"
+                    className="px-2 py-1.5 text-left cursor-pointer select-none whitespace-nowrap"
                     style={{ 
                       background: headerBg,
                       color: 'var(--text-primary)',
                       borderBottom: `2px solid ${borderColor}`,
+                      borderRight: headerStyle?.borderRight ? '1px solid var(--border)' : undefined,
                       minWidth: '80px',
-                      maxWidth: '150px'
+                      maxWidth: '150px',
+                      fontWeight: headerStyle?.bold ? 700 : 500
                     }}
                   >
                     <div className="flex items-center gap-1.5">
@@ -287,6 +307,9 @@ export function SpreadsheetViewer({
                     const value = row[colIndex]
                     const cellBg = getCellBackground(colIndex, rowIndex)
                     
+                    // Get cell style (data row 0 = styles index 1, etc.)
+                    const cellStyle = data.styles?.[rowIndex + 1]?.[colIndex]
+                    
                     return (
                       <td
                         key={colIndex}
@@ -294,8 +317,12 @@ export function SpreadsheetViewer({
                         style={{ 
                           background: cellBg,
                           color: 'var(--text-secondary)',
-                          borderBottom: '1px solid var(--border-subtle)',
-                          maxWidth: '150px'
+                          borderBottom: cellStyle?.borderBottom ? '1px solid var(--border)' : '1px solid var(--border-subtle)',
+                          borderTop: cellStyle?.borderTop ? '1px solid var(--border)' : undefined,
+                          borderRight: cellStyle?.borderRight ? '1px solid var(--border)' : undefined,
+                          borderLeft: cellStyle?.borderLeft ? '1px solid var(--border)' : undefined,
+                          maxWidth: '150px',
+                          fontWeight: cellStyle?.bold ? 600 : 400
                         }}
                         title={value != null ? String(value) : ''}
                       >
