@@ -237,11 +237,15 @@ TD3 is currently in active development.
 - ✅ Project management dashboard with iOS-style dark mode UI
 - ✅ Budget and Draw upload with smart column detection
 - ✅ Interactive spreadsheet preview and column mapping
-- ✅ Webhook integration ready for n8n workflows
+- ✅ Webhook integration with n8n workflows
+- ✅ n8n Budget Import workflow with AI-powered NAHB categorization
+- ✅ MVP Project creation modal for testing
+- ✅ Invoice upload support (base64 encoding for webhook)
 
 **In Progress:**
-- 🔄 n8n workflow implementation for AI-powered categorization
-- 🔄 Invoice upload and automatic matching
+- 🔄 Draw Import workflow with invoice matching
+- 🔄 Full invoice-to-budget-line AI matching
+- 🔄 Approval workflow and validation engine
 
 ---
 

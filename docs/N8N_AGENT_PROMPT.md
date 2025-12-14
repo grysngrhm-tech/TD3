@@ -28,6 +28,99 @@ All technical details are documented in the TD3 repository:
 
 ---
 
+## IMPLEMENTATION STATUS (December 2024)
+
+### Working Workflows
+
+Both workflows have been built and tested successfully:
+
+| Workflow | n8n ID | Status | Webhook Path |
+|----------|--------|--------|--------------|
+| **TD3 - Budget Import** | `ItTSTOvkUTPMLsCq` | ✅ Active | `/budget-import` |
+| **TD3 - Draw Import** | `qmWPuH98SdwkV8iN` | ✅ Active | `/draw-import` |
+
+### Supabase Configuration
+
+- **Project ID:** `uewqcbmaiuofdfvqmbmq`
+- **Project URL:** `https://uewqcbmaiuofdfvqmbmq.supabase.co`
+- **n8n Credential Name:** `TD3 Supabase`
+
+### Critical Bug Fix: OpenAI Node Data Flow
+
+**Problem:** The n8n OpenAI node (Responses API) replaces item data with only `{ output: [...] }`. Original fields like `projectId`, `amount`, `category`, and `index` are lost.
+
+**Symptom:** Budget items inserted with `project_id: null`.
+
+**Solution:** In the "Flatten NAHB Mapping" Code node, reference the upstream node's data directly:
+
+```javascript
+// WRONG - base.projectId is undefined after OpenAI node
+const base = item.json;
+project_id: base.projectId  // Returns null!
+
+// CORRECT - Reference upstream node data by name
+const filterItems = $('Filter Valid Budget Items').all();
+const originalItem = filterItems[i]?.json || {};
+project_id: originalItem.projectId  // Works!
+```
+
+**Full Working Code for "Flatten NAHB Mapping" node:**
+```javascript
+// Extract AI output and combine with original item data from upstream node
+const outputItems = [];
+const filterItems = $('Filter Valid Budget Items').all();
+
+for (let i = 0; i < $input.all().length; i++) {
+  const item = $input.all()[i];
+  const originalItem = filterItems[i]?.json || {};
+  const aiOutput = item.json;
+  
+  // The AI output is in output[0].content[0].text as a JSON object
+  const mapping = aiOutput.output?.[0]?.content?.[0]?.text ?? {
+    nahb_code: 'UNKNOWN',
+    nahb_category: 'Unmapped',
+    nahb_subcategory: 'Unmapped',
+    confidence: 0.0
+  };
+  
+  outputItems.push({
+    json: {
+      project_id: originalItem.projectId,
+      category: mapping.nahb_subcategory || originalItem.category,
+      builder_category_raw: originalItem.category,
+      original_amount: originalItem.amount,
+      current_amount: originalItem.amount,
+      spent_amount: 0,
+      nahb_category: mapping.nahb_category,
+      nahb_subcategory: mapping.nahb_subcategory,
+      cost_code: mapping.nahb_code,
+      ai_confidence: mapping.confidence,
+      sort_order: (originalItem.index || 0) + 1
+    }
+  });
+}
+
+return outputItems;
+```
+
+### Frontend Updates Completed
+
+1. **Invoice Upload Support** - `ImportPreview.tsx` now supports base64-encoded PDF uploads
+2. **Project Creation Modal** - `NewProjectModal.tsx` provides MVP project creation
+3. **Exit Animations Fixed** - Radix Dialog + Framer Motion requires `AnimatePresence` wrapper and `forceMount` on `Dialog.Portal`
+
+### Environment Variables
+
+```bash
+# .env.local (and Vercel)
+NEXT_PUBLIC_SUPABASE_URL=https://uewqcbmaiuofdfvqmbmq.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+NEXT_PUBLIC_N8N_BUDGET_WEBHOOK=https://grysngrhm.app.n8n.cloud/webhook/budget-import
+NEXT_PUBLIC_N8N_DRAW_WEBHOOK=https://grysngrhm.app.n8n.cloud/webhook/draw-import
+```
+
+---
+
 ## Legacy Workflows (Reference Only)
 
 Two legacy workflows exist that demonstrate n8n patterns for this use case. **DO NOT reuse these directly** - they use n8n DataTables instead of Supabase, and have a different trigger mechanism (form upload vs webhook). However, they show the AI classification patterns you should follow.
@@ -684,19 +777,19 @@ Use this exact taxonomy in the classification prompt:
 ## Success Criteria
 
 ### Budget Import Workflow
-- [ ] Receives webhook POST at `/budget-import`
-- [ ] Filters out non-budget rows (headers, totals, empty)
-- [ ] Maps each category to NAHB codes with confidence scores
-- [ ] Inserts valid items into Supabase `budgets` table
-- [ ] Returns JSON response with import count
+- [x] Receives webhook POST at `/budget-import`
+- [x] Filters out non-budget rows (headers, totals, empty)
+- [x] Maps each category to NAHB codes with confidence scores
+- [x] Inserts valid items into Supabase `budgets` table
+- [x] Returns JSON response with import count
 
 ### Draw Import Workflow
-- [ ] Receives webhook POST at `/draw-import`
-- [ ] **Processes invoice PDFs through OpenAI Files API**
-- [ ] **Extracts vendor, amounts, and line items from invoices**
-- [ ] Fetches existing budgets for the project
-- [ ] **Matches invoice line items to draw categories using AI**
-- [ ] **Calculates variance between draw amounts and invoice amounts**
+- [x] Receives webhook POST at `/draw-import`
+- [ ] **Processes invoice PDFs through OpenAI Files API** (not yet tested)
+- [ ] **Extracts vendor, amounts, and line items from invoices** (not yet tested)
+- [x] Fetches existing budgets for the project
+- [ ] **Matches invoice line items to draw categories using AI** (not yet tested)
+- [ ] **Calculates variance between draw amounts and invoice amounts** (not yet tested)
 - [ ] Creates `draw_requests` record with matching report
 - [ ] Creates `draw_request_lines` records with invoice matching data
 - [ ] Updates `spent_amount` on matched budgets (when approved)
@@ -738,13 +831,62 @@ curl -X POST https://grysngrhm.app.n8n.cloud/webhook/draw-import \
 
 ---
 
-## Webapp UI Updates Needed
+## Webapp UI Updates Completed
 
-**Note:** The current webapp UI only supports spreadsheet upload. To fully support the draw import workflow with invoice processing, the webapp needs to be updated to:
+The webapp UI has been updated to support the n8n workflows:
 
-1. Add an invoice upload field to the Draw Import modal
-2. Support multiple file uploads (PDFs)
-3. Convert uploaded files to base64 for the webhook payload
-4. Display the matching report returned by the workflow
+1. ✅ Invoice upload field added to Draw Import modal (base64 encoding)
+2. ✅ Multiple file uploads supported (PDFs)
+3. ✅ Files converted to base64 for webhook payload
+4. ✅ Project creation modal (`NewProjectModal.tsx`) for MVP testing
+5. ✅ Exit animations fixed with `AnimatePresence` + `forceMount` pattern
 
-This is a separate task from the n8n workflow building.
+---
+
+## Troubleshooting Guide
+
+### Budget Import Shows Success But No Data in UI
+
+**Cause:** `project_id` is null in inserted records.
+
+**Fix:** Update the "Flatten NAHB Mapping" Code node to reference upstream data:
+```javascript
+const filterItems = $('Filter Valid Budget Items').all();
+const originalItem = filterItems[i]?.json || {};
+project_id: originalItem.projectId
+```
+
+### Supabase Connection Fails in n8n
+
+**Cause:** Incorrect host in Supabase credential.
+
+**Fix:** Ensure the Supabase credential host is `uewqcbmaiuofdfvqmbmq.supabase.co` (without `https://`).
+
+### Modal Exit Animations Not Working
+
+**Cause:** Radix UI Dialog unmounts content before Framer Motion can animate.
+
+**Fix:** Wrap `Dialog.Portal` with `AnimatePresence` and add `forceMount`:
+```tsx
+<Dialog.Root open={isOpen} onOpenChange={handleOpenChange}>
+  <AnimatePresence>
+    {isOpen && (
+      <Dialog.Portal forceMount>
+        <Dialog.Overlay asChild>
+          <motion.div exit={{ opacity: 0 }} ... />
+        </Dialog.Overlay>
+        <Dialog.Content asChild>
+          <motion.div exit={{ opacity: 0, scale: 0.98 }} ... />
+        </Dialog.Content>
+      </Dialog.Portal>
+    )}
+  </AnimatePresence>
+</Dialog.Root>
+```
+
+### Next.js Environment Variables Not Loading
+
+**Fix:** 
+1. Ensure variables are prefixed with `NEXT_PUBLIC_`
+2. Delete `.next` folder and restart dev server
+3. Check Vercel environment variables match local
