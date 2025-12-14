@@ -217,12 +217,21 @@ TD3 is currently in active development.
 
 **Completed:**
 - ✅ Project management dashboard with iOS-style dark mode UI
-- ✅ Budget and Draw upload with smart column detection
-- ✅ Interactive spreadsheet preview and column mapping
+- ✅ Loan lifecycle management (Pending → Active → Historic)
+- ✅ iOS-style stage selector to filter loans by lifecycle
+- ✅ Tabbed loan pages with progressive disclosure
+- ✅ New loan origination workflow with inline editing
+- ✅ Default term sheet integration
+- ✅ Document upload with categorized document types
+- ✅ Budget upload with smart column detection
+- ✅ Intelligent row boundary detection with visual classification
+- ✅ Excel formatting preservation (bold, borders)
+- ✅ Weighted keyword scoring for closing costs
+- ✅ Interactive row range controls (click, drag, keyboard)
+- ✅ Inline budget editor with NAHB code dropdowns
+- ✅ Auto-generated project codes (e.g., "DW-244")
 - ✅ Webhook integration with n8n workflows
 - ✅ n8n Budget Import workflow with AI-powered NAHB categorization
-- ✅ MVP Project creation modal for testing
-- ✅ Invoice upload support (base64 encoding for webhook)
 
 **In Progress:**
 - 🔄 Draw Import workflow with invoice matching
