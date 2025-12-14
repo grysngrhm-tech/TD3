@@ -74,7 +74,7 @@ export default function BudgetsPage() {
       original: acc.original + b.original_amount,
       current: acc.current + b.current_amount,
       spent: acc.spent + b.spent_amount,
-      remaining: acc.remaining + b.remaining_amount,
+      remaining: acc.remaining + (b.remaining_amount ?? 0),
     }),
     { original: 0, current: 0, spent: 0, remaining: 0 }
   )
@@ -163,13 +163,13 @@ export default function BudgetsPage() {
                     <td className="table-cell text-right">{formatCurrency(budget.original_amount)}</td>
                     <td className="table-cell text-right">{formatCurrency(budget.current_amount)}</td>
                     <td className="table-cell text-right text-emerald-600">{formatCurrency(budget.spent_amount)}</td>
-                    <td className="table-cell text-right font-medium">{formatCurrency(budget.remaining_amount)}</td>
+                    <td className="table-cell text-right font-medium">{formatCurrency(budget.remaining_amount ?? 0)}</td>
                     <td className="table-cell">
                       <div className="w-24 bg-slate-200 rounded-full h-2">
                         <div
-                          className={`h-2 rounded-full ${getProgressColor(budget.remaining_amount, budget.current_amount)}`}
+                          className={`h-2 rounded-full ${getProgressColor(budget.remaining_amount ?? 0, budget.current_amount)}`}
                           style={{
-                            width: `${budget.current_amount > 0 ? Math.min(100, ((budget.current_amount - budget.remaining_amount) / budget.current_amount) * 100) : 0}%`,
+                            width: `${budget.current_amount > 0 ? Math.min(100, ((budget.current_amount - (budget.remaining_amount ?? 0)) / budget.current_amount) * 100) : 0}%`,
                           }}
                         />
                       </div>

@@ -57,7 +57,7 @@ export default function NewDrawPage() {
       (budgetData || []).map((b) => ({
         budget_id: b.id,
         category: b.category,
-        remaining: b.remaining_amount,
+        remaining: b.remaining_amount ?? 0,
         amount: '',
       }))
     )
