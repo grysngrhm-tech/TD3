@@ -512,8 +512,14 @@ export function SpreadsheetViewer({
               const analysis = getRowAnalysis(rowIndex)
               const classification = analysis?.classification ?? 'unknown'
               const badge = CLASSIFICATION_BADGES[classification]
+              // Fix: Handle cases where start/end rows might be beyond display limit
               const isStartRow = rowRange && rowIndex === rowRange.startRow
-              const isEndRow = rowRange && rowIndex === rowRange.endRow
+              const isEndRow = rowRange && (
+                rowIndex === rowRange.endRow ||
+                // If end row is beyond display, show handle on last visible row
+                (rowRange.endRow >= displayRows.length && rowIndex === displayRows.length - 1)
+              )
+              const endRowBeyondDisplay = rowRange && rowRange.endRow >= displayRows.length
               
               // Row styling based on classification
               const isExcluded = classification === 'header' || classification === 'total' || classification === 'closing'
@@ -565,7 +571,7 @@ export function SpreadsheetViewer({
                           data-drag-handle
                           className="cursor-ns-resize opacity-40 group-hover:opacity-100 transition-opacity text-[10px]"
                           onMouseDown={(e) => handleDragStart(isStartRow ? 'start' : 'end', e)}
-                          title={isStartRow ? 'Drag to adjust start row' : 'Drag to adjust end row'}
+                          title={isStartRow ? 'Drag to adjust start row' : (endRowBeyondDisplay ? `End row (${rowRange?.endRow}) beyond display - drag to adjust` : 'Drag to adjust end row')}
                           style={{ color: 'var(--accent)' }}
                         >
                           ≡
