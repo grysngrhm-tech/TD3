@@ -91,6 +91,12 @@ export type ColumnMapping = {
   confidence: number
 }
 
+// Row range for selecting which rows to import
+export type RowRange = {
+  startRow: number  // 0-indexed, first data row
+  endRow: number    // 0-indexed, last data row (inclusive)
+}
+
 // Keyword lists for header-based detection
 const CATEGORY_KEYWORDS = [
   'category', 'description', 'line item', 'item', 'cost code',
@@ -195,6 +201,141 @@ export function detectColumnMappings(
   }
   
   return mappings
+}
+
+// Keywords that indicate a row is a total/summary (should stop BEFORE these)
+const TOTAL_KEYWORDS = [
+  'total', 'subtotal', 'grand total', 'sum', 'totals'
+]
+
+// Keywords that indicate closing costs / non-budget items (should stop BEFORE these)
+const CLOSING_COST_KEYWORDS = [
+  'interest', 'closing cost', 'closing costs', 'loan fee', 'points',
+  'title', 'escrow', 'recording', 'appraisal fee', 'inspection fee',
+  'origination', 'discount points', 'prepaid'
+]
+
+// Keywords that indicate a valid budget line (contingency is often the last real item)
+const VALID_BUDGET_MARKERS = [
+  'contingency', 'contingencies', 'reserve', 'allowance'
+]
+
+/**
+ * Detect row boundaries for import
+ * Start: First row with non-empty category AND non-zero amount
+ * End: Row before totals/closing costs, or after contingency if found
+ */
+export function detectRowBoundaries(
+  rows: (string | number | null)[][],
+  mappings: ColumnMapping[]
+): RowRange {
+  const categoryCol = mappings.find(m => m.mappedTo === 'category')
+  const amountCol = mappings.find(m => m.mappedTo === 'amount')
+  
+  if (!categoryCol || !amountCol) {
+    // Fallback: return all rows
+    return { startRow: 0, endRow: Math.max(0, rows.length - 1) }
+  }
+  
+  let startRow = 0
+  let endRow = rows.length - 1
+  let runningTotal = 0
+  let lastValidBudgetRow = -1
+  let contingencyRow = -1
+  
+  // Find start row (first row with category AND amount)
+  for (let i = 0; i < rows.length; i++) {
+    const category = rows[i][categoryCol.columnIndex]
+    const amount = parseAmountValue(rows[i][amountCol.columnIndex])
+    
+    if (category && String(category).trim() && amount !== 0) {
+      startRow = i
+      break
+    }
+  }
+  
+  // Scan through rows to find end boundary
+  for (let i = startRow; i < rows.length; i++) {
+    const category = rows[i][categoryCol.columnIndex]
+    const categoryStr = category ? String(category).trim().toLowerCase() : ''
+    const amount = parseAmountValue(rows[i][amountCol.columnIndex])
+    
+    // Check if this is a contingency/reserve row (valid budget item, often last)
+    if (categoryStr && VALID_BUDGET_MARKERS.some(kw => categoryStr.includes(kw))) {
+      contingencyRow = i
+      lastValidBudgetRow = i
+      runningTotal += amount
+      continue
+    }
+    
+    // Check if this looks like a total row
+    if (categoryStr && TOTAL_KEYWORDS.some(kw => categoryStr.includes(kw))) {
+      // Stop before this row
+      endRow = i - 1
+      break
+    }
+    
+    // Check if this looks like a closing cost item
+    if (categoryStr && CLOSING_COST_KEYWORDS.some(kw => categoryStr.includes(kw))) {
+      // Stop before this row
+      endRow = i - 1
+      break
+    }
+    
+    // Check if this row's amount is suspiciously large (>50% of running total = likely a total)
+    if (amount > 0 && runningTotal > 0 && amount > runningTotal * 0.5 && i > startRow + 5) {
+      // This might be a total row - stop before it
+      endRow = i - 1
+      break
+    }
+    
+    // Track valid budget rows
+    if (categoryStr && amount !== 0) {
+      lastValidBudgetRow = i
+      runningTotal += Math.abs(amount)
+    }
+    
+    // If we hit empty rows after valid data, might be end of budget
+    if (!categoryStr && amount === 0 && lastValidBudgetRow >= 0) {
+      // Count consecutive empty rows
+      let emptyCount = 0
+      for (let j = i; j < Math.min(i + 3, rows.length); j++) {
+        const cat = rows[j][categoryCol.columnIndex]
+        const amt = parseAmountValue(rows[j][amountCol.columnIndex])
+        if (!cat || !String(cat).trim()) emptyCount++
+        else break
+      }
+      // If 2+ empty rows, stop here
+      if (emptyCount >= 2) {
+        endRow = lastValidBudgetRow
+        break
+      }
+    }
+  }
+  
+  // If we found contingency and it's near the detected end, use it as the end
+  if (contingencyRow >= 0 && contingencyRow >= endRow - 2) {
+    endRow = contingencyRow
+  }
+  
+  // Use lastValidBudgetRow if endRow seems too short
+  if (lastValidBudgetRow > endRow) {
+    endRow = lastValidBudgetRow
+  }
+  
+  // Ensure valid range
+  endRow = Math.max(startRow, Math.min(endRow, rows.length - 1))
+  
+  return { startRow, endRow }
+}
+
+// Helper to parse amount values
+function parseAmountValue(value: string | number | null): number {
+  if (value === null || value === undefined || value === '') return 0
+  if (typeof value === 'number') return value
+  const cleaned = String(value).replace(/[$,\s()]/g, '').trim()
+  const num = parseFloat(cleaned)
+  return isNaN(num) ? 0 : num
 }
 
 // Analyze column data patterns
@@ -318,9 +459,11 @@ function parseAmount(value: string | number | null): number {
 }
 
 // Calculate import summary statistics
+// Optionally filters to only rows within the specified row range
 export function calculateImportStats(
   rows: (string | number | null)[][],
-  mappings: ColumnMapping[]
+  mappings: ColumnMapping[],
+  rowRange?: RowRange
 ): {
   totalRows: number
   rowsWithCategory: number
@@ -331,12 +474,20 @@ export function calculateImportStats(
   const categoryCol = mappings.find(m => m.mappedTo === 'category')
   const amountCol = mappings.find(m => m.mappedTo === 'amount')
   
+  // Determine which rows to process
+  const startRow = rowRange?.startRow ?? 0
+  const endRow = rowRange?.endRow ?? rows.length - 1
+  
   let rowsWithCategory = 0
   let totalAmount = 0
   let emptyCategories = 0
   let zeroAmountRows = 0
+  let processedRows = 0
   
-  rows.forEach(row => {
+  for (let i = startRow; i <= endRow && i < rows.length; i++) {
+    const row = rows[i]
+    processedRows++
+    
     if (categoryCol) {
       const cat = row[categoryCol.columnIndex]
       if (cat && String(cat).trim()) {
@@ -353,10 +504,10 @@ export function calculateImportStats(
         zeroAmountRows++
       }
     }
-  })
+  }
   
   return {
-    totalRows: rows.length,
+    totalRows: processedRows,
     rowsWithCategory,
     totalAmount,
     emptyCategories,
@@ -408,6 +559,7 @@ export function fileToBase64(file: File): Promise<string> {
 /**
  * Prepare column data for export to n8n webhook
  * Extracts only the user-selected columns (category + amount)
+ * Optionally filters to only rows within the specified row range
  * The 'type' field tells the n8n workflow how to interpret the data
  */
 export function prepareColumnExport(
@@ -419,6 +571,7 @@ export function prepareColumnExport(
     drawNumber?: number
     fileName: string
     invoices?: Invoice[]  // Optional invoices for draw imports
+    rowRange?: RowRange   // Optional row range filter
   }
 ): ColumnExport {
   const categoryCol = mappings.find(m => m.mappedTo === 'category')
@@ -431,11 +584,16 @@ export function prepareColumnExport(
     throw new Error('No amount column mapped')
   }
   
-  // Extract values from selected columns
+  // Determine which rows to process
+  const startRow = options.rowRange?.startRow ?? 0
+  const endRow = options.rowRange?.endRow ?? data.rows.length - 1
+  
+  // Extract values from selected columns within row range
   const categoryValues: string[] = []
   const amountValues: (number | null)[] = []
   
-  for (const row of data.rows) {
+  for (let i = startRow; i <= endRow && i < data.rows.length; i++) {
+    const row = data.rows[i]
     const catValue = row[categoryCol.columnIndex]
     const amtValue = row[amountCol.columnIndex]
     
@@ -461,7 +619,7 @@ export function prepareColumnExport(
     metadata: {
       fileName: options.fileName,
       sheetName: data.sheetName,
-      totalRows: data.rows.length
+      totalRows: categoryValues.length  // Now reflects filtered count
     }
   }
 }
