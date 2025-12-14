@@ -6,6 +6,7 @@ import { FilterSidebar } from '@/app/components/ui/FilterSidebar'
 import { ProjectTile } from '@/app/components/ui/ProjectTile'
 import { DetailPanel } from '@/app/components/ui/DetailPanel'
 import { ImportPreview } from '@/app/components/import/ImportPreview'
+import { NewProjectModal } from '@/app/components/projects/NewProjectModal'
 import { toast } from '@/app/components/ui/Toast'
 import { useFilters } from '@/app/hooks/useFilters'
 
@@ -29,6 +30,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
   const [importModal, setImportModal] = useState<'budget' | 'draw' | null>(null)
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false)
   const { filters, toggleFilter, clearAll } = useFilters()
 
   useEffect(() => {
@@ -228,6 +230,15 @@ export default function Dashboard() {
             <div className="flex-1" />
             <div className="flex items-center gap-2">
               <button 
+                onClick={() => setShowNewProjectModal(true)}
+                className="btn-secondary flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                New Project
+              </button>
+              <button 
                 onClick={() => setImportModal('budget')}
                 className="btn-secondary flex items-center gap-2"
               >
@@ -263,9 +274,12 @@ export default function Dashboard() {
               <p className="mb-4" style={{ color: 'var(--text-muted)' }}>
                 {Object.values(filters).some(f => f.length > 0) 
                   ? 'Try adjusting your filters'
-                  : 'Upload a budget to get started'}
+                  : 'Create a project to get started'}
               </p>
-              <button onClick={() => setImportModal('budget')} className="btn-primary">Upload Budget</button>
+              <div className="flex items-center justify-center gap-3">
+                <button onClick={() => setShowNewProjectModal(true)} className="btn-primary">Create Project</button>
+                <button onClick={() => setImportModal('budget')} className="btn-secondary">Upload Budget</button>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -306,6 +320,20 @@ export default function Dashboard() {
         onClose={() => setImportModal(null)}
         onSuccess={handleImportSuccess}
         importType="draw"
+      />
+
+      {/* New Project Modal */}
+      <NewProjectModal
+        isOpen={showNewProjectModal}
+        onClose={() => setShowNewProjectModal(false)}
+        onSuccess={() => {
+          toast({
+            type: 'success',
+            title: 'Project Created',
+            message: 'You can now upload a budget for this project.'
+          })
+          loadProjects()
+        }}
       />
     </div>
   )
