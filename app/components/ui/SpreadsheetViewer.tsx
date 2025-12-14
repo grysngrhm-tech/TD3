@@ -70,6 +70,10 @@ export function SpreadsheetViewer({
   // Drag state for adjusting row range
   const [isDragging, setIsDragging] = useState<'start' | 'end' | null>(null)
   const [dragPreviewRow, setDragPreviewRow] = useState<number | null>(null)
+  
+  // Refs for drag handling (to avoid stale closures)
+  const dragTypeRef = useRef<'start' | 'end' | null>(null)
+  const dragRowRef = useRef<number | null>(null)
 
   const displayRows = useMemo(() => data.rows.slice(0, maxRows), [data.rows, maxRows])
   const getMappingForColumn = (index: number) => mappings.find(m => m.columnIndex === index)
@@ -126,12 +130,12 @@ export function SpreadsheetViewer({
   // Handle row click to toggle inclusion in range
   const handleRowClick = (rowIndex: number, event: React.MouseEvent) => {
     if (!rowRange) return
-    
+
     // Don't handle click if it was on the drag handle
     if ((event.target as HTMLElement).closest('[data-drag-handle]')) return
 
     const inRange = isRowInRange(rowIndex)
-    
+
     if (event.shiftKey) {
       // Shift+click: set end row (extend/shrink from current start)
       onRowRangeChange({
@@ -139,16 +143,15 @@ export function SpreadsheetViewer({
         endRow: Math.max(rowRange.startRow, rowIndex)
       })
     } else if (inRange) {
-      // Click inside range: shrink range
-      // If clicking the start row, move start down by 1
-      // If clicking the end row, move end up by 1
-      // If clicking in middle, set as new end row
-      if (rowIndex === rowRange.startRow && rowRange.startRow < rowRange.endRow) {
-        onRowRangeChange({ startRow: rowRange.startRow + 1, endRow: rowRange.endRow })
-      } else if (rowIndex === rowRange.endRow && rowRange.endRow > rowRange.startRow) {
-        onRowRangeChange({ startRow: rowRange.startRow, endRow: rowRange.endRow - 1 })
+      // Click inside range: move the CLOSEST boundary to this row
+      const distToStart = Math.abs(rowIndex - rowRange.startRow)
+      const distToEnd = Math.abs(rowIndex - rowRange.endRow)
+      
+      if (distToStart <= distToEnd) {
+        // Closer to start - move start to this row
+        onRowRangeChange({ startRow: rowIndex, endRow: rowRange.endRow })
       } else {
-        // Click in middle - use as new end (common case: "stop here")
+        // Closer to end - move end to this row
         onRowRangeChange({ startRow: rowRange.startRow, endRow: rowIndex })
       }
     } else {
@@ -183,58 +186,68 @@ export function SpreadsheetViewer({
   }
 
   // Drag handle mouse down - start dragging
+  // Event handlers are defined inside to capture fresh values
   const handleDragStart = (type: 'start' | 'end', event: React.MouseEvent) => {
     event.preventDefault()
     event.stopPropagation()
+    
+    // Store in refs for use in event handlers
+    dragTypeRef.current = type
+    dragRowRef.current = type === 'start' ? rowRange?.startRow ?? 0 : rowRange?.endRow ?? 0
+    
     setIsDragging(type)
-    setDragPreviewRow(type === 'start' ? rowRange?.startRow ?? 0 : rowRange?.endRow ?? 0)
+    setDragPreviewRow(dragRowRef.current)
     
-    // Add global mouse event listeners
-    document.addEventListener('mousemove', handleDragMove)
-    document.addEventListener('mouseup', handleDragEnd)
+    // Define handlers inside to capture current rowRange
+    const currentRange = rowRange
+    
+    const onMove = (e: MouseEvent) => {
+      // Find the row element under the mouse
+      const tableBody = document.querySelector('.spreadsheet-tbody')
+      if (!tableBody) return
+      
+      const rows = tableBody.querySelectorAll('tr')
+      for (let i = 0; i < rows.length; i++) {
+        const rect = rows[i].getBoundingClientRect()
+        if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
+          dragRowRef.current = i
+          setDragPreviewRow(i)
+          break
+        }
+      }
+    }
+    
+    const onUp = () => {
+      const finalRow = dragRowRef.current
+      const dragType = dragTypeRef.current
+      
+      if (dragType && finalRow !== null && currentRange) {
+        if (dragType === 'start') {
+          onRowRangeChange({
+            startRow: Math.min(finalRow, currentRange.endRow),
+            endRow: currentRange.endRow
+          })
+        } else {
+          onRowRangeChange({
+            startRow: currentRange.startRow,
+            endRow: Math.max(finalRow, currentRange.startRow)
+          })
+        }
+      }
+      
+      // Cleanup
+      setIsDragging(null)
+      setDragPreviewRow(null)
+      dragTypeRef.current = null
+      dragRowRef.current = null
+      
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
   }
-
-  // Drag move - update preview
-  const handleDragMove = useCallback((event: MouseEvent) => {
-    if (!isDragging) return
-    
-    // Find the row element under the mouse
-    const tableBody = document.querySelector('.spreadsheet-tbody')
-    if (!tableBody) return
-    
-    const rows = tableBody.querySelectorAll('tr')
-    for (let i = 0; i < rows.length; i++) {
-      const rect = rows[i].getBoundingClientRect()
-      if (event.clientY >= rect.top && event.clientY <= rect.bottom) {
-        setDragPreviewRow(i)
-        break
-      }
-    }
-  }, [isDragging])
-
-  // Drag end - apply the change
-  const handleDragEnd = useCallback(() => {
-    if (isDragging && dragPreviewRow !== null && rowRange) {
-      if (isDragging === 'start') {
-        onRowRangeChange({
-          startRow: Math.min(dragPreviewRow, rowRange.endRow),
-          endRow: rowRange.endRow
-        })
-      } else {
-        onRowRangeChange({
-          startRow: rowRange.startRow,
-          endRow: Math.max(dragPreviewRow, rowRange.startRow)
-        })
-      }
-    }
-    
-    setIsDragging(null)
-    setDragPreviewRow(null)
-    
-    // Remove global listeners
-    document.removeEventListener('mousemove', handleDragMove)
-    document.removeEventListener('mouseup', handleDragEnd)
-  }, [isDragging, dragPreviewRow, rowRange, onRowRangeChange, handleDragMove])
 
   // Keyboard shortcuts for row range adjustment
   const containerRef = useRef<HTMLDivElement>(null)
@@ -391,14 +404,31 @@ export function SpreadsheetViewer({
                 Reset
               </button>
             )}
-            {/* Keyboard shortcut hint */}
-            <span 
-              className="text-[10px] opacity-60"
-              style={{ color: 'var(--text-muted)' }}
-              title="↑↓ adjust start, Shift+↑↓ adjust end, R to reset"
-            >
-              ⌨
-            </span>
+            {/* Keyboard shortcuts help - expandable on hover */}
+            <div className="relative group">
+              <button
+                className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center"
+                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}
+                onClick={(e) => e.preventDefault()}
+              >
+                ?
+              </button>
+              <div 
+                className="absolute right-0 top-6 hidden group-hover:block z-50 p-2 rounded-lg shadow-lg text-xs whitespace-nowrap"
+                style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)' }}
+              >
+                <div className="font-medium mb-1.5" style={{ color: 'var(--text-primary)' }}>Keyboard Shortcuts</div>
+                <div className="space-y-0.5" style={{ color: 'var(--text-secondary)' }}>
+                  <div>↑ / ↓ — Adjust start row</div>
+                  <div>Shift + ↑ / ↓ — Adjust end row</div>
+                  <div>R — Reset to auto-detect</div>
+                </div>
+                <div className="mt-1.5 pt-1.5 border-t" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
+                  <div>Click row — Move closest boundary</div>
+                  <div>Drag ≡ — Adjust start/end</div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
