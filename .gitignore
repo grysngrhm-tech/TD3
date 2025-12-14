@@ -45,9 +45,8 @@ coverage/
 # Contains database schema, n8n workflows, and detailed documentation
 .td3-local/
 
-# Sensitive files (schema, seed data, types, workflows)
+# Sensitive files (schema, seed data, workflows)
 supabase/001_schema.sql
 supabase/002_seed.sql
-types/database.ts
 n8n/workflows/td3-*.json
 .env.local.txt
