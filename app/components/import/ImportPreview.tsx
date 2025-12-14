@@ -10,11 +10,12 @@ import {
   getWorkbookInfo, 
   parseSheet, 
   detectColumnMappings, 
+  detectRowBoundaries,
   calculateImportStats,
   prepareColumnExport,
   fileToBase64
 } from '@/lib/spreadsheet'
-import type { SpreadsheetData, ColumnMapping, WorkbookInfo, Invoice } from '@/lib/spreadsheet'
+import type { SpreadsheetData, ColumnMapping, WorkbookInfo, Invoice, RowRange } from '@/lib/spreadsheet'
 import { supabase } from '@/lib/supabase'
 
 type Project = {
@@ -64,6 +65,9 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
   
   // Invoice files state (for draw imports)
   const [invoiceFiles, setInvoiceFiles] = useState<File[]>([])
+  
+  // Row range state for filtering which rows to import
+  const [rowRange, setRowRange] = useState<RowRange | null>(null)
 
   // Fetch projects when modal opens
   useEffect(() => {
@@ -120,7 +124,13 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       setSelectedSheet(mainSheet.name)
       const parsedData = parseSheet(info.workbook, mainSheet.name)
       const detectedMappings = detectColumnMappings(parsedData.headers, parsedData.rows)
-      const importStats = calculateImportStats(parsedData.rows, detectedMappings)
+      
+      // Detect row boundaries for import
+      const detectedRowRange = detectRowBoundaries(parsedData.rows, detectedMappings)
+      setRowRange(detectedRowRange)
+      
+      // Calculate stats with row range
+      const importStats = calculateImportStats(parsedData.rows, detectedMappings, detectedRowRange)
       
       setData(parsedData)
       setMappings(detectedMappings)
@@ -141,7 +151,12 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     try {
       const parsedData = parseSheet(workbookInfo.workbook, sheetName)
       const detectedMappings = detectColumnMappings(parsedData.headers, parsedData.rows)
-      const importStats = calculateImportStats(parsedData.rows, detectedMappings)
+      
+      // Detect row boundaries for the new sheet
+      const detectedRowRange = detectRowBoundaries(parsedData.rows, detectedMappings)
+      setRowRange(detectedRowRange)
+      
+      const importStats = calculateImportStats(parsedData.rows, detectedMappings, detectedRowRange)
       
       setData(parsedData)
       setMappings(detectedMappings)
@@ -164,12 +179,24 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
           : m
       )
       if (data) {
-        const newStats = calculateImportStats(data.rows, updated)
+        // Re-detect row boundaries with new mappings
+        const newRowRange = detectRowBoundaries(data.rows, updated)
+        setRowRange(newRowRange)
+        const newStats = calculateImportStats(data.rows, updated, newRowRange)
         setStats(newStats)
       }
       return updated
     })
   }, [data])
+
+  // Handle row range changes from the spreadsheet viewer
+  const handleRowRangeChange = useCallback((newRange: RowRange) => {
+    setRowRange(newRange)
+    if (data) {
+      const newStats = calculateImportStats(data.rows, mappings, newRange)
+      setStats(newStats)
+    }
+  }, [data, mappings])
 
   const handleImport = useCallback(async () => {
     if (!data || !file || !selectedProjectId) return
@@ -201,7 +228,8 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
         projectId: selectedProjectId,
         drawNumber: importType === 'draw' ? drawNumber : undefined,
         fileName: file.name,
-        invoices
+        invoices,
+        rowRange: rowRange || undefined
       })
       
       // POST to n8n webhook
@@ -225,7 +253,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     } finally {
       setImporting(false)
     }
-  }, [data, file, mappings, importType, selectedProjectId, drawNumber, invoiceFiles, onClose, onSuccess])
+  }, [data, file, mappings, importType, selectedProjectId, drawNumber, invoiceFiles, rowRange, onClose, onSuccess])
 
   const handleReset = () => {
     setStep('upload')
@@ -235,6 +263,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     setData(null)
     setMappings([])
     setStats(null)
+    setRowRange(null)
     setError(null)
     setImporting(false)
     setSelectedProjectId('')
@@ -507,7 +536,9 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                         <SpreadsheetViewer
                           data={data}
                           mappings={mappings}
+                          rowRange={rowRange}
                           onMappingChange={handleMappingChange}
+                          onRowRangeChange={handleRowRangeChange}
                           maxRows={100}
                         />
                       )}
