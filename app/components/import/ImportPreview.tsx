@@ -29,6 +29,7 @@ type ImportPreviewProps = {
   onClose: () => void
   onSuccess?: () => void  // Optional callback after successful webhook submission
   importType: 'budget' | 'draw'
+  preselectedProjectId?: string  // Pre-select a project when importing from project page
 }
 
 type ImportStats = {
@@ -43,7 +44,7 @@ type ImportStats = {
 const BUDGET_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_BUDGET_WEBHOOK || ''
 const DRAW_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_DRAW_WEBHOOK || ''
 
-export function ImportPreview({ isOpen, onClose, onSuccess, importType }: ImportPreviewProps) {
+export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselectedProjectId }: ImportPreviewProps) {
   const [step, setStep] = useState<'upload' | 'preview'>('upload')
   const [file, setFile] = useState<File | null>(null)
   const [workbookInfo, setWorkbookInfo] = useState<WorkbookInfo | null>(null)
@@ -72,14 +73,25 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType }: Import
       handleReset()
     }
   }, [isOpen])
+
+  // Set preselected project after projects are loaded
+  useEffect(() => {
+    if (preselectedProjectId && projects.length > 0 && !selectedProjectId) {
+      const exists = projects.some(p => p.id === preselectedProjectId)
+      if (exists) {
+        setSelectedProjectId(preselectedProjectId)
+      }
+    }
+  }, [preselectedProjectId, projects, selectedProjectId])
   
   const fetchProjects = async () => {
     setLoadingProjects(true)
     try {
+      // Fetch projects that are not historic (pending or active)
       const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
-        .select('id, name, project_code, builder_name')
-        .eq('status', 'active')
+        .select('id, name, project_code, builder_name, lifecycle_stage')
+        .in('lifecycle_stage', ['pending', 'active'])
         .order('builder_name', { ascending: true })
         .order('project_code', { ascending: true })
       

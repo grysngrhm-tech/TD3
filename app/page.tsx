@@ -1,14 +1,16 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { FilterSidebar } from '@/app/components/ui/FilterSidebar'
 import { ProjectTile } from '@/app/components/ui/ProjectTile'
-import { DetailPanel } from '@/app/components/ui/DetailPanel'
+import { StageSelector } from '@/app/components/ui/StageSelector'
 import { ImportPreview } from '@/app/components/import/ImportPreview'
 import { NewProjectModal } from '@/app/components/projects/NewProjectModal'
 import { toast } from '@/app/components/ui/Toast'
 import { useFilters } from '@/app/hooks/useFilters'
+import type { LifecycleStage } from '@/types/database'
 
 type ProjectWithBudget = {
   id: string
@@ -17,18 +19,23 @@ type ProjectWithBudget = {
   address: string | null
   loan_amount: number | null
   status: string
+  lifecycle_stage: LifecycleStage
   builder_name: string | null
   subdivision_name: string | null
   subdivision_abbrev: string | null
   lot_number: string | null
   total_budget: number
   total_spent: number
+  appraised_value: number | null
+  sales_price: number | null
+  square_footage: number | null
 }
 
 export default function Dashboard() {
+  const router = useRouter()
   const [projects, setProjects] = useState<ProjectWithBudget[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedProject, setSelectedProject] = useState<string | null>(null)
+  const [selectedStage, setSelectedStage] = useState<LifecycleStage>('active')
   const [importModal, setImportModal] = useState<'budget' | 'draw' | null>(null)
   const [showNewProjectModal, setShowNewProjectModal] = useState(false)
   const { filters, toggleFilter, clearAll } = useFilters()
@@ -63,6 +70,7 @@ export default function Dashboard() {
 
           return {
             ...project,
+            lifecycle_stage: (project.lifecycle_stage || 'active') as LifecycleStage,
             total_budget: totalBudget,
             total_spent: totalSpent,
           }
@@ -77,21 +85,34 @@ export default function Dashboard() {
     }
   }
 
-  // Build filter sections from data
+  // Calculate stage counts for StageSelector
+  const stageCounts = useMemo(() => {
+    return projects.reduce(
+      (acc, p) => {
+        const stage = p.lifecycle_stage || 'active'
+        acc[stage] = (acc[stage] || 0) + 1
+        return acc
+      },
+      { pending: 0, active: 0, historic: 0 }
+    )
+  }, [projects])
+
+  // Filter by lifecycle stage first
+  const projectsInStage = useMemo(() => {
+    return projects.filter(p => p.lifecycle_stage === selectedStage)
+  }, [projects, selectedStage])
+
+  // Build filter sections from data (within selected stage)
   const filterSections = useMemo(() => {
     const builders = new Map<string, number>()
     const subdivisions = new Map<string, number>()
-    const statuses = new Map<string, number>()
 
-    projects.forEach(p => {
+    projectsInStage.forEach(p => {
       if (p.builder_name) {
         builders.set(p.builder_name, (builders.get(p.builder_name) || 0) + 1)
       }
       if (p.subdivision_name) {
         subdivisions.set(p.subdivision_name, (subdivisions.get(p.subdivision_name) || 0) + 1)
-      }
-      if (p.status) {
-        statuses.set(p.status, (statuses.get(p.status) || 0) + 1)
       }
     })
 
@@ -116,22 +137,12 @@ export default function Dashboard() {
           count,
         })),
       },
-      {
-        id: 'status',
-        title: 'Status',
-        type: 'multi' as const,
-        options: Array.from(statuses.entries()).map(([name, count]) => ({
-          id: name,
-          label: name.replace('_', ' '),
-          count,
-        })),
-      },
     ]
-  }, [projects])
+  }, [projectsInStage])
 
-  // Apply filters
+  // Apply additional filters
   const filteredProjects = useMemo(() => {
-    return projects.filter(project => {
+    return projectsInStage.filter(project => {
       // Builder filter
       if (filters.builder?.length > 0) {
         if (!project.builder_name || !filters.builder.includes(project.builder_name)) {
@@ -144,17 +155,11 @@ export default function Dashboard() {
           return false
         }
       }
-      // Status filter
-      if (filters.status?.length > 0) {
-        if (!project.status || !filters.status.includes(project.status)) {
-          return false
-        }
-      }
       return true
     })
-  }, [projects, filters])
+  }, [projectsInStage, filters])
 
-  // Calculate totals
+  // Calculate totals for current view
   const totals = useMemo(() => {
     return filteredProjects.reduce(
       (acc, p) => ({
@@ -179,15 +184,23 @@ export default function Dashboard() {
   }
 
   const handleImportSuccess = () => {
-    // Show success toast
     toast({
       type: 'success',
       title: importModal === 'budget' ? 'Budget Submitted' : 'Draw Submitted',
       message: 'Data sent to processing workflow. Refresh in a moment to see updates.'
     })
-    
-    // Refresh projects list after a short delay to allow workflow to process
     setTimeout(() => loadProjects(), 2000)
+  }
+
+  const handleProjectClick = (projectId: string) => {
+    router.push(`/projects/${projectId}`)
+  }
+
+  // Stage-specific labels
+  const stageLabels = {
+    pending: { title: 'Loans in Origination', stat: 'Pipeline Value' },
+    active: { title: 'Active Loans', stat: 'Total Drawn' },
+    historic: { title: 'Historical Loans', stat: 'Total Funded' },
   }
 
   if (loading) {
@@ -211,10 +224,21 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="p-6">
+          {/* Stage Selector */}
+          <div className="flex items-center justify-center mb-6">
+            <StageSelector
+              value={selectedStage}
+              onChange={setSelectedStage}
+              counts={stageCounts}
+            />
+          </div>
+
           {/* Stats Bar */}
           <div className="flex items-center gap-6 mb-6 pb-6 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
             <div>
-              <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Projects</div>
+              <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                {selectedStage === 'pending' ? 'In Pipeline' : selectedStage === 'active' ? 'Active Loans' : 'Completed'}
+              </div>
               <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{totals.count}</div>
             </div>
             <div className="w-px h-10" style={{ background: 'var(--border)' }} />
@@ -224,7 +248,7 @@ export default function Dashboard() {
             </div>
             <div className="w-px h-10" style={{ background: 'var(--border)' }} />
             <div>
-              <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Total Drawn</div>
+              <div className="text-sm" style={{ color: 'var(--text-muted)' }}>{stageLabels[selectedStage].stat}</div>
               <div className="text-2xl font-bold" style={{ color: 'var(--accent)' }}>{formatCurrency(totals.spent)}</div>
             </div>
             <div className="flex-1" />
@@ -236,26 +260,19 @@ export default function Dashboard() {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                New Project
+                New Loan
               </button>
-              <button 
-                onClick={() => setImportModal('budget')}
-                className="btn-secondary flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Upload Budget
-              </button>
-              <button 
-                onClick={() => setImportModal('draw')}
-                className="btn-primary flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Upload Draw
-              </button>
+              {selectedStage === 'active' && (
+                <button 
+                  onClick={() => setImportModal('draw')}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Upload Draw
+                </button>
+              )}
             </div>
           </div>
 
@@ -270,16 +287,23 @@ export default function Dashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>No projects found</h3>
+              <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                No {selectedStage} loans found
+              </h3>
               <p className="mb-4" style={{ color: 'var(--text-muted)' }}>
                 {Object.values(filters).some(f => f.length > 0) 
                   ? 'Try adjusting your filters'
-                  : 'Create a project to get started'}
+                  : selectedStage === 'pending' 
+                    ? 'Start a new loan to begin origination'
+                    : selectedStage === 'active'
+                      ? 'No active loans at this time'
+                      : 'No completed loans yet'}
               </p>
-              <div className="flex items-center justify-center gap-3">
-                <button onClick={() => setShowNewProjectModal(true)} className="btn-primary">Create Project</button>
-                <button onClick={() => setImportModal('budget')} className="btn-secondary">Upload Budget</button>
-              </div>
+              {selectedStage === 'pending' && (
+                <button onClick={() => setShowNewProjectModal(true)} className="btn-primary">
+                  New Loan
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -293,20 +317,16 @@ export default function Dashboard() {
                   subdivisionName={project.subdivision_name}
                   totalBudget={project.total_budget}
                   totalSpent={project.total_spent}
-                  status={project.status || 'active'}
-                  onClick={() => setSelectedProject(project.id)}
+                  loanAmount={project.loan_amount}
+                  lifecycleStage={project.lifecycle_stage}
+                  appraisedValue={project.appraised_value}
+                  onClick={() => handleProjectClick(project.id)}
                 />
               ))}
             </div>
           )}
         </div>
       </div>
-
-      {/* Detail Panel */}
-      <DetailPanel 
-        projectId={selectedProject} 
-        onClose={() => setSelectedProject(null)} 
-      />
 
       {/* Import Modals */}
       <ImportPreview
@@ -329,9 +349,10 @@ export default function Dashboard() {
         onSuccess={() => {
           toast({
             type: 'success',
-            title: 'Project Created',
-            message: 'You can now upload a budget for this project.'
+            title: 'Loan Created',
+            message: 'New loan added to Pending. Go to the loan page to upload a budget.'
           })
+          setSelectedStage('pending')
           loadProjects()
         }}
       />

@@ -366,11 +366,13 @@ export type Database = {
       projects: {
         Row: {
           address: string | null
+          appraised_value: number | null
           borrower_name: string | null
           builder_name: string | null
           created_at: string | null
           id: string
           interest_rate_annual: number | null
+          lifecycle_stage: string | null
           loan_amount: number | null
           loan_start_date: string | null
           loan_term_months: number | null
@@ -378,7 +380,13 @@ export type Database = {
           maturity_date: string | null
           name: string
           origination_fee_pct: number | null
+          payoff_amount: number | null
+          payoff_date: string | null
           project_code: string | null
+          rejection_reason: string | null
+          sales_price: number | null
+          square_footage: number | null
+          stage_changed_at: string | null
           status: string | null
           subdivision_abbrev: string | null
           subdivision_name: string | null
@@ -386,11 +394,13 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          appraised_value?: number | null
           borrower_name?: string | null
           builder_name?: string | null
           created_at?: string | null
           id?: string
           interest_rate_annual?: number | null
+          lifecycle_stage?: string | null
           loan_amount?: number | null
           loan_start_date?: string | null
           loan_term_months?: number | null
@@ -398,7 +408,13 @@ export type Database = {
           maturity_date?: string | null
           name: string
           origination_fee_pct?: number | null
+          payoff_amount?: number | null
+          payoff_date?: string | null
           project_code?: string | null
+          rejection_reason?: string | null
+          sales_price?: number | null
+          square_footage?: number | null
+          stage_changed_at?: string | null
           status?: string | null
           subdivision_abbrev?: string | null
           subdivision_name?: string | null
@@ -406,11 +422,13 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          appraised_value?: number | null
           borrower_name?: string | null
           builder_name?: string | null
           created_at?: string | null
           id?: string
           interest_rate_annual?: number | null
+          lifecycle_stage?: string | null
           loan_amount?: number | null
           loan_start_date?: string | null
           loan_term_months?: number | null
@@ -418,7 +436,13 @@ export type Database = {
           maturity_date?: string | null
           name?: string
           origination_fee_pct?: number | null
+          payoff_amount?: number | null
+          payoff_date?: string | null
           project_code?: string | null
+          rejection_reason?: string | null
+          sales_price?: number | null
+          square_footage?: number | null
+          stage_changed_at?: string | null
           status?: string | null
           subdivision_abbrev?: string | null
           subdivision_name?: string | null
@@ -488,4 +512,29 @@ export type DrawRequestWithDetails = DrawRequest & {
   project?: Project
   invoices?: Invoice[]
   documents?: Document[]
+}
+
+// Lifecycle Stage Types
+export type LifecycleStage = 'pending' | 'active' | 'historic'
+
+// Project with computed lifecycle fields
+export type ProjectWithLifecycle = Project & {
+  lifecycle_stage: LifecycleStage
+  stage_changed_at: string | null
+  square_footage: number | null
+  sales_price: number | null
+  appraised_value: number | null
+  payoff_date: string | null
+  payoff_amount: number | null
+  rejection_reason: string | null
+  // Computed fields (calculated in app)
+  ltv_ratio?: number | null
+  cost_per_sqft?: number | null
+}
+
+// Project with budget totals for list views
+export type ProjectWithBudget = Project & {
+  lifecycle_stage: LifecycleStage
+  total_budget: number
+  total_spent: number
 }

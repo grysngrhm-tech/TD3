@@ -38,7 +38,8 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
           project_code: projectCode.trim() || null,
           builder_name: builderName.trim() || null,
           address: address.trim() || null,
-          status: 'active'
+          status: 'active',
+          lifecycle_stage: 'pending'  // New loans start in pending/origination
         })
       
       if (insertError) throw insertError
@@ -94,7 +95,7 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                   <Dialog.Title className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    New Project
+                    New Loan
                   </Dialog.Title>
                   <Dialog.Close asChild>
                     <button className="w-8 h-8 rounded-ios-xs flex items-center justify-center hover:bg-[var(--bg-hover)]">
@@ -107,10 +108,10 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-5 space-y-4">
-                  {/* Project Name (Required) */}
+                  {/* Loan Name (Required) */}
                   <div>
                     <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-primary)' }}>
-                      Project Name <span style={{ color: 'var(--error)' }}>*</span>
+                      Loan Name <span style={{ color: 'var(--error)' }}>*</span>
                     </label>
                     <input
                       type="text"
@@ -127,10 +128,10 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                     />
                   </div>
 
-                  {/* Project Code */}
+                  {/* Loan Code */}
                   <div>
                     <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-primary)' }}>
-                      Project Code
+                      Loan Code
                     </label>
                     <input
                       type="text"
@@ -217,7 +218,7 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                           Creating...
                         </>
                       ) : (
-                        'Create Project'
+                        'Create Loan'
                       )}
                     </button>
                   </div>
