@@ -12,139 +12,95 @@ type SpreadsheetViewerProps = {
 }
 
 const MAPPING_COLORS: Record<string, string> = {
-  category: 'rgba(59, 130, 246, 0.25)',
-  budget_amount: 'rgba(34, 197, 94, 0.25)',
-  draw_amount: 'rgba(168, 85, 247, 0.25)',
+  category: 'rgba(59, 130, 246, 0.2)',
+  budget_amount: 'rgba(34, 197, 94, 0.2)',
+  draw_amount: 'rgba(168, 85, 247, 0.2)',
   ignore: 'transparent',
 }
 
 const MAPPING_BORDER_COLORS: Record<string, string> = {
-  category: 'rgba(59, 130, 246, 0.5)',
-  budget_amount: 'rgba(34, 197, 94, 0.5)',
-  draw_amount: 'rgba(168, 85, 247, 0.5)',
+  category: 'rgb(59, 130, 246)',
+  budget_amount: 'rgb(34, 197, 94)',
+  draw_amount: 'rgb(168, 85, 247)',
   ignore: 'transparent',
 }
 
 const MAPPING_LABELS: Record<string, string> = {
-  category: 'Category',
+  category: 'Cat',
   budget_amount: 'Budget',
   draw_amount: 'Draw',
-  ignore: 'Ignore',
+  ignore: '—',
 }
 
 export function SpreadsheetViewer({ 
   data, 
   mappings, 
   onMappingChange,
-  maxRows = 15 
+  maxRows = 50 
 }: SpreadsheetViewerProps) {
   const [selectedColumn, setSelectedColumn] = useState<number | null>(null)
   const [drawNumberInput, setDrawNumberInput] = useState<number>(1)
 
-  const displayRows = useMemo(() => {
-    return data.rows.slice(0, maxRows)
-  }, [data.rows, maxRows])
-
-  const getMappingForColumn = (index: number) => {
-    return mappings.find(m => m.columnIndex === index)
-  }
+  const displayRows = useMemo(() => data.rows.slice(0, maxRows), [data.rows, maxRows])
+  const getMappingForColumn = (index: number) => mappings.find(m => m.columnIndex === index)
 
   const handleColumnClick = (index: number) => {
     setSelectedColumn(index)
     const mapping = getMappingForColumn(index)
-    if (mapping?.drawNumber) {
-      setDrawNumberInput(mapping.drawNumber)
-    } else {
-      setDrawNumberInput(1)
-    }
+    setDrawNumberInput(mapping?.drawNumber || 1)
   }
 
   const handleMappingSelect = (mapping: ColumnMapping['mappedTo']) => {
     if (selectedColumn !== null) {
-      const drawNum = mapping === 'draw_amount' ? drawNumberInput : undefined
-      onMappingChange(selectedColumn, mapping, drawNum)
+      onMappingChange(selectedColumn, mapping, mapping === 'draw_amount' ? drawNumberInput : undefined)
       setSelectedColumn(null)
     }
   }
 
-  const closeModal = () => {
-    setSelectedColumn(null)
-  }
-
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* Color Legend */}
-      <div className="flex flex-wrap gap-4 p-3 rounded-ios-sm flex-shrink-0" style={{ background: 'var(--bg-card)' }}>
-        <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-          Column Types:
-        </span>
+    <div className="flex flex-col h-full">
+      {/* Inline Legend */}
+      <div className="flex items-center gap-4 mb-2 text-xs">
+        <span style={{ color: 'var(--text-muted)' }}>Click headers to map:</span>
         {(['category', 'budget_amount', 'draw_amount'] as const).map((type) => (
-          <div key={type} className="flex items-center gap-2 text-sm">
-            <div 
-              className="w-4 h-4 rounded border-2"
-              style={{ 
-                background: MAPPING_COLORS[type],
-                borderColor: MAPPING_BORDER_COLORS[type]
-              }}
-            />
-            <span style={{ color: 'var(--text-secondary)' }}>{MAPPING_LABELS[type]}</span>
+          <div key={type} className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded-sm" style={{ background: MAPPING_BORDER_COLORS[type] }} />
+            <span style={{ color: 'var(--text-secondary)' }}>{type === 'category' ? 'Category' : type === 'budget_amount' ? 'Budget' : 'Draw'}</span>
           </div>
         ))}
       </div>
 
-      {/* Spreadsheet Table - Scrollable */}
-      <div 
-        className="flex-1 overflow-auto rounded-ios-sm border mt-4 min-h-0"
-        style={{ borderColor: 'var(--border)' }}
-      >
-        <table className="w-full text-sm border-collapse">
+      {/* Table */}
+      <div className="flex-1 overflow-auto rounded-ios-xs border min-h-0" style={{ borderColor: 'var(--border)' }}>
+        <table className="w-full text-xs border-collapse">
           <thead className="sticky top-0 z-10">
             <tr>
               {data.headers.map((header, index) => {
                 const mapping = getMappingForColumn(index)
-                const bgColor = mapping?.mappedTo ? MAPPING_COLORS[mapping.mappedTo] : 'var(--bg-secondary)'
-                const borderColor = mapping?.mappedTo ? MAPPING_BORDER_COLORS[mapping.mappedTo] : 'transparent'
+                const hasMapping = mapping?.mappedTo && mapping.mappedTo !== 'ignore'
                 
                 return (
                   <th
                     key={index}
                     onClick={() => handleColumnClick(index)}
-                    className="px-3 py-3 text-left font-semibold cursor-pointer transition-all hover:brightness-110 select-none"
+                    className="px-2 py-1.5 text-left font-medium cursor-pointer select-none whitespace-nowrap"
                     style={{ 
-                      background: bgColor,
+                      background: hasMapping ? MAPPING_COLORS[mapping!.mappedTo!] : 'var(--bg-secondary)',
                       color: 'var(--text-primary)',
-                      borderBottom: `2px solid ${borderColor}`,
-                      minWidth: '140px',
-                      maxWidth: '200px'
+                      borderBottom: `2px solid ${hasMapping ? MAPPING_BORDER_COLORS[mapping!.mappedTo!] : 'var(--border)'}`,
+                      minWidth: '80px',
+                      maxWidth: '150px'
                     }}
                   >
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate font-medium">{header || '(empty)'}</span>
-                        {mapping?.mappedTo && mapping.mappedTo !== 'ignore' && (
-                          <span 
-                            className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap font-medium"
-                            style={{ 
-                              background: MAPPING_BORDER_COLORS[mapping.mappedTo],
-                              color: 'white'
-                            }}
-                          >
-                            {MAPPING_LABELS[mapping.mappedTo]}
-                            {mapping.drawNumber ? ` #${mapping.drawNumber}` : ''}
-                          </span>
-                        )}
-                      </div>
-                      
-                      {mapping?.confidence && mapping.confidence > 0 && (
-                        <div className="h-1 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
-                          <motion.div 
-                            className="h-full rounded-full"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${mapping.confidence * 100}%` }}
-                            transition={{ duration: 0.5, ease: 'easeOut' }}
-                            style={{ background: 'var(--accent)' }}
-                          />
-                        </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate">{header || '—'}</span>
+                      {hasMapping && (
+                        <span 
+                          className="text-[10px] px-1 py-px rounded font-medium flex-shrink-0"
+                          style={{ background: MAPPING_BORDER_COLORS[mapping!.mappedTo!], color: 'white' }}
+                        >
+                          {MAPPING_LABELS[mapping!.mappedTo!]}{mapping?.drawNumber ? ` #${mapping.drawNumber}` : ''}
+                        </span>
                       )}
                     </div>
                   </th>
@@ -154,28 +110,25 @@ export function SpreadsheetViewer({
           </thead>
           <tbody>
             {displayRows.map((row, rowIndex) => (
-              <tr 
-                key={rowIndex} 
-                className="transition-colors hover:brightness-95"
-              >
+              <tr key={rowIndex} className="hover:bg-[var(--bg-hover)]">
                 {data.headers.map((_, colIndex) => {
                   const mapping = getMappingForColumn(colIndex)
-                  const bgColor = mapping?.mappedTo ? MAPPING_COLORS[mapping.mappedTo] : 'transparent'
+                  const hasMapping = mapping?.mappedTo && mapping.mappedTo !== 'ignore'
                   const value = row[colIndex]
                   
                   return (
                     <td
                       key={colIndex}
-                      className="px-3 py-2 truncate"
+                      className="px-2 py-1 truncate"
                       style={{ 
-                        background: bgColor,
+                        background: hasMapping ? MAPPING_COLORS[mapping!.mappedTo!] : 'transparent',
                         color: 'var(--text-secondary)',
                         borderBottom: '1px solid var(--border-subtle)',
-                        maxWidth: '200px'
+                        maxWidth: '150px'
                       }}
-                      title={value !== null && value !== undefined ? String(value) : ''}
+                      title={value != null ? String(value) : ''}
                     >
-                      {value !== null && value !== undefined ? String(value) : ''}
+                      {value != null ? String(value) : ''}
                     </td>
                   )
                 })}
@@ -185,14 +138,14 @@ export function SpreadsheetViewer({
         </table>
       </div>
 
-      {/* Row count indicator */}
+      {/* Row count */}
       {data.rows.length > maxRows && (
-        <p className="text-sm mt-2 text-center flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
-          Showing {maxRows} of {data.rows.length} rows
+        <p className="text-[10px] mt-1 text-center" style={{ color: 'var(--text-muted)' }}>
+          {maxRows} of {data.rows.length} rows
         </p>
       )}
 
-      {/* Column Mapping Modal */}
+      {/* Mapping Modal */}
       <AnimatePresence>
         {selectedColumn !== null && (
           <>
@@ -201,121 +154,82 @@ export function SpreadsheetViewer({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 z-[60]"
-              style={{ background: 'rgba(0,0,0,0.5)' }}
-              onClick={closeModal}
+              style={{ background: 'rgba(0,0,0,0.4)' }}
+              onClick={() => setSelectedColumn(null)}
             />
-            
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed z-[70] p-4 rounded-ios shadow-2xl"
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed z-[70] p-3 rounded-ios-sm shadow-xl"
               style={{ 
                 background: 'var(--bg-card)',
                 border: '1px solid var(--border)',
                 top: '50%',
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
-                minWidth: '280px',
-                maxWidth: '90vw'
+                width: '240px'
               }}
             >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  Map Column
-                </h3>
-                <button 
-                  onClick={closeModal}
-                  className="w-8 h-8 rounded-ios-xs flex items-center justify-center hover:bg-[var(--bg-hover)]"
-                >
-                  <svg className="w-4 h-4" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Map Column</span>
+                <button onClick={() => setSelectedColumn(null)} className="p-1 rounded hover:bg-[var(--bg-hover)]">
+                  <svg className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
-
-              <div className="mb-4 p-3 rounded-ios-sm" style={{ background: 'var(--bg-secondary)' }}>
-                <p className="text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
-                  Column
-                </p>
-                <p className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>
-                  "{data.headers[selectedColumn]}"
-                </p>
+              
+              <div className="text-xs mb-3 p-2 rounded" style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+                "{data.headers[selectedColumn]}"
               </div>
 
-              <div className="space-y-2">
-                <p className="text-xs uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
-                  Map to
-                </p>
-                
+              <div className="space-y-1">
                 {(['category', 'budget_amount', 'draw_amount', 'ignore'] as const).map((type) => {
                   const isSelected = getMappingForColumn(selectedColumn)?.mappedTo === type
+                  const isDraw = type === 'draw_amount'
                   
                   return (
-                    <button
-                      key={type}
-                      onClick={() => type !== 'draw_amount' && handleMappingSelect(type)}
-                      className={`w-full text-left px-4 py-3 rounded-ios-sm text-sm transition-all ${
-                        type === 'draw_amount' ? '' : 'hover:brightness-110'
-                      }`}
-                      style={{ 
-                        background: isSelected ? MAPPING_COLORS[type] : 'var(--bg-secondary)',
-                        border: `1px solid ${isSelected ? MAPPING_BORDER_COLORS[type] : 'var(--border-subtle)'}`,
-                        color: 'var(--text-primary)'
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-4 h-4 rounded border-2 flex-shrink-0"
-                          style={{ 
-                            background: MAPPING_COLORS[type],
-                            borderColor: MAPPING_BORDER_COLORS[type]
-                          }}
-                        />
-                        <span className="font-medium">{MAPPING_LABELS[type]}</span>
-                        {isSelected && (
-                          <svg className="w-4 h-4 ml-auto" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div key={type}>
+                      <button
+                        onClick={() => !isDraw && handleMappingSelect(type)}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors"
+                        style={{ 
+                          background: isSelected ? MAPPING_COLORS[type] : 'transparent',
+                          color: 'var(--text-primary)'
+                        }}
+                      >
+                        <div className="w-3 h-3 rounded-sm" style={{ background: type === 'ignore' ? 'var(--bg-hover)' : MAPPING_BORDER_COLORS[type] }} />
+                        <span>{type === 'category' ? 'Category' : type === 'budget_amount' ? 'Budget Amount' : type === 'draw_amount' ? 'Draw Amount' : 'Ignore'}</span>
+                        {isSelected && !isDraw && (
+                          <svg className="w-3 h-3 ml-auto" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
                         )}
-                      </div>
+                      </button>
                       
-                      {type === 'draw_amount' && (
-                        <div className="mt-3 flex items-center gap-3">
-                          <label className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                            Draw #
-                          </label>
+                      {isDraw && (
+                        <div className="flex items-center gap-2 mt-1 ml-5">
+                          <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>#</span>
                           <input
                             type="number"
                             min={1}
                             max={20}
                             value={drawNumberInput}
                             onChange={(e) => setDrawNumberInput(parseInt(e.target.value) || 1)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="w-16 px-2 py-1 rounded-ios-xs text-center"
-                            style={{ 
-                              background: 'var(--bg-card)',
-                              border: '1px solid var(--border)',
-                              color: 'var(--text-primary)'
-                            }}
+                            className="w-12 px-1.5 py-0.5 rounded text-xs text-center"
+                            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
                           />
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleMappingSelect('draw_amount')
-                            }}
-                            className="ml-auto px-3 py-1 rounded-ios-xs text-xs font-medium"
-                            style={{ 
-                              background: 'var(--accent)',
-                              color: 'white'
-                            }}
+                            onClick={() => handleMappingSelect('draw_amount')}
+                            className="px-2 py-0.5 rounded text-[10px] font-medium"
+                            style={{ background: 'var(--accent)', color: 'white' }}
                           >
                             Apply
                           </button>
                         </div>
                       )}
-                    </button>
+                    </div>
                   )
                 })}
               </div>
