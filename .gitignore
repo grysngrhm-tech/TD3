@@ -50,3 +50,7 @@ supabase/001_schema.sql
 supabase/002_seed.sql
 n8n/workflows/td3-*.json
 .env.local.txt
+docs/
+n8n/workflows/README.md
+types/README.md
+supabase/README.md
