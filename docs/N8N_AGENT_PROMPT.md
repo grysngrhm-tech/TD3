@@ -69,23 +69,130 @@ return items.map(item => {
 
 ### Legacy Workflow 2: "Draw Upload 2.0" (`ainNGNiXrFkytveN`)
 
-**Flow:**
+This is a complex workflow that processes both draw request spreadsheets AND invoice PDFs, using AI to match invoices to budget categories.
+
+**Flow Diagram:**
 ```
-Form Trigger (draw template + invoices)
-  → Extract CSV rows
-  → Parse invoices with OpenAI Vision
-  → Invoice Matching Agent (matches invoices to budget categories)
-  → Create draw request + lines in database
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          INVOICE PROCESSING BRANCH                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Form Trigger ──► Split Invoices ──► Upload to OpenAI Files ──► Wait       │
+│       │               to Items              │                      │        │
+│       │                  │                  │                      │        │
+│       │                  ▼                  ▼                      ▼        │
+│       │          Upload to Drive    Build Responses Body ──► Call OpenAI   │
+│       │               │                                     Responses API  │
+│       │               │                                          │         │
+│       │               ▼                                          ▼         │
+│       │        Build Invoice Map                          Parse Response   │
+│       │               │                                          │         │
+│       │               └──────────────────┐    ┌──────────────────┘         │
+│       │                                  ▼    ▼                             │
+├───────┼──────────────────────────► Merge + Drive Map                       │
+│       │                                  │                                  │
+├───────┼──────────────────────────────────┼──────────────────────────────────┤
+│                          DRAW TEMPLATE BRANCH                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│       │                                  │                                  │
+│       └──► Extract CSV ──► Get Budget Lines ──► Build CSV JSON             │
+│                                                       │                     │
+│                                                       └─────────┐          │
+│                                                                 ▼          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                          AI MATCHING & DATABASE                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│                                                    Invoice Matching Agent   │
+│                        Merge ────────────────────►     (GPT-4.1)           │
+│                          │                              │                   │
+│                          ▼                              ▼                   │
+│                  Build Final Draw Request ◄────── Merge + Drive Map        │
+│                          │                                                  │
+│                          ▼                                                  │
+│                  Build Draw Request Lines                                   │
+│                          │                                                  │
+│                          ▼                                                  │
+│                  Upsert to Database                                         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Key Pattern - Invoice Matching Agent:**
-Uses an AI agent to match invoice line items to existing budget categories using:
-- Builder category text matching
-- NAHB code/category matching
-- Description keywords
-- Amount proximity
+**Key Pattern - Invoice Extraction Prompt (OpenAI Responses API):**
+```
+Extract every invoice from the attached files and return ONLY a JSON array
+with one object per invoice using this exact schema (no extra text, no markdown):
 
-**Note:** The new webapp doesn't upload invoices during draw submission (that's a future feature). The new draw workflow is simpler - just receive categories and amounts, match to existing budgets, create draw records.
+[
+  {
+    "file_name": "string",
+    "vendor_name": "string or null",
+    "invoice_number": "string or null",
+    "invoice_date": "YYYY-MM-DD or null",
+    "total_amount": number or null,
+    "line_items": [
+      {
+        "description": "string",
+        "line_total": number or null
+      }
+    ],
+    "project_reference": "string or null",
+    "flags": ["string"]
+  }
+]
+```
+
+**Key Pattern - Invoice Matching Agent System Prompt:**
+The Invoice Matching Agent is an AI that receives:
+- `invoices_array`: Parsed invoices from OpenAI (vendor, amounts, line items)
+- `csv_rows`: Draw template lines with NAHB mappings
+
+It matches invoice line items to budget categories using:
+- Builder category text
+- NAHB code/category/subcategory
+- Description keywords and vendor name
+- Amounts: `line_total` vs `draw_amount`
+
+**Output Structure:**
+```json
+{
+  "matched_invoices": [
+    {
+      "file_name": "string",
+      "vendor_name": "string",
+      "invoice_number": "string",
+      "invoice_date": "string",
+      "total_amount": number,
+      "matched_amount": number,
+      "line_items": [
+        {
+          "description": "string",
+          "line_total": number,
+          "matched_to_builder_category": "string",
+          "matched_to_nahb_code": "string",
+          "confidence_score": 0.95
+        }
+      ]
+    }
+  ],
+  "matching_report": {
+    "total_invoices": number,
+    "total_invoice_amount": number,
+    "total_draw_amount": number,
+    "total_matched_amount": number,
+    "unmatched_invoices_count": number,
+    "overall_confidence_score": number
+  },
+  "unmatched_line_items": [
+    {
+      "source": "invoice" | "draw_line",
+      "builder_category": "string",
+      "line_total": number,
+      "reason_unmatched": "string"
+    }
+  ]
+}
+```
 
 ---
 
@@ -188,11 +295,13 @@ Uses an AI agent to match invoice line items to existing budget categories using
 
 ---
 
-### Workflow 2: TD3 Draw Import
+### Workflow 2: TD3 Draw Import (with Invoice Processing)
 
 **Webhook Path:** `/draw-import`
 
 **Trigger:** Webhook (receives POST from webapp)
+
+**IMPORTANT:** This workflow must process BOTH the draw spreadsheet data AND invoice PDFs submitted by the builder. The AI must match invoice line items to budget categories to validate the draw request.
 
 **Input Payload:**
 ```json
@@ -210,6 +319,16 @@ Uses an AI agent to match invoice line items to existing budget categories using
       "values": [0, 19246, 0, ...]
     }
   },
+  "invoices": [
+    {
+      "fileName": "Invoice_Excavation.pdf",
+      "fileData": "base64-encoded-pdf-content"
+    },
+    {
+      "fileName": "Foundation_Receipt.pdf", 
+      "fileData": "base64-encoded-pdf-content"
+    }
+  ],
   "metadata": {
     "fileName": "July Draw.xlsx",
     "sheetName": "Sheet1",
@@ -220,50 +339,200 @@ Uses an AI agent to match invoice line items to existing budget categories using
 
 **Processing Steps:**
 
-1. **Webhook Trigger** - Receive JSON payload
+#### Branch 1: Invoice Processing Pipeline
 
-2. **Get Existing Budgets (Supabase)**
+1. **Extract Invoice Files** - Split base64 invoices into individual binary items
+
+2. **Upload to OpenAI Files** - Use OpenAI Files API to upload each PDF
+   ```javascript
+   // Node: Upload to OpenAI Files
+   // Type: @n8n/n8n-nodes-langchain.openAi
+   // Resource: file
+   // Purpose: user_data
+   ```
+
+3. **Wait** - Brief pause (3 seconds) for OpenAI to process uploads
+
+4. **Build Responses Body** - Construct OpenAI Responses API request:
+   ```javascript
+   const pdfFileIds = items.map(item => item.json.id).filter(id => !!id);
+   
+   const prompt = `
+   Extract every invoice from the attached files and return ONLY a JSON array
+   with one object per invoice using this exact schema:
+   
+   [
+     {
+       "file_name": "string",
+       "vendor_name": "string or null",
+       "invoice_number": "string or null",
+       "invoice_date": "YYYY-MM-DD or null",
+       "total_amount": number or null,
+       "line_items": [
+         { "description": "string", "line_total": number or null }
+       ],
+       "project_reference": "string or null",
+       "flags": ["string"]
+     }
+   ]
+   `;
+   
+   return [{
+     json: {
+       body: {
+         model: "gpt-4o-mini",
+         input: [{
+           role: "user",
+           content: [
+             { type: "input_text", text: prompt },
+             ...pdfFileIds.map(id => ({ type: "input_file", file_id: id }))
+           ]
+         }],
+         text: { format: { type: "json_object" } }
+       }
+     }
+   }];
+   ```
+
+5. **Call OpenAI Responses** - HTTP Request to `/v1/responses`
+
+6. **Parse OpenAI Response** - Extract the parsed invoice JSON
+
+#### Branch 2: Draw Template Processing
+
+7. **Get Existing Budgets (Supabase)** - Fetch budget lines for this project:
    ```sql
-   SELECT id, category, builder_category_raw, nahb_category, cost_code, remaining_amount
+   SELECT id, category, builder_category_raw, nahb_category, nahb_subcategory, 
+          cost_code, original_amount, spent_amount,
+          (original_amount - spent_amount) as remaining_amount
    FROM budgets
    WHERE project_id = $projectId
    ```
 
-3. **Filter Valid Rows (OpenAI)** - Same as budget import
+8. **Filter Valid Rows (OpenAI)** - Same as budget import (filter headers/totals)
 
-4. **Match to Budget Lines (OpenAI)**
-   ```
-   Match these draw categories to existing budget lines.
-   
-   Draw categories: ["Excavation", "Rough Lumber", ...]
-   
-   Budget lines: [{id, category, builder_category_raw, cost_code}, ...]
-   
-   Return matches: [{drawIndex, budgetId, confidence}, ...]
+9. **Build CSV JSON** - Create enriched draw lines with NAHB mappings:
+   ```javascript
+   // For each draw line with amount > 0:
+   // - Look up matching budget line by category
+   // - Attach NAHB code/category/subcategory
+   // - Output: { builder_category, draw_amount, nahb_code, nahb_category, ... }
    ```
 
-5. **Create Draw Request (Supabase)**
-   ```sql
-   INSERT INTO draw_requests (project_id, draw_number, total_amount, status)
-   VALUES ($projectId, $drawNumber, $totalAmount, 'pending')
-   RETURNING id
-   ```
+#### Merge & Match
 
-6. **Create Draw Lines (Supabase)** - For each matched item with amount > 0:
-   ```sql
-   INSERT INTO draw_request_lines (draw_request_id, budget_id, amount_requested, confidence_score)
-   VALUES ($drawRequestId, $budgetId, $amount, $confidence)
-   ```
+10. **Merge** - Combine parsed invoices with draw template data
 
-7. **Update Budget Spent (Supabase)**
-   ```sql
-   UPDATE budgets SET spent_amount = spent_amount + $amount WHERE id = $budgetId
-   ```
+11. **Invoice Matching Agent (AI)** - Use AI agent to match invoice line items to draw lines:
+    
+    **System Prompt:**
+    ```
+    You are an expert construction draw-review analyst.
+    
+    INPUT:
+    - invoices_array: Parsed invoices with vendor, amounts, line items
+    - csv_rows: Draw template lines with NAHB mappings
+    
+    TASK:
+    For each invoice line item, match it to the most appropriate draw line using:
+    - builder_category text similarity
+    - nahb_code / nahb_category / nahb_subcategory
+    - description keywords and vendor_name
+    - amounts: line_total vs draw_amount
+    
+    OUTPUT (JSON):
+    {
+      "matched_invoices": [...],
+      "matching_report": {
+        "total_invoices": n,
+        "total_invoice_amount": n,
+        "total_draw_amount": n,
+        "total_matched_amount": n,
+        "unmatched_invoices_count": n,
+        "overall_confidence_score": 0.0-1.0
+      },
+      "unmatched_line_items": [...]
+    }
+    ```
 
-8. **Return Response**
-   ```json
-   {"success": true, "drawRequestId": "uuid", "linesCreated": 12}
-   ```
+12. **Build Final Draw Request** - Construct the complete draw request object:
+    ```javascript
+    {
+      draw_request_id: generateId(),
+      project_id: projectId,
+      draw_number: drawNumber,
+      total_requested_amount: sum(draw_amounts),
+      status: 'pending',
+      invoices_json: matchedInvoices,
+      matching_report_json: matchingReport
+    }
+    ```
+
+#### Database Inserts
+
+13. **Create Draw Request (Supabase)**:
+    ```sql
+    INSERT INTO draw_requests (
+      project_id, draw_number, total_amount, status, request_date,
+      matching_report, overall_confidence
+    ) VALUES (
+      $projectId, $drawNumber, $totalAmount, 'pending', NOW(),
+      $matchingReportJson, $overallConfidence
+    ) RETURNING id
+    ```
+
+14. **Create Draw Lines (Supabase)** - For each matched item with amount > 0:
+    ```sql
+    INSERT INTO draw_request_lines (
+      draw_request_id,
+      budget_id,
+      builder_category,
+      amount_requested,
+      matched_invoice_amount,
+      variance,
+      invoice_vendor_name,
+      invoice_number,
+      invoice_date,
+      confidence_score,
+      flags
+    ) VALUES (
+      $drawRequestId,
+      $budgetId,
+      $builderCategory,
+      $drawAmount,
+      $matchedAmount,
+      $variance,
+      $vendorName,
+      $invoiceNumber,
+      $invoiceDate,
+      $confidence,
+      $flags
+    )
+    ```
+
+15. **Update Budget Spent (Supabase)** - Only for approved draws:
+    ```sql
+    UPDATE budgets 
+    SET spent_amount = spent_amount + $amount 
+    WHERE id = $budgetId
+    ```
+
+16. **Return Response**:
+    ```json
+    {
+      "success": true,
+      "drawRequestId": "uuid",
+      "linesCreated": 12,
+      "matchingReport": {
+        "totalInvoices": 5,
+        "totalInvoiceAmount": 52813.12,
+        "totalDrawAmount": 52813.12,
+        "matchedAmount": 51500.00,
+        "unmatchedCount": 1,
+        "overallConfidence": 0.87
+      }
+    }
+    ```
 
 ---
 
@@ -277,7 +546,12 @@ Uses an AI agent to match invoice line items to existing budget categories using
    
 2. **OpenAI**
    - API Key: Existing `OpenAi account` credential
-   - Model: `gpt-4o-mini` (cost-effective for classification)
+   - Models used:
+     - `gpt-4o-mini` for NAHB classification and row filtering
+     - `gpt-4.1` for Invoice Matching Agent (more complex reasoning)
+
+3. **Google Drive (Optional)** - For permanent invoice storage
+   - If you want to store invoice PDFs permanently, configure Google Drive OAuth
 
 ### Webhook Setup
 
@@ -418,12 +692,15 @@ Use this exact taxonomy in the classification prompt:
 
 ### Draw Import Workflow
 - [ ] Receives webhook POST at `/draw-import`
+- [ ] **Processes invoice PDFs through OpenAI Files API**
+- [ ] **Extracts vendor, amounts, and line items from invoices**
 - [ ] Fetches existing budgets for the project
-- [ ] Matches draw categories to budget lines
-- [ ] Creates `draw_requests` record
-- [ ] Creates `draw_request_lines` records linked to budgets
-- [ ] Updates `spent_amount` on matched budgets
-- [ ] Returns JSON response with draw request ID
+- [ ] **Matches invoice line items to draw categories using AI**
+- [ ] **Calculates variance between draw amounts and invoice amounts**
+- [ ] Creates `draw_requests` record with matching report
+- [ ] Creates `draw_request_lines` records with invoice matching data
+- [ ] Updates `spent_amount` on matched budgets (when approved)
+- [ ] Returns JSON response with draw request ID and matching report
 
 ### Testing
 Test with curl commands from `n8n/workflows/README.md`:
@@ -433,10 +710,18 @@ curl -X POST https://grysngrhm.app.n8n.cloud/webhook/budget-import \
   -H "Content-Type: application/json" \
   -d '{"type":"budget","projectId":"test-id","columns":{...}}'
 
-# Draw
+# Draw (with invoices)
 curl -X POST https://grysngrhm.app.n8n.cloud/webhook/draw-import \
   -H "Content-Type: application/json" \
-  -d '{"type":"draw","projectId":"test-id","drawNumber":1,"columns":{...}}'
+  -d '{
+    "type":"draw",
+    "projectId":"test-id",
+    "drawNumber":1,
+    "columns":{...},
+    "invoices":[
+      {"fileName":"invoice1.pdf","fileData":"base64..."}
+    ]
+  }'
 ```
 
 ---
@@ -447,6 +732,19 @@ curl -X POST https://grysngrhm.app.n8n.cloud/webhook/draw-import \
 2. Review `n8n/workflows/README.md` for exact payload formats
 3. Check `supabase/README.md` for database schema
 4. Create Supabase credentials in n8n if not exists
-5. Build Budget Import workflow first (simpler)
-6. Build Draw Import workflow second
+5. **Build Budget Import workflow first (simpler - no invoices)**
+6. **Build Draw Import workflow second (complex - invoice processing)**
 7. Test with curl, then activate for webapp integration
+
+---
+
+## Webapp UI Updates Needed
+
+**Note:** The current webapp UI only supports spreadsheet upload. To fully support the draw import workflow with invoice processing, the webapp needs to be updated to:
+
+1. Add an invoice upload field to the Draw Import modal
+2. Support multiple file uploads (PDFs)
+3. Convert uploaded files to base64 for the webhook payload
+4. Display the matching report returned by the workflow
+
+This is a separate task from the n8n workflow building.
