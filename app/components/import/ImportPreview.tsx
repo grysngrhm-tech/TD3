@@ -3,7 +3,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import * as Dialog from '@radix-ui/react-dialog'
-import * as XLSX from 'xlsx'
 import { FileUploader } from './FileUploader'
 import { SheetSelector } from './SheetSelector'
 import { SpreadsheetViewer } from '../ui/SpreadsheetViewer'
@@ -14,7 +13,7 @@ import {
   extractMappedData,
   calculateImportStats 
 } from '@/lib/spreadsheet'
-import type { SpreadsheetData, ColumnMapping, SheetInfo, WorkbookInfo } from '@/lib/spreadsheet'
+import type { SpreadsheetData, ColumnMapping, WorkbookInfo } from '@/lib/spreadsheet'
 
 type ImportPreviewProps = {
   isOpen: boolean
@@ -48,11 +47,8 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Reset state when modal closes
   useEffect(() => {
-    if (!isOpen) {
-      handleReset()
-    }
+    if (!isOpen) handleReset()
   }, [isOpen])
 
   const handleFileSelect = useCallback(async (selectedFile: File) => {
@@ -64,14 +60,11 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
       const info = await getWorkbookInfo(selectedFile)
       setWorkbookInfo(info)
       
-      // Auto-select sheet with most data
       const mainSheet = info.sheets.reduce((best, current) => 
         current.rowCount > best.rowCount ? current : best
       )
       
       setSelectedSheet(mainSheet.name)
-      
-      // Parse the selected sheet
       const parsedData = parseSheet(info.workbook, mainSheet.name)
       const detectedMappings = detectColumnMappings(parsedData.headers, parsedData.rows)
       const importStats = calculateImportStats(parsedData.rows, detectedMappings)
@@ -89,7 +82,6 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
 
   const handleSheetChange = useCallback((sheetName: string) => {
     if (!workbookInfo) return
-    
     setSelectedSheet(sheetName)
     setLoading(true)
     
@@ -119,7 +111,6 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
           ? { ...m, mappedTo: newMapping, drawNumber, confidence: 1 }
           : m
       )
-      // Recalculate stats with new mappings
       if (data) {
         const newStats = calculateImportStats(data.rows, updated)
         setStats(newStats)
@@ -130,7 +121,6 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
 
   const handleImport = useCallback(async () => {
     if (!data) return
-    
     setImporting(true)
     setError(null)
     
@@ -166,13 +156,12 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
   const detectedCount = mappings.filter(m => m.mappedTo && m.mappedTo !== 'ignore').length
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
+    if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`
+    if (amount >= 1000) return `$${(amount / 1000).toFixed(0)}K`
+    return `$${amount.toFixed(0)}`
   }
+
+  const formatNumber = (num: number) => num.toLocaleString()
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -188,27 +177,27 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
         
         <Dialog.Content asChild>
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed z-50 inset-4 rounded-ios flex flex-col overflow-hidden"
+            exit={{ opacity: 0, scale: 0.98 }}
+            className="fixed z-50 inset-3 rounded-ios flex flex-col overflow-hidden"
             style={{ background: 'var(--bg-secondary)' }}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div>
-                <Dialog.Title className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+            {/* Compact Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-3">
+                <Dialog.Title className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
                   {importType === 'budget' ? 'Import Budget' : 'Import Draw'}
                 </Dialog.Title>
-                <Dialog.Description className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                  {step === 'upload' 
-                    ? 'Upload an Excel or CSV file to import' 
-                    : 'Review detected columns and adjust if needed'}
-                </Dialog.Description>
+                {step === 'preview' && (
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}>
+                    {detectedCount} columns detected
+                  </span>
+                )}
               </div>
               <Dialog.Close asChild>
-                <button className="w-10 h-10 rounded-ios-sm flex items-center justify-center hover:bg-[var(--bg-hover)]">
-                  <svg className="w-5 h-5" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <button className="w-8 h-8 rounded-ios-xs flex items-center justify-center hover:bg-[var(--bg-hover)]">
+                  <svg className="w-4 h-4" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -216,27 +205,28 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-hidden p-6 flex flex-col min-h-0">
+            <div className="flex-1 overflow-hidden flex flex-col min-h-0">
               <AnimatePresence mode="wait">
                 {step === 'upload' && (
                   <motion.div
                     key="upload"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex-1 p-6"
                   >
                     <FileUploader onFileSelect={handleFileSelect} />
                     
                     {loading && (
-                      <div className="flex items-center justify-center mt-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)' }} />
-                        <span className="ml-3" style={{ color: 'var(--text-secondary)' }}>Processing file...</span>
+                      <div className="flex items-center justify-center mt-6">
+                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)' }} />
+                        <span className="ml-2 text-sm" style={{ color: 'var(--text-secondary)' }}>Processing...</span>
                       </div>
                     )}
                     
                     {error && (
-                      <div className="mt-4 p-4 rounded-ios-sm text-center" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--error)' }}>
-                        <p style={{ color: 'var(--error)' }}>{error}</p>
+                      <div className="mt-4 p-3 rounded-ios-sm text-center text-sm" style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)' }}>
+                        {error}
                       </div>
                     )}
                   </motion.div>
@@ -245,128 +235,90 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
                 {step === 'preview' && data && (
                   <motion.div
                     key="preview"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="flex flex-col gap-4 h-full min-h-0"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex-1 flex flex-col min-h-0"
                   >
-                    {/* File info + Sheet selector */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-shrink-0">
-                      {/* File info */}
-                      <div className="flex items-center gap-3 p-3 rounded-ios-sm" style={{ background: 'var(--bg-card)' }}>
-                        <svg className="w-8 h-8 flex-shrink-0" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    {/* Compact Info Bar */}
+                    <div className="flex items-center gap-2 px-4 py-2 border-b text-xs" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
+                      {/* File + Sheet */}
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>{file?.name}</p>
-                          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                            {workbookInfo?.sheets.length || 1} sheet{(workbookInfo?.sheets.length || 1) > 1 ? 's' : ''}
-                          </p>
-                        </div>
-                        <button
-                          onClick={handleReset}
-                          className="text-sm font-medium flex-shrink-0"
-                          style={{ color: 'var(--accent)' }}
-                        >
-                          Change
-                        </button>
+                        <span className="truncate" style={{ color: 'var(--text-secondary)' }}>{file?.name}</span>
+                        <button onClick={handleReset} className="text-xs font-medium" style={{ color: 'var(--accent)' }}>Change</button>
+                        
+                        {workbookInfo && workbookInfo.sheets.length > 1 && (
+                          <>
+                            <div className="w-px h-4 mx-2" style={{ background: 'var(--border)' }} />
+                            <span style={{ color: 'var(--text-muted)' }}>Sheet:</span>
+                            <select
+                              value={selectedSheet}
+                              onChange={(e) => handleSheetChange(e.target.value)}
+                              className="px-2 py-1 rounded text-xs"
+                              style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                            >
+                              {workbookInfo.sheets.map(s => (
+                                <option key={s.name} value={s.name}>{s.name} ({s.rowCount} rows)</option>
+                              ))}
+                            </select>
+                          </>
+                        )}
                       </div>
 
-                      {/* Sheet selector */}
-                      {workbookInfo && workbookInfo.sheets.length > 1 && (
-                        <SheetSelector
-                          sheets={workbookInfo.sheets}
-                          selectedSheet={selectedSheet}
-                          onSheetChange={handleSheetChange}
-                        />
-                      )}
-                    </div>
-
-                    {/* AI Detection Banner */}
-                    <div className="flex items-center gap-3 p-4 rounded-ios-sm flex-shrink-0" style={{ background: 'var(--accent-glow)', border: '1px solid var(--accent)' }}>
-                      <svg className="w-6 h-6 flex-shrink-0" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      <div className="flex-1">
-                        <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                          AI detected {detectedCount} column{detectedCount !== 1 ? 's' : ''}
-                        </p>
-                        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                          Click any column header to change its mapping
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Validation Messages */}
-                    {!canImport && (
-                      <div className="p-3 rounded-ios-sm flex-shrink-0" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--error)' }}>
-                        <p className="text-sm" style={{ color: 'var(--error)' }}>
-                          Please map at least one column to "Category" and one to "{importType === 'budget' ? 'Budget' : 'Draw'}"
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Import Stats */}
-                    {stats && canImport && (
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 flex-shrink-0">
-                        <div className="p-3 rounded-ios-sm" style={{ background: 'var(--bg-card)' }}>
-                          <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Line Items</p>
-                          <p className="text-xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>
-                            {stats.rowsWithCategory}
-                          </p>
+                      {/* Compact Stats */}
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1">
+                          <span style={{ color: 'var(--text-muted)' }}>Items:</span>
+                          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatNumber(stats?.rowsWithCategory || 0)}</span>
                         </div>
-                        <div className="p-3 rounded-ios-sm" style={{ background: 'var(--bg-card)' }}>
-                          <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Total Budget</p>
-                          <p className="text-xl font-bold mt-1" style={{ color: 'var(--accent)' }}>
-                            {formatCurrency(stats.totalBudget)}
-                          </p>
+                        <div className="flex items-center gap-1">
+                          <span style={{ color: 'var(--text-muted)' }}>Budget:</span>
+                          <span className="font-medium" style={{ color: 'var(--accent)' }}>{formatCurrency(stats?.totalBudget || 0)}</span>
                         </div>
-                        <div className="p-3 rounded-ios-sm" style={{ background: 'var(--bg-card)' }}>
-                          <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Draw Columns</p>
-                          <p className="text-xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>
-                            {stats.drawColumns}
-                          </p>
-                        </div>
-                        {stats.emptyCategories > 0 && (
-                          <div className="p-3 rounded-ios-sm" style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid var(--warning)' }}>
-                            <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--warning)' }}>Skipped</p>
-                            <p className="text-xl font-bold mt-1" style={{ color: 'var(--warning)' }}>
-                              {stats.emptyCategories}
-                            </p>
-                            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>empty rows</p>
+                        {(stats?.drawColumns || 0) > 0 && (
+                          <div className="flex items-center gap-1">
+                            <span style={{ color: 'var(--text-muted)' }}>Draws:</span>
+                            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{stats?.drawColumns}</span>
+                          </div>
+                        )}
+                        {(stats?.emptyCategories || 0) > 0 && (
+                          <div className="flex items-center gap-1">
+                            <span style={{ color: 'var(--warning)' }}>⚠ {stats?.emptyCategories} empty</span>
                           </div>
                         )}
                       </div>
+                    </div>
+
+                    {/* Validation Warning */}
+                    {!canImport && (
+                      <div className="px-4 py-2 text-xs" style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)' }}>
+                        ⚠ Map at least one Category and one {importType === 'budget' ? 'Budget' : 'Draw'} column
+                      </div>
                     )}
 
-                    {/* Spreadsheet Preview - Fills remaining space */}
-                    <div className="flex-1 min-h-0">
+                    {/* Spreadsheet - Takes most of the space */}
+                    <div className="flex-1 min-h-0 p-3">
                       {loading ? (
                         <div className="flex items-center justify-center h-full">
-                          <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)' }} />
+                          <div className="animate-spin rounded-full h-6 w-6 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)' }} />
                         </div>
                       ) : (
                         <SpreadsheetViewer
                           data={data}
                           mappings={mappings}
                           onMappingChange={handleMappingChange}
-                          maxRows={50}
+                          maxRows={100}
                         />
                       )}
                     </div>
 
-                    {/* Error display */}
                     {error && (
-                      <div className="p-4 rounded-ios-sm flex-shrink-0" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--error)' }}>
-                        <p className="font-medium" style={{ color: 'var(--error)' }}>Import Error</p>
-                        <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{error}</p>
-                        <button
-                          onClick={() => setError(null)}
-                          className="mt-2 text-sm font-medium"
-                          style={{ color: 'var(--accent)' }}
-                        >
-                          Dismiss
-                        </button>
+                      <div className="mx-4 mb-2 p-2 rounded-ios-sm text-xs" style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)' }}>
+                        {error}
+                        <button onClick={() => setError(null)} className="ml-2 underline">Dismiss</button>
                       </div>
                     )}
                   </motion.div>
@@ -374,35 +326,25 @@ export function ImportPreview({ isOpen, onClose, onImport, importType }: ImportP
               </AnimatePresence>
             </div>
 
-            {/* Footer */}
+            {/* Compact Footer */}
             {step === 'preview' && (
-              <div className="flex items-center justify-between p-6 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                <button
-                  onClick={handleReset}
-                  disabled={importing}
-                  className="btn-secondary disabled:opacity-50"
-                >
+              <div className="flex items-center justify-between px-4 py-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                <button onClick={handleReset} disabled={importing} className="px-4 py-2 text-sm rounded-ios-sm" style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)' }}>
                   Back
                 </button>
                 <button
                   onClick={handleImport}
                   disabled={!canImport || importing}
-                  className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 py-2 text-sm rounded-ios-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                  style={{ background: canImport ? 'var(--accent)' : 'var(--bg-card)', color: canImport ? 'white' : 'var(--text-muted)' }}
                 >
                   {importing ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent border-white" />
+                      <div className="animate-spin rounded-full h-3 w-3 border-2 border-t-transparent border-white" />
                       Importing...
                     </>
-                  ) : canImport ? (
-                    <>
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                      </svg>
-                      Import {stats?.rowsWithCategory || 0} Line Items
-                    </>
                   ) : (
-                    'Map Required Columns'
+                    <>Import {formatNumber(stats?.rowsWithCategory || 0)} Items</>
                   )}
                 </button>
               </div>
