@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Budget, NahbCostCode } from '@/types/database'
 import { toast } from '@/app/components/ui/Toast'
@@ -28,7 +28,10 @@ export function BudgetEditor({
   const [editableBudgets, setEditableBudgets] = useState<EditableBudget[]>([])
   const [nahbCodes, setNahbCodes] = useState<NahbCostCode[]>([])
   const [saving, setSaving] = useState(false)
-  const [editingCell, setEditingCell] = useState<{id: string, field: string} | null>(null)
+  const [pendingSubcategoryOpen, setPendingSubcategoryOpen] = useState<string | null>(null)
+  
+  // Refs for subcategory selects to auto-open them
+  const subcategoryRefs = useRef<{ [key: string]: HTMLSelectElement | null }>({})
 
   // Load NAHB codes
   useEffect(() => {
@@ -40,6 +43,22 @@ export function BudgetEditor({
     setEditableBudgets(budgets.map(b => ({ ...b, isDirty: false, isNew: false })))
   }, [budgets])
 
+  // Auto-open subcategory dropdown when category changes
+  useEffect(() => {
+    if (pendingSubcategoryOpen) {
+      const selectEl = subcategoryRefs.current[pendingSubcategoryOpen]
+      if (selectEl) {
+        // Small delay to ensure the DOM is ready
+        setTimeout(() => {
+          selectEl.focus()
+          // Try to open the dropdown (works in most browsers)
+          selectEl.click()
+        }, 50)
+      }
+      setPendingSubcategoryOpen(null)
+    }
+  }, [pendingSubcategoryOpen])
+
   const loadNahbCodes = async () => {
     try {
       const { data, error } = await supabase
@@ -48,10 +67,40 @@ export function BudgetEditor({
         .order('sort_order', { ascending: true })
 
       if (error) throw error
-      setNahbCodes(data || [])
+      if (data) setNahbCodes(data as NahbCostCode[])
     } catch (err) {
       console.error('Error loading NAHB codes:', err)
     }
+  }
+
+  // Get unique categories sorted
+  const uniqueCategories = useMemo(() => {
+    const categories = new Set<string>()
+    nahbCodes.forEach(code => {
+      if (code.category) categories.add(code.category)
+    })
+    return Array.from(categories).sort()
+  }, [nahbCodes])
+
+  // Get subcategories for a given category
+  const getSubcategoriesForCategory = (category: string | null) => {
+    if (!category) return []
+    const subcategories = new Set<string>()
+    nahbCodes.forEach(code => {
+      if (code.category === category && code.subcategory) {
+        subcategories.add(code.subcategory)
+      }
+    })
+    return Array.from(subcategories).sort()
+  }
+
+  // Find the code for a category/subcategory combination
+  const findCodeForCategorySubcategory = (category: string | null, subcategory: string | null) => {
+    if (!category || !subcategory) return null
+    const match = nahbCodes.find(
+      code => code.category === category && code.subcategory === subcategory
+    )
+    return match?.code || null
   }
 
   const formatCurrency = (amount: number | null) => {
@@ -85,13 +134,52 @@ export function BudgetEditor({
     ))
   }
 
+  // Handle category change - clears subcategory and code, then auto-opens subcategory
+  const handleCategoryChange = (budgetId: string, category: string) => {
+    setEditableBudgets(prev => prev.map(b => 
+      b.id === budgetId 
+        ? { 
+            ...b, 
+            nahb_category: category || null,
+            category: category || b.category,
+            nahb_subcategory: null, // Reset subcategory when category changes
+            cost_code: null, // Reset code when category changes
+            isDirty: true 
+          }
+        : b
+    ))
+    
+    // Trigger auto-open of subcategory dropdown
+    if (category) {
+      setPendingSubcategoryOpen(budgetId)
+    }
+  }
+
+  // Handle subcategory change - auto-selects the code
+  const handleSubcategoryChange = (budgetId: string, subcategory: string) => {
+    const budget = editableBudgets.find(b => b.id === budgetId)
+    const code = findCodeForCategorySubcategory(budget?.nahb_category || null, subcategory)
+    
+    setEditableBudgets(prev => prev.map(b => 
+      b.id === budgetId 
+        ? { 
+            ...b, 
+            nahb_subcategory: subcategory || null,
+            cost_code: code,
+            isDirty: true 
+          }
+        : b
+    ))
+  }
+
+  // Handle direct code change (still available for users who know codes)
   const handleCodeChange = (budgetId: string, code: string) => {
     const nahbCode = nahbCodes.find(n => n.code === code)
     setEditableBudgets(prev => prev.map(b => 
       b.id === budgetId 
         ? { 
             ...b, 
-            cost_code: code,
+            cost_code: code || null,
             nahb_category: nahbCode?.category || null,
             nahb_subcategory: nahbCode?.subcategory || null,
             category: nahbCode?.category || b.category,
@@ -319,47 +407,69 @@ export function BudgetEditor({
                     background: budget.isDirty ? 'rgba(99, 102, 241, 0.05)' : undefined 
                   }}
                 >
-                  {/* Code */}
+                  {/* Code - Auto-filled based on Category/Subcategory */}
+                  <td className="table-cell">
+                    <div className="flex items-center gap-2">
+                      {budget.ai_confidence !== null && (
+                        <span 
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ background: getConfidenceColor(budget.ai_confidence) }}
+                          title={`AI Confidence: ${Math.round((budget.ai_confidence || 0) * 100)}%`}
+                        />
+                      )}
+                      <span className="font-mono text-sm" style={{ color: 'var(--text-muted)' }}>
+                        {budget.cost_code || '—'}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Category - Editable dropdown */}
                   <td className="table-cell">
                     {isEditing ? (
                       <select
-                        value={budget.cost_code || ''}
-                        onChange={(e) => handleCodeChange(budget.id, e.target.value)}
-                        className="input w-full text-sm font-mono"
+                        value={budget.nahb_category || ''}
+                        onChange={(e) => handleCategoryChange(budget.id, e.target.value)}
+                        className="input w-full text-sm"
                       >
-                        <option value="">—</option>
-                        {nahbCodes.map(code => (
-                          <option key={code.code} value={code.code}>
-                            {code.code}
+                        <option value="">Select category...</option>
+                        {uniqueCategories.map(cat => (
+                          <option key={cat} value={cat}>
+                            {cat}
                           </option>
                         ))}
                       </select>
                     ) : (
-                      <div className="flex items-center gap-2">
-                        {budget.ai_confidence !== null && (
-                          <span 
-                            className="w-2 h-2 rounded-full flex-shrink-0"
-                            style={{ background: getConfidenceColor(budget.ai_confidence) }}
-                            title={`AI Confidence: ${Math.round((budget.ai_confidence || 0) * 100)}%`}
-                          />
-                        )}
-                        <span className="font-mono text-sm" style={{ color: 'var(--text-muted)' }}>
-                          {budget.cost_code || '—'}
-                        </span>
-                      </div>
+                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                        {budget.nahb_category || budget.category || '—'}
+                      </span>
                     )}
                   </td>
 
-                  {/* Category */}
+                  {/* Subcategory - Filtered by Category, editable dropdown */}
                   <td className="table-cell">
-                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                      {budget.nahb_category || budget.category || '—'}
-                    </span>
-                  </td>
-
-                  {/* Subcategory */}
-                  <td className="table-cell" style={{ color: 'var(--text-muted)' }}>
-                    {budget.nahb_subcategory || '—'}
+                    {isEditing ? (
+                      <select
+                        ref={(el) => { subcategoryRefs.current[budget.id] = el }}
+                        value={budget.nahb_subcategory || ''}
+                        onChange={(e) => handleSubcategoryChange(budget.id, e.target.value)}
+                        className="input w-full text-sm"
+                        disabled={!budget.nahb_category}
+                        style={{ opacity: budget.nahb_category ? 1 : 0.5 }}
+                      >
+                        <option value="">
+                          {budget.nahb_category ? 'Select subcategory...' : 'Select category first'}
+                        </option>
+                        {getSubcategoriesForCategory(budget.nahb_category).map(sub => (
+                          <option key={sub} value={sub}>
+                            {sub}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)' }}>
+                        {budget.nahb_subcategory || '—'}
+                      </span>
+                    )}
                   </td>
 
                   {/* Builder Category - Editable text */}
