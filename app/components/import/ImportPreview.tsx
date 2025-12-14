@@ -198,6 +198,16 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     }
   }, [data, mappings])
 
+  // Reset row range to auto-detected values
+  const handleResetRowRange = useCallback(() => {
+    if (data) {
+      const detectedRowRange = detectRowBoundaries(data.rows, mappings)
+      setRowRange(detectedRowRange)
+      const newStats = calculateImportStats(data.rows, mappings, detectedRowRange)
+      setStats(newStats)
+    }
+  }, [data, mappings])
+
   const handleImport = useCallback(async () => {
     if (!data || !file || !selectedProjectId) return
     
@@ -539,6 +549,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                           rowRange={rowRange}
                           onMappingChange={handleMappingChange}
                           onRowRangeChange={handleRowRangeChange}
+                          onResetRowRange={handleResetRowRange}
                           maxRows={100}
                         />
                       )}
