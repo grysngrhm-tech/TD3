@@ -556,31 +556,41 @@ export function detectRowBoundariesWithAnalysis(
   }
   
   // STEP 2: Find the SINGLE BEST total row (after header, highest total score >= 40)
+  // NOTE: Check raw score against threshold, use penalty only for ranking
+  const TOTAL_THRESHOLD = 40
   let bestTotalIdx = -1
-  let bestTotalScore = 40 // Minimum threshold
+  let bestTotalRanking = -Infinity // For ranking (with penalty)
   for (let i = startRow; i < analysis.length; i++) {
     const scores = getScores(analysis[i])
-    // Penalty for totals too close to header (within 3 rows)
-    let adjustedScore = scores.total
-    if (i < startRow + 3) adjustedScore -= 30
+    // First check if raw score meets minimum threshold
+    if (scores.total < TOTAL_THRESHOLD) continue
     
-    if (adjustedScore > bestTotalScore) {
-      bestTotalScore = adjustedScore
+    // Apply penalty for ranking only (totals too close to header)
+    let rankingScore = scores.total
+    if (i < startRow + 3) rankingScore -= 30
+    
+    if (rankingScore > bestTotalRanking) {
+      bestTotalRanking = rankingScore
       bestTotalIdx = i
     }
   }
   
   // STEP 3: Find the SINGLE BEST closing cost row (after header, highest closing score >= 30)
+  // NOTE: Check raw score against threshold, use penalty only for ranking
+  const CLOSING_THRESHOLD = 30
   let bestClosingIdx = -1
-  let bestClosingScore = 30 // Minimum threshold
+  let bestClosingRanking = -Infinity // For ranking (with penalty)
   for (let i = startRow; i < analysis.length; i++) {
     const scores = getScores(analysis[i])
-    // Penalty for closing costs too close to header (within 3 rows)
-    let adjustedScore = scores.closing
-    if (i < startRow + 3) adjustedScore -= 25
+    // First check if raw score meets minimum threshold
+    if (scores.closing < CLOSING_THRESHOLD) continue
     
-    if (adjustedScore > bestClosingScore) {
-      bestClosingScore = adjustedScore
+    // Apply penalty for ranking only (closing costs too close to header)
+    let rankingScore = scores.closing
+    if (i < startRow + 3) rankingScore -= 25
+    
+    if (rankingScore > bestClosingRanking) {
+      bestClosingRanking = rankingScore
       bestClosingIdx = i
     }
   }
@@ -588,11 +598,11 @@ export function detectRowBoundariesWithAnalysis(
   // Mark the best total and closing if found
   if (bestTotalIdx >= 0) {
     analysis[bestTotalIdx].classification = 'total'
-    analysis[bestTotalIdx].confidence = bestTotalScore
+    analysis[bestTotalIdx].confidence = getScores(analysis[bestTotalIdx]).total
   }
   if (bestClosingIdx >= 0 && bestClosingIdx !== bestTotalIdx) {
     analysis[bestClosingIdx].classification = 'closing'
-    analysis[bestClosingIdx].confidence = bestClosingScore
+    analysis[bestClosingIdx].confidence = getScores(analysis[bestClosingIdx]).closing
   }
   
   // STEP 4: Determine end row - stop BEFORE whichever comes first (total or closing)
