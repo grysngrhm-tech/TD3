@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import type { Project, Budget, DrawRequest, LifecycleStage } from '@/types/database'
-import { ImportPreview } from '@/app/components/import/ImportPreview'
 import { toast } from '@/app/components/ui/Toast'
 import { supabase } from '@/lib/supabase'
 
@@ -15,7 +15,7 @@ type LoanStatusTabProps = {
 }
 
 export function LoanStatusTab({ project, budgets, draws, onDrawImported }: LoanStatusTabProps) {
-  const [showDrawImport, setShowDrawImport] = useState(false)
+  const router = useRouter()
   
   // Payoff state
   const [payoffAmount, setPayoffAmount] = useState(project.payoff_amount?.toString() || '')
@@ -170,8 +170,8 @@ export function LoanStatusTab({ project, budgets, draws, onDrawImported }: LoanS
         <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-subtle)' }}>
           <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Draws</h3>
           {isActive && (
-            <button 
-              onClick={() => setShowDrawImport(true)}
+            <button
+              onClick={() => router.push(`/draws/new?project=${project.id}`)}
               className="btn-primary text-sm flex items-center gap-1.5"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -194,8 +194,8 @@ export function LoanStatusTab({ project, budgets, draws, onDrawImported }: LoanS
             </div>
             <p className="mb-3" style={{ color: 'var(--text-muted)' }}>No draws yet</p>
             {isActive && (
-              <button 
-                onClick={() => setShowDrawImport(true)}
+              <button
+                onClick={() => router.push(`/draws/new?project=${project.id}`)}
                 className="btn-primary"
               >
                 Submit First Draw
@@ -410,22 +410,6 @@ export function LoanStatusTab({ project, budgets, draws, onDrawImported }: LoanS
         </div>
       )}
 
-      {/* Draw Import Modal */}
-      <ImportPreview
-        isOpen={showDrawImport}
-        onClose={() => setShowDrawImport(false)}
-        onSuccess={() => {
-          setShowDrawImport(false)
-          toast({
-            type: 'success',
-            title: 'Draw Submitted',
-            message: 'Draw request sent for processing.'
-          })
-          onDrawImported?.()
-        }}
-        importType="draw"
-        preselectedProjectId={project.id}
-      />
     </div>
   )
 }

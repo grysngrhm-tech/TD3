@@ -3,19 +3,12 @@
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Project, Budget, Builder, DrawRequestInsert } from '@/types/database'
+import { Project, Budget, Builder } from '@/types/database'
 import { motion, AnimatePresence } from 'framer-motion'
-import * as XLSX from 'xlsx-js-style'
+import { ImportPreview } from '@/app/components/import/ImportPreview'
 
 type ProjectWithBuilder = Project & {
   builder?: Builder | null
-}
-
-type ParsedSpreadsheetData = {
-  categories: string[]
-  budgetAmounts: number[]
-  drawAmounts: number[]
-  headers: string[]
 }
 
 type UploadedInvoice = {
@@ -24,6 +17,7 @@ type UploadedInvoice = {
   name: string
   size: number
   type: string
+  preview: string // Object URL for preview
 }
 
 function NewDrawPageContent() {
@@ -36,30 +30,30 @@ function NewDrawPageContent() {
   const [builders, setBuilders] = useState<Builder[]>([])
   const [selectedBuilder, setSelectedBuilder] = useState('')
   const [projects, setProjects] = useState<ProjectWithBuilder[]>([])
-  const [budgets, setBudgets] = useState<Budget[]>([])
   const [selectedProject, setSelectedProject] = useState('')
   const [selectedProjectData, setSelectedProjectData] = useState<ProjectWithBuilder | null>(null)
   const [nextDrawNumber, setNextDrawNumber] = useState(1)
+  const [loading, setLoading] = useState(true)
   
-  // Spreadsheet state
-  const [spreadsheetFile, setSpreadsheetFile] = useState<File | null>(null)
-  const [spreadsheetData, setSpreadsheetData] = useState<ParsedSpreadsheetData | null>(null)
-  const [spreadsheetError, setSpreadsheetError] = useState<string | null>(null)
-  const [isParsingSpreadsheet, setIsParsingSpreadsheet] = useState(false)
+  // Import modal state
+  const [showImportModal, setShowImportModal] = useState(false)
   
   // Invoice state
   const [invoiceFiles, setInvoiceFiles] = useState<UploadedInvoice[]>([])
   const [invoiceError, setInvoiceError] = useState<string | null>(null)
-  
-  // Processing state
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [processingStatus, setProcessingStatus] = useState('')
-  const [error, setError] = useState('')
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null)
 
   // Load builders on mount
   useEffect(() => {
     loadBuilders()
   }, [])
+
+  // Handle project-only preselection (need to auto-select builder)
+  useEffect(() => {
+    if (preselectedProjectId && !preselectedBuilderId && builders.length > 0) {
+      loadProjectAndSelectBuilder(preselectedProjectId)
+    }
+  }, [preselectedProjectId, preselectedBuilderId, builders])
 
   // Pre-select builder from URL param
   useEffect(() => {
@@ -95,22 +89,42 @@ function NewDrawPageContent() {
   }, [selectedProject])
 
   async function loadBuilders() {
-    // Load builders that have at least one active project
-    const { data: buildersData } = await supabase
-      .from('builders')
-      .select('*')
-      .order('company_name')
-    
-    // Filter to only builders with active projects
-    const { data: activeProjects } = await supabase
+    setLoading(true)
+    try {
+      // Load builders that have at least one active project
+      const { data: buildersData } = await supabase
+        .from('builders')
+        .select('*')
+        .order('company_name')
+      
+      // Filter to only builders with active projects
+      const { data: activeProjects } = await supabase
+        .from('projects')
+        .select('builder_id')
+        .eq('lifecycle_stage', 'active')
+      
+      const builderIdsWithActiveProjects = new Set(
+        (activeProjects as { builder_id: string | null }[] || []).map(p => p.builder_id)
+      )
+      const filteredBuilders = ((buildersData || []) as Builder[]).filter(b => builderIdsWithActiveProjects.has(b.id))
+      
+      setBuilders(filteredBuilders)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function loadProjectAndSelectBuilder(projectId: string) {
+    // Fetch the project to get its builder_id
+    const { data: project } = await supabase
       .from('projects')
-      .select('builder_id')
-      .eq('lifecycle_stage', 'active')
+      .select('*, builder:builders(*)')
+      .eq('id', projectId)
+      .single()
     
-    const builderIdsWithActiveProjects = new Set(activeProjects?.map(p => p.builder_id) || [])
-    const filteredBuilders = (buildersData || []).filter(b => builderIdsWithActiveProjects.has(b.id))
-    
-    setBuilders(filteredBuilders)
+    if ((project as ProjectWithBuilder)?.builder_id) {
+      setSelectedBuilder((project as ProjectWithBuilder).builder_id!)
+    }
   }
 
   async function loadProjectsForBuilder(builderId: string) {
@@ -121,21 +135,17 @@ function NewDrawPageContent() {
       .eq('lifecycle_stage', 'active')
       .order('project_code')
     setProjects((data as ProjectWithBuilder[]) || [])
-    setSelectedProject('') // Reset project selection when builder changes
+    
+    // Only reset project selection if not preselected
+    if (!preselectedProjectId) {
+      setSelectedProject('')
+    }
   }
 
   async function loadProjectData() {
     // Get project with builder
     const project = projects.find(p => p.id === selectedProject)
     setSelectedProjectData(project || null)
-
-    // Load budgets for selected project
-    const { data: budgetData } = await supabase
-      .from('budgets')
-      .select('*')
-      .eq('project_id', selectedProject)
-      .order('sort_order')
-    setBudgets(budgetData || [])
 
     // Get next draw number
     const { data: lastDraw } = await supabase
@@ -148,110 +158,6 @@ function NewDrawPageContent() {
 
     setNextDrawNumber((lastDraw?.draw_number || 0) + 1)
   }
-
-  // Spreadsheet parsing
-  const parseSpreadsheet = useCallback(async (file: File) => {
-    setIsParsingSpreadsheet(true)
-    setSpreadsheetError(null)
-
-    try {
-      const buffer = await file.arrayBuffer()
-      const workbook = XLSX.read(buffer, { type: 'array' })
-      const sheetName = workbook.SheetNames[0]
-      const worksheet = workbook.Sheets[sheetName]
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (string | number | null)[][]
-
-      if (jsonData.length < 2) {
-        throw new Error('Spreadsheet must have at least a header row and one data row')
-      }
-
-      const headers = (jsonData[0] as string[]).map(h => String(h || '').toLowerCase().trim())
-      
-      // Find category column
-      const categoryIndex = headers.findIndex(h => 
-        h.includes('category') || h.includes('item') || h.includes('description')
-      )
-      
-      // Find budget amount column
-      const budgetIndex = headers.findIndex(h => 
-        h.includes('budget') || h.includes('original') || h.includes('total')
-      )
-      
-      // Find draw amount column (often a date or "draw" or "request")
-      const drawIndex = headers.findIndex(h => 
-        h.includes('draw') || h.includes('request') || h.includes('current') || 
-        /^\d{1,2}[-\/]\w{3}/.test(h) // Date patterns like "17-Jul"
-      )
-
-      if (categoryIndex === -1) {
-        throw new Error('Could not find a category column. Please ensure your spreadsheet has a column with "Category", "Item", or "Description"')
-      }
-
-      if (drawIndex === -1) {
-        throw new Error('Could not find a draw amount column. Please ensure your spreadsheet has a column with draw amounts')
-      }
-
-      // Parse data rows
-      const categories: string[] = []
-      const budgetAmounts: number[] = []
-      const drawAmounts: number[] = []
-
-      for (let i = 1; i < jsonData.length; i++) {
-        const row = jsonData[i]
-        const category = String(row[categoryIndex] || '').trim()
-        
-        if (!category) continue // Skip empty rows
-
-        const budgetAmount = budgetIndex >= 0 ? parseFloat(String(row[budgetIndex] || '0').replace(/[$,]/g, '')) || 0 : 0
-        const drawAmount = parseFloat(String(row[drawIndex] || '0').replace(/[$,]/g, '')) || 0
-
-        if (drawAmount > 0) { // Only include rows with draw amounts
-          categories.push(category)
-          budgetAmounts.push(budgetAmount)
-          drawAmounts.push(drawAmount)
-        }
-      }
-
-      if (categories.length === 0) {
-        throw new Error('No draw amounts found in the spreadsheet. Please ensure your draw column contains values greater than 0')
-      }
-
-      setSpreadsheetData({
-        categories,
-        budgetAmounts,
-        drawAmounts,
-        headers: headers as string[]
-      })
-    } catch (err) {
-      setSpreadsheetError(err instanceof Error ? err.message : 'Failed to parse spreadsheet')
-      setSpreadsheetData(null)
-    } finally {
-      setIsParsingSpreadsheet(false)
-    }
-  }, [])
-
-  const handleSpreadsheetDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    const file = e.dataTransfer.files[0]
-    if (file) {
-      const validExtensions = ['.xlsx', '.xls', '.csv']
-      const hasValidExtension = validExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
-      if (!hasValidExtension) {
-        setSpreadsheetError('Please upload an Excel or CSV file')
-        return
-      }
-      setSpreadsheetFile(file)
-      parseSpreadsheet(file)
-    }
-  }, [parseSpreadsheet])
-
-  const handleSpreadsheetChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setSpreadsheetFile(file)
-      parseSpreadsheet(file)
-    }
-  }, [parseSpreadsheet])
 
   // Invoice handling
   const handleInvoiceDrop = useCallback((e: React.DragEvent) => {
@@ -289,7 +195,8 @@ function NewDrawPageContent() {
         file,
         name: file.name,
         size: file.size,
-        type: file.type
+        type: file.type,
+        preview: URL.createObjectURL(file)
       })
     }
 
@@ -297,150 +204,17 @@ function NewDrawPageContent() {
   }
 
   const removeInvoice = (id: string) => {
-    setInvoiceFiles(prev => prev.filter(inv => inv.id !== id))
+    setInvoiceFiles(prev => {
+      const invoice = prev.find(inv => inv.id === id)
+      if (invoice) {
+        URL.revokeObjectURL(invoice.preview)
+      }
+      return prev.filter(inv => inv.id !== id)
+    })
   }
 
-  // Process draw request
-  const handleProcess = async () => {
-    setError('')
-
-    if (!selectedProject) {
-      setError('Please select a project')
-      return
-    }
-
-    if (!spreadsheetData || spreadsheetData.categories.length === 0) {
-      setError('Please upload a budget spreadsheet with draw amounts')
-      return
-    }
-
-    setIsProcessing(true)
-
-    try {
-      setProcessingStatus('Creating draw request...')
-      
-      // Calculate total amount
-      const totalAmount = spreadsheetData.drawAmounts.reduce((sum, amt) => sum + amt, 0)
-
-      // Create draw request in 'processing' status
-      const drawRequest: DrawRequestInsert = {
-        project_id: selectedProject,
-        draw_number: nextDrawNumber,
-        total_amount: totalAmount,
-        status: 'processing',
-        request_date: new Date().toISOString(),
-        notes: `Uploaded ${spreadsheetFile?.name || 'spreadsheet'} with ${invoiceFiles.length} invoice(s)`
-      }
-
-      const { data: newDraw, error: drawError } = await supabase
-        .from('draw_requests')
-        .insert(drawRequest)
-        .select()
-        .single()
-
-      if (drawError) throw drawError
-
-      setProcessingStatus('Creating draw lines...')
-
-      // Create draw request lines
-      const drawLines = spreadsheetData.categories.map((category, index) => ({
-        draw_request_id: newDraw.id,
-        amount_requested: spreadsheetData.drawAmounts[index],
-        // Try to match to existing budget
-        budget_id: budgets.find(b => 
-          b.category.toLowerCase().includes(category.toLowerCase()) ||
-          category.toLowerCase().includes(b.category.toLowerCase())
-        )?.id || null,
-        flags: null,
-        confidence_score: null
-      }))
-
-      const { error: linesError } = await supabase
-        .from('draw_request_lines')
-        .insert(drawLines)
-
-      if (linesError) throw linesError
-
-      setProcessingStatus('Uploading invoices...')
-
-      // Upload invoices to Supabase storage and create records
-      for (const invoice of invoiceFiles) {
-        const filePath = `invoices/${selectedProject}/${newDraw.id}/${invoice.id}-${invoice.name}`
-        
-        const { error: uploadError } = await supabase.storage
-          .from('documents')
-          .upload(filePath, invoice.file)
-
-        if (uploadError) {
-          console.error('Invoice upload error:', uploadError)
-          continue
-        }
-
-        const { data: urlData } = supabase.storage
-          .from('documents')
-          .getPublicUrl(filePath)
-
-        // Create invoice record
-        await supabase.from('invoices').insert({
-          project_id: selectedProject,
-          draw_request_id: newDraw.id,
-          vendor_name: 'Pending AI Match',
-          amount: 0,
-          file_path: filePath,
-          file_url: urlData.publicUrl,
-          status: 'pending'
-        })
-      }
-
-      setProcessingStatus('Sending to AI for processing...')
-
-      // Send to N8N for AI processing
-      const n8nPayload = {
-        drawRequestId: newDraw.id,
-        projectId: selectedProject,
-        drawNumber: nextDrawNumber,
-        categories: spreadsheetData.categories,
-        drawAmounts: spreadsheetData.drawAmounts,
-        budgets: budgets.map(b => ({
-          id: b.id,
-          category: b.category,
-          nahbCategory: b.nahb_category,
-          nahbSubcategory: b.nahb_subcategory,
-          costCode: b.cost_code,
-          remaining: b.remaining_amount
-        })),
-        invoiceCount: invoiceFiles.length
-      }
-
-      try {
-        const response = await fetch('/api/webhooks/draw-submitted', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(n8nPayload)
-        })
-
-        if (!response.ok) {
-          console.warn('N8N webhook failed, continuing to review page')
-        }
-      } catch (webhookError) {
-        console.warn('N8N webhook error:', webhookError)
-      }
-
-      // Update status to review
-      await supabase
-        .from('draw_requests')
-        .update({ status: 'review' })
-        .eq('id', newDraw.id)
-
-      setProcessingStatus('Complete! Redirecting...')
-
-      // Redirect to review page
-      router.push(`/draws/${newDraw.id}`)
-
-    } catch (err: any) {
-      setError(err.message || 'Failed to process draw request')
-      setIsProcessing(false)
-    }
+  const isImageFile = (invoice: UploadedInvoice) => {
+    return invoice.type.startsWith('image/')
   }
 
   const formatCurrency = (amount: number) => {
@@ -458,7 +232,18 @@ function NewDrawPageContent() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
-  const totalDrawAmount = spreadsheetData?.drawAmounts.reduce((sum, amt) => sum + amt, 0) || 0
+  const handleImportSuccess = () => {
+    setShowImportModal(false)
+    router.push('/staging')
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}></div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -569,118 +354,37 @@ function NewDrawPageContent() {
           )}
         </div>
 
-        {/* Budget Spreadsheet Upload */}
+        {/* Budget Spreadsheet Upload - Button to open ImportPreview */}
         {selectedProject && (
           <div className="card p-6">
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
               Budget Spreadsheet
             </h2>
             <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-              Upload your budget spreadsheet with a column containing the draw amounts for this request
+              Upload your budget spreadsheet with draw amounts
             </p>
-
-            {!spreadsheetFile ? (
-              <label
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleSpreadsheetDrop}
-                className="drop-zone block cursor-pointer"
-              >
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={handleSpreadsheetChange}
-                  className="hidden"
-                />
-                <div className="flex flex-col items-center py-8">
-                  <svg className="w-12 h-12 mb-3" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                    Drop Excel or CSV file here
-                  </p>
-                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                    or click to browse
-                  </p>
-                </div>
-              </label>
-            ) : (
-              <div>
-                <div className="flex items-center justify-between p-4 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
-                  <div className="flex items-center gap-3">
-                    <svg className="w-8 h-8" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <div>
-                      <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{spreadsheetFile.name}</p>
-                      <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{formatFileSize(spreadsheetFile.size)}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setSpreadsheetFile(null)
-                      setSpreadsheetData(null)
-                    }}
-                    className="text-sm px-3 py-1 rounded hover:bg-red-100"
-                    style={{ color: 'var(--error)' }}
-                  >
-                    Remove
-                  </button>
-                </div>
-
-                {isParsingSpreadsheet && (
-                  <div className="mt-4 text-center py-4">
-                    <div className="animate-spin w-6 h-6 border-2 border-t-transparent rounded-full mx-auto" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}></div>
-                    <p className="mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>Parsing spreadsheet...</p>
-                  </div>
-                )}
-
-                {spreadsheetError && (
-                  <div className="mt-4 p-4 rounded-lg" style={{ background: 'rgba(239, 68, 68, 0.1)' }}>
-                    <p style={{ color: 'var(--error)' }}>{spreadsheetError}</p>
-                  </div>
-                )}
-
-                {spreadsheetData && (
-                  <div className="mt-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-                        {spreadsheetData.categories.length} line items found
-                      </span>
-                      <span className="text-lg font-bold" style={{ color: 'var(--accent)' }}>
-                        Total: {formatCurrency(totalDrawAmount)}
-                      </span>
-                    </div>
-                    <div className="max-h-48 overflow-y-auto rounded-lg border" style={{ borderColor: 'var(--border-primary)' }}>
-                      <table className="w-full text-sm">
-                        <thead style={{ background: 'var(--bg-secondary)' }}>
-                          <tr>
-                            <th className="text-left p-2 font-medium" style={{ color: 'var(--text-secondary)' }}>Category</th>
-                            <th className="text-right p-2 font-medium" style={{ color: 'var(--text-secondary)' }}>Draw Amount</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {spreadsheetData.categories.map((cat, i) => (
-                            <tr key={i} style={{ borderTop: '1px solid var(--border-primary)' }}>
-                              <td className="p-2" style={{ color: 'var(--text-primary)' }}>{cat}</td>
-                              <td className="p-2 text-right font-medium" style={{ color: 'var(--text-primary)' }}>
-                                {formatCurrency(spreadsheetData.drawAmounts[i])}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="w-full drop-zone flex flex-col items-center py-8 cursor-pointer hover:border-opacity-100 transition-all"
+            >
+              <svg className="w-12 h-12 mb-3" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                Click to Upload Budget Spreadsheet
+              </p>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                Excel or CSV with draw amounts
+              </p>
+            </button>
           </div>
         )}
 
-        {/* Invoice Upload */}
-        {selectedProject && spreadsheetData && (
+        {/* Invoice Upload - Always visible after project selection */}
+        {selectedProject && (
           <div className="card p-6">
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
               Invoice Files
             </h2>
             <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
@@ -716,82 +420,163 @@ function NewDrawPageContent() {
               <p className="mt-2 text-sm" style={{ color: 'var(--error)' }}>{invoiceError}</p>
             )}
 
+            {/* Invoice Thumbnails Grid */}
             {invoiceFiles.length > 0 && (
-              <div className="mt-4 space-y-2">
-                <AnimatePresence>
-                  {invoiceFiles.map((invoice) => (
-                    <motion.div
-                      key={invoice.id}
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      className="flex items-center justify-between p-3 rounded-lg"
-                      style={{ background: 'var(--bg-secondary)' }}
-                    >
-                      <div className="flex items-center gap-3">
-                        {invoice.type === 'application/pdf' ? (
-                          <svg className="w-6 h-6" style={{ color: 'var(--error)' }} fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM8.5 18a.5.5 0 01-.5-.5v-3a.5.5 0 01.5-.5h1a1.5 1.5 0 010 3H9v.5a.5.5 0 01-.5.5zm6 0a.5.5 0 01-.5-.5v-3a.5.5 0 011 0v1h1a.5.5 0 010 1h-1v1a.5.5 0 01-.5.5z"/>
-                          </svg>
-                        ) : (
-                          <svg className="w-6 h-6" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                        )}
-                        <div>
-                          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{invoice.name}</p>
-                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatFileSize(invoice.size)}</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => removeInvoice(invoice.id)}
-                        className="p-1 rounded hover:bg-red-100"
-                        style={{ color: 'var(--text-muted)' }}
+              <div className="mt-4">
+                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-3">
+                  <AnimatePresence>
+                    {invoiceFiles.map((invoice, index) => (
+                      <motion.div
+                        key={invoice.id}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        className="relative group aspect-square rounded-lg overflow-hidden cursor-pointer border-2 border-transparent hover:border-[var(--accent)] transition-all"
+                        style={{ background: 'var(--bg-secondary)' }}
+                        onClick={() => setPreviewIndex(index)}
                       >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-                <p className="text-sm text-center pt-2" style={{ color: 'var(--text-muted)' }}>
-                  {invoiceFiles.length} invoice{invoiceFiles.length !== 1 ? 's' : ''} ready to upload
+                        {isImageFile(invoice) ? (
+                          <img 
+                            src={invoice.preview} 
+                            alt={invoice.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center p-2">
+                            <svg className="w-8 h-8 mb-1" style={{ color: 'var(--error)' }} fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM9 15v-2h2v2H9zm0 2h2v2H9v-2zm4-2h2v2h-2v-2zm0 2h2v2h-2v-2z"/>
+                            </svg>
+                            <span className="text-xs text-center truncate w-full" style={{ color: 'var(--text-muted)' }}>
+                              PDF
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Remove button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            removeInvoice(invoice.id)
+                          }}
+                          className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          style={{ background: 'rgba(0,0,0,0.6)' }}
+                        >
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+                <p className="text-sm text-center mt-3" style={{ color: 'var(--text-muted)' }}>
+                  {invoiceFiles.length} invoice{invoiceFiles.length !== 1 ? 's' : ''} ready • Click to preview
                 </p>
               </div>
             )}
           </div>
         )}
 
-        {/* Error Message */}
-        {error && (
-          <div className="p-4 rounded-lg" style={{ background: 'rgba(239, 68, 68, 0.1)' }}>
-            <p style={{ color: 'var(--error)' }}>{error}</p>
-          </div>
-        )}
-
-        {/* Processing Status */}
-        {isProcessing && (
-          <div className="card p-6 text-center">
-            <div className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full mx-auto" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}></div>
-            <p className="mt-3 font-medium" style={{ color: 'var(--text-primary)' }}>{processingStatus}</p>
-          </div>
-        )}
-
         {/* Actions */}
         <div className="flex gap-4 justify-end">
-          <a href="/draws" className="btn-secondary">
+          <a href="/" className="btn-secondary">
             Cancel
           </a>
-          <button
-            onClick={handleProcess}
-            className="btn-primary"
-            disabled={!selectedProject || !spreadsheetData || isProcessing}
-          >
-            {isProcessing ? 'Processing...' : 'Process Draw Request →'}
-          </button>
         </div>
       </div>
+
+      {/* Import Modal */}
+      <ImportPreview
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={handleImportSuccess}
+        importType="draw"
+        preselectedBuilderId={selectedBuilder}
+        preselectedProjectId={selectedProject}
+      />
+
+      {/* Invoice Preview Modal */}
+      <AnimatePresence>
+        {previewIndex !== null && invoiceFiles[previewIndex] && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.85)' }}
+            onClick={() => setPreviewIndex(null)}
+          >
+            {/* Previous button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setPreviewIndex(prev => Math.max(0, (prev ?? 0) - 1))
+              }}
+              disabled={previewIndex === 0}
+              className="absolute left-4 z-10 p-3 rounded-full transition-all disabled:opacity-30"
+              style={{ background: 'rgba(255,255,255,0.1)' }}
+            >
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            {/* Preview content */}
+            <div 
+              className="max-w-4xl max-h-[80vh] mx-16"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {isImageFile(invoiceFiles[previewIndex]) ? (
+                <img 
+                  src={invoiceFiles[previewIndex].preview} 
+                  alt={invoiceFiles[previewIndex].name}
+                  className="max-w-full max-h-[80vh] rounded-lg object-contain"
+                />
+              ) : (
+                <iframe 
+                  src={invoiceFiles[previewIndex].preview}
+                  className="w-[800px] h-[80vh] rounded-lg"
+                  title={invoiceFiles[previewIndex].name}
+                />
+              )}
+            </div>
+
+            {/* Next button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setPreviewIndex(prev => Math.min(invoiceFiles.length - 1, (prev ?? 0) + 1))
+              }}
+              disabled={previewIndex === invoiceFiles.length - 1}
+              className="absolute right-4 z-10 p-3 rounded-full transition-all disabled:opacity-30"
+              style={{ background: 'rgba(255,255,255,0.1)' }}
+            >
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+
+            {/* Close button */}
+            <button
+              onClick={() => setPreviewIndex(null)}
+              className="absolute top-4 right-4 p-2 rounded-full"
+              style={{ background: 'rgba(255,255,255,0.1)' }}
+            >
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* File info and counter */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-center">
+              <p className="text-white font-medium">{invoiceFiles[previewIndex].name}</p>
+              <p className="text-white/60 text-sm">
+                {previewIndex + 1} of {invoiceFiles.length} • {formatFileSize(invoiceFiles[previewIndex].size)}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
