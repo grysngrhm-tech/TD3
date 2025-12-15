@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -23,7 +23,7 @@ type BuilderWithDraws = Builder & {
   totalAmount: number
 }
 
-export default function StagingDashboardPage() {
+function StagingDashboardContent() {
   const searchParams = useSearchParams()
   const highlightedBatchId = searchParams.get('batch')
 
@@ -586,5 +586,17 @@ export default function StagingDashboardPage() {
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+export default function StagingDashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}></div>
+      </div>
+    }>
+      <StagingDashboardContent />
+    </Suspense>
   )
 }

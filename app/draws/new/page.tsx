@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Project, Budget, Builder, DrawRequestInsert } from '@/types/database'
@@ -26,7 +26,7 @@ type UploadedInvoice = {
   type: string
 }
 
-export default function NewDrawPage() {
+function NewDrawPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const preselectedProjectId = searchParams.get('project')
@@ -694,5 +694,17 @@ export default function NewDrawPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function NewDrawPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}></div>
+      </div>
+    }>
+      <NewDrawPageContent />
+    </Suspense>
   )
 }
