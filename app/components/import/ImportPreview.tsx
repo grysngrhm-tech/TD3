@@ -38,6 +38,7 @@ type ImportPreviewProps = {
   importType: 'budget' | 'draw'
   preselectedProjectId?: string  // Pre-select a project when importing from project page
   preselectedBuilderId?: string  // Pre-select a builder
+  initialFile?: File | null  // Pre-selected file to process immediately
 }
 
 type ImportStats = {
@@ -52,9 +53,10 @@ type ImportStats = {
 const BUDGET_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_BUDGET_WEBHOOK || ''
 const DRAW_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_DRAW_WEBHOOK || ''
 
-export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselectedProjectId, preselectedBuilderId }: ImportPreviewProps) {
+export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselectedProjectId, preselectedBuilderId, initialFile }: ImportPreviewProps) {
   const [step, setStep] = useState<'upload' | 'preview'>('upload')
   const [file, setFile] = useState<File | null>(null)
+  const [initialFileProcessed, setInitialFileProcessed] = useState(false)
   const [workbookInfo, setWorkbookInfo] = useState<WorkbookInfo | null>(null)
   const [selectedSheet, setSelectedSheet] = useState<string>('')
   const [data, setData] = useState<SpreadsheetData | null>(null)
@@ -88,8 +90,17 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       fetchBuilders()
     } else {
       handleReset()
+      setInitialFileProcessed(false)
     }
   }, [isOpen])
+
+  // Process initial file when modal opens with a pre-selected file
+  useEffect(() => {
+    if (isOpen && initialFile && !initialFileProcessed && !file) {
+      setInitialFileProcessed(true)
+      handleFileSelect(initialFile)
+    }
+  }, [isOpen, initialFile, initialFileProcessed, file])
 
   // Set preselected builder after builders are loaded
   useEffect(() => {

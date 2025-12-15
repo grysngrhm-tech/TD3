@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Project, Budget, Builder } from '@/types/database'
+import { Project, Builder } from '@/types/database'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ImportPreview } from '@/app/components/import/ImportPreview'
 
@@ -35,7 +35,8 @@ function NewDrawPageContent() {
   const [nextDrawNumber, setNextDrawNumber] = useState(1)
   const [loading, setLoading] = useState(true)
   
-  // Import modal state
+  // Budget file state
+  const [budgetFile, setBudgetFile] = useState<File | null>(null)
   const [showImportModal, setShowImportModal] = useState(false)
   
   // Invoice state
@@ -159,6 +160,28 @@ function NewDrawPageContent() {
     setNextDrawNumber((lastDraw?.draw_number || 0) + 1)
   }
 
+  // Budget file handling
+  const handleBudgetDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files[0]
+    if (file) {
+      const validExtensions = ['.xlsx', '.xls', '.csv']
+      const hasValidExtension = validExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
+      if (hasValidExtension) {
+        setBudgetFile(file)
+        setShowImportModal(true)
+      }
+    }
+  }, [])
+
+  const handleBudgetChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setBudgetFile(file)
+      setShowImportModal(true)
+    }
+  }, [])
+
   // Invoice handling
   const handleInvoiceDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -234,7 +257,13 @@ function NewDrawPageContent() {
 
   const handleImportSuccess = () => {
     setShowImportModal(false)
+    setBudgetFile(null)
     router.push('/staging')
+  }
+
+  const handleImportClose = () => {
+    setShowImportModal(false)
+    setBudgetFile(null)
   }
 
   if (loading) {
@@ -252,7 +281,7 @@ function NewDrawPageContent() {
           New Draw Request
         </h1>
         <p style={{ color: 'var(--text-muted)' }} className="mt-1">
-          Upload budget spreadsheet with draw amounts and invoices
+          Upload invoices and budget spreadsheet with draw amounts
         </p>
       </div>
 
@@ -354,34 +383,7 @@ function NewDrawPageContent() {
           )}
         </div>
 
-        {/* Budget Spreadsheet Upload - Button to open ImportPreview */}
-        {selectedProject && (
-          <div className="card p-6">
-            <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-              Budget Spreadsheet
-            </h2>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-              Upload your budget spreadsheet with draw amounts
-            </p>
-            
-            <button
-              onClick={() => setShowImportModal(true)}
-              className="w-full drop-zone flex flex-col items-center py-8 cursor-pointer hover:border-opacity-100 transition-all"
-            >
-              <svg className="w-12 h-12 mb-3" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                Click to Upload Budget Spreadsheet
-              </p>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                Excel or CSV with draw amounts
-              </p>
-            </button>
-          </div>
-        )}
-
-        {/* Invoice Upload - Always visible after project selection */}
+        {/* Invoice Upload - Now first after project selection */}
         {selectedProject && (
           <div className="card p-6">
             <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
@@ -408,7 +410,7 @@ function NewDrawPageContent() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                 </svg>
                 <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                  Drop invoice files here
+                  Drop invoice files here or click to browse
                 </p>
                 <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                   PDF, JPG, PNG up to 20MB each
@@ -477,6 +479,42 @@ function NewDrawPageContent() {
           </div>
         )}
 
+        {/* Budget Spreadsheet Upload - Direct file selection */}
+        {selectedProject && (
+          <div className="card p-6">
+            <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+              Budget Spreadsheet
+            </h2>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+              Upload your budget spreadsheet with draw amounts to continue
+            </p>
+            
+            <label
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleBudgetDrop}
+              className="drop-zone block cursor-pointer"
+            >
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleBudgetChange}
+                className="hidden"
+              />
+              <div className="flex flex-col items-center py-8">
+                <svg className="w-12 h-12 mb-3" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Drop budget file here or click to browse
+                </p>
+                <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                  Excel or CSV with draw amounts
+                </p>
+              </div>
+            </label>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex gap-4 justify-end">
           <a href="/" className="btn-secondary">
@@ -485,14 +523,15 @@ function NewDrawPageContent() {
         </div>
       </div>
 
-      {/* Import Modal */}
+      {/* Import Modal - Opens with pre-selected file */}
       <ImportPreview
         isOpen={showImportModal}
-        onClose={() => setShowImportModal(false)}
+        onClose={handleImportClose}
         onSuccess={handleImportSuccess}
         importType="draw"
         preselectedBuilderId={selectedBuilder}
         preselectedProjectId={selectedProject}
+        initialFile={budgetFile}
       />
 
       {/* Invoice Preview Modal */}
