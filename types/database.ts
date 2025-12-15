@@ -9,6 +9,63 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      builders: {
+        Row: {
+          id: string
+          company_name: string
+          borrower_name: string | null
+          email: string | null
+          phone: string | null
+          address_street: string | null
+          address_city: string | null
+          address_state: string | null
+          address_zip: string | null
+          bank_name: string | null
+          bank_routing_number: string | null
+          bank_account_number: string | null
+          bank_account_name: string | null
+          notes: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_name: string
+          borrower_name?: string | null
+          email?: string | null
+          phone?: string | null
+          address_street?: string | null
+          address_city?: string | null
+          address_state?: string | null
+          address_zip?: string | null
+          bank_name?: string | null
+          bank_routing_number?: string | null
+          bank_account_number?: string | null
+          bank_account_name?: string | null
+          notes?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_name?: string
+          borrower_name?: string | null
+          email?: string | null
+          phone?: string | null
+          address_street?: string | null
+          address_city?: string | null
+          address_state?: string | null
+          address_zip?: string | null
+          bank_name?: string | null
+          bank_routing_number?: string | null
+          bank_account_number?: string | null
+          bank_account_name?: string | null
+          notes?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       approvals: {
         Row: {
           approved_by: string | null
@@ -439,7 +496,7 @@ export type Database = {
           address: string | null
           appraised_value: number | null
           borrower_name: string | null
-          builder_name: string | null
+          builder_id: string | null
           created_at: string | null
           id: string
           interest_rate_annual: number | null
@@ -467,7 +524,7 @@ export type Database = {
           address?: string | null
           appraised_value?: number | null
           borrower_name?: string | null
-          builder_name?: string | null
+          builder_id?: string | null
           created_at?: string | null
           id?: string
           interest_rate_annual?: number | null
@@ -495,7 +552,7 @@ export type Database = {
           address?: string | null
           appraised_value?: number | null
           borrower_name?: string | null
-          builder_name?: string | null
+          builder_id?: string | null
           created_at?: string | null
           id?: string
           interest_rate_annual?: number | null
@@ -519,7 +576,14 @@ export type Database = {
           subdivision_name?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "projects_builder_id_fkey"
+            columns: ["builder_id"]
+            referencedRelation: "builders"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: Record<string, never>
@@ -541,6 +605,7 @@ export type Invoice = Database["public"]["Tables"]["invoices"]["Row"]
 export type Document = Database["public"]["Tables"]["documents"]["Row"]
 export type Approval = Database["public"]["Tables"]["approvals"]["Row"]
 export type AuditEvent = Database["public"]["Tables"]["audit_events"]["Row"]
+export type Builder = Database["public"]["Tables"]["builders"]["Row"]
 
 export type ProjectInsert = Database["public"]["Tables"]["projects"]["Insert"]
 export type BudgetInsert = Database["public"]["Tables"]["budgets"]["Insert"]
@@ -550,6 +615,8 @@ export type InvoiceInsert = Database["public"]["Tables"]["invoices"]["Insert"]
 export type DocumentInsert = Database["public"]["Tables"]["documents"]["Insert"]
 export type ApprovalInsert = Database["public"]["Tables"]["approvals"]["Insert"]
 export type AuditEventInsert = Database["public"]["Tables"]["audit_events"]["Insert"]
+export type BuilderInsert = Database["public"]["Tables"]["builders"]["Insert"]
+export type BuilderUpdate = Database["public"]["Tables"]["builders"]["Update"]
 
 // Validation Types
 export type ValidationResult = {
@@ -587,6 +654,11 @@ export type DrawRequestWithDetails = DrawRequest & {
   documents?: Document[]
 }
 
+// Project with builder relation
+export type ProjectWithBuilder = Project & {
+  builder?: Builder | null
+}
+
 // Lifecycle Stage Types
 export type LifecycleStage = 'pending' | 'active' | 'historic'
 
@@ -610,6 +682,7 @@ export type ProjectWithBudget = Project & {
   lifecycle_stage: LifecycleStage
   total_budget: number
   total_spent: number
+  builder?: Builder | null
 }
 
 // Document Types for origination

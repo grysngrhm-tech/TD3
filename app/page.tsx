@@ -9,7 +9,7 @@ import { StageSelector } from '@/app/components/ui/StageSelector'
 import { ImportPreview } from '@/app/components/import/ImportPreview'
 import { toast } from '@/app/components/ui/Toast'
 import { useFilters } from '@/app/hooks/useFilters'
-import type { LifecycleStage } from '@/types/database'
+import type { LifecycleStage, Builder } from '@/types/database'
 
 type ProjectWithBudget = {
   id: string
@@ -19,7 +19,7 @@ type ProjectWithBudget = {
   loan_amount: number | null
   status: string
   lifecycle_stage: LifecycleStage
-  builder_name: string | null
+  builder_id: string | null
   subdivision_name: string | null
   subdivision_abbrev: string | null
   lot_number: string | null
@@ -28,22 +28,35 @@ type ProjectWithBudget = {
   appraised_value: number | null
   sales_price: number | null
   square_footage: number | null
+  builder?: Builder | null
 }
 
 export default function Dashboard() {
   const router = useRouter()
   const [projects, setProjects] = useState<ProjectWithBudget[]>([])
+  const [builders, setBuilders] = useState<Builder[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedStage, setSelectedStage] = useState<LifecycleStage>('active')
   const [importModal, setImportModal] = useState<'budget' | 'draw' | null>(null)
   const { filters, toggleFilter, clearAll } = useFilters()
 
   useEffect(() => {
-    loadProjects()
+    loadData()
   }, [])
 
-  async function loadProjects() {
+  async function loadData() {
     try {
+      // Fetch builders
+      const { data: buildersData } = await supabase
+        .from('builders')
+        .select('*')
+        .order('company_name', { ascending: true })
+
+      setBuilders(buildersData || [])
+
+      // Create a map for quick builder lookup
+      const builderMap = new Map(buildersData?.map(b => [b.id, b]) || [])
+
       // Get projects with budget totals
       const { data: projectsData } = await supabase
         .from('projects')
@@ -71,13 +84,14 @@ export default function Dashboard() {
             lifecycle_stage: (project.lifecycle_stage || 'active') as LifecycleStage,
             total_budget: totalBudget,
             total_spent: totalSpent,
+            builder: project.builder_id ? builderMap.get(project.builder_id) || null : null,
           }
         })
       )
 
       setProjects(projectsWithBudgets)
     } catch (error) {
-      console.error('Error loading projects:', error)
+      console.error('Error loading data:', error)
     } finally {
       setLoading(false)
     }
@@ -102,12 +116,17 @@ export default function Dashboard() {
 
   // Build filter sections from data (within selected stage)
   const filterSections = useMemo(() => {
-    const builders = new Map<string, number>()
+    const builderCounts = new Map<string, { name: string; count: number }>()
     const subdivisions = new Map<string, number>()
 
     projectsInStage.forEach(p => {
-      if (p.builder_name) {
-        builders.set(p.builder_name, (builders.get(p.builder_name) || 0) + 1)
+      if (p.builder_id && p.builder) {
+        const existing = builderCounts.get(p.builder_id)
+        if (existing) {
+          existing.count++
+        } else {
+          builderCounts.set(p.builder_id, { name: p.builder.company_name, count: 1 })
+        }
       }
       if (p.subdivision_name) {
         subdivisions.set(p.subdivision_name, (subdivisions.get(p.subdivision_name) || 0) + 1)
@@ -119,8 +138,8 @@ export default function Dashboard() {
         id: 'builder',
         title: 'Builder',
         type: 'multi' as const,
-        options: Array.from(builders.entries()).map(([name, count]) => ({
-          id: name,
+        options: Array.from(builderCounts.entries()).map(([id, { name, count }]) => ({
+          id,
           label: name,
           count,
         })),
@@ -141,9 +160,9 @@ export default function Dashboard() {
   // Apply additional filters
   const filteredProjects = useMemo(() => {
     return projectsInStage.filter(project => {
-      // Builder filter
+      // Builder filter (now using builder_id)
       if (filters.builder?.length > 0) {
-        if (!project.builder_name || !filters.builder.includes(project.builder_name)) {
+        if (!project.builder_id || !filters.builder.includes(project.builder_id)) {
           return false
         }
       }
@@ -156,6 +175,14 @@ export default function Dashboard() {
       return true
     })
   }, [projectsInStage, filters])
+
+  // Get the selected builder info if exactly one is selected
+  const selectedBuilder = useMemo(() => {
+    if (filters.builder?.length === 1) {
+      return builders.find(b => b.id === filters.builder[0]) || null
+    }
+    return null
+  }, [filters.builder, builders])
 
   // Calculate totals for current view
   const totals = useMemo(() => {
@@ -187,7 +214,7 @@ export default function Dashboard() {
       title: importModal === 'budget' ? 'Budget Submitted' : 'Draw Submitted',
       message: 'Data sent to processing workflow. Refresh in a moment to see updates.'
     })
-    setTimeout(() => loadProjects(), 2000)
+    setTimeout(() => loadData(), 2000)
   }
 
   const handleProjectClick = (projectId: string) => {
@@ -230,6 +257,32 @@ export default function Dashboard() {
               counts={stageCounts}
             />
           </div>
+
+          {/* Builder Navigation Banner - shown when exactly one builder is filtered */}
+          {selectedBuilder && (
+            <div 
+              className="mb-6 p-4 rounded-ios-sm flex items-center justify-between"
+              style={{ background: 'var(--bg-card)', borderLeft: '4px solid var(--accent)' }}
+            >
+              <div>
+                <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  Showing loans for
+                </div>
+                <div className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>
+                  {selectedBuilder.company_name}
+                </div>
+              </div>
+              <button
+                onClick={() => router.push(`/builders/${selectedBuilder.id}`)}
+                className="btn-primary flex items-center gap-2"
+              >
+                View Builder Page
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          )}
 
           {/* Stats Bar */}
           <div className="flex items-center gap-6 mb-6 pb-6 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -311,7 +364,8 @@ export default function Dashboard() {
                   id={project.id}
                   projectCode={project.project_code || project.name}
                   address={project.address}
-                  builderName={project.builder_name}
+                  builderName={project.builder?.company_name || null}
+                  builderId={project.builder_id}
                   subdivisionName={project.subdivision_name}
                   totalBudget={project.total_budget}
                   totalSpent={project.total_spent}
