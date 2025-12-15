@@ -68,6 +68,10 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
   
   // Row range state with analysis for filtering which rows to import
   const [rowRangeAnalysis, setRowRangeAnalysis] = useState<RowRangeWithAnalysis | null>(null)
+  
+  // Budget replacement state (for budget imports)
+  const [deleteExistingBudget, setDeleteExistingBudget] = useState(false)
+  const [existingBudgetCount, setExistingBudgetCount] = useState<number>(0)
 
   // Fetch projects when modal opens
   useEffect(() => {
@@ -87,6 +91,31 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       }
     }
   }, [preselectedProjectId, projects, selectedProjectId])
+  
+  // Check for existing budget when project is selected (for budget imports)
+  useEffect(() => {
+    if (selectedProjectId && importType === 'budget') {
+      checkExistingBudget(selectedProjectId)
+    } else {
+      setExistingBudgetCount(0)
+      setDeleteExistingBudget(false)
+    }
+  }, [selectedProjectId, importType])
+  
+  const checkExistingBudget = async (projectId: string) => {
+    try {
+      const { count, error } = await supabase
+        .from('budgets')
+        .select('*', { count: 'exact', head: true })
+        .eq('project_id', projectId)
+      
+      if (error) throw error
+      setExistingBudgetCount(count || 0)
+    } catch (err) {
+      console.error('Failed to check existing budget:', err)
+      setExistingBudgetCount(0)
+    }
+  }
   
   const fetchProjects = async () => {
     setLoadingProjects(true)
@@ -228,6 +257,20 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     setError(null)
     
     try {
+      // Delete existing budget if checkbox is checked (for budget imports)
+      if (importType === 'budget' && deleteExistingBudget && existingBudgetCount > 0) {
+        const { error: deleteError } = await supabase
+          .from('budgets')
+          .delete()
+          .eq('project_id', selectedProjectId)
+        
+        if (deleteError) {
+          setError('Failed to delete existing budget: ' + deleteError.message)
+          setImporting(false)
+          return
+        }
+      }
+      
       // Convert invoice files to base64 for draw imports
       let invoices: Invoice[] | undefined
       if (importType === 'draw' && invoiceFiles.length > 0) {
@@ -268,7 +311,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     } finally {
       setImporting(false)
     }
-  }, [data, file, mappings, importType, selectedProjectId, drawNumber, invoiceFiles, rowRangeAnalysis, onClose, onSuccess])
+  }, [data, file, mappings, importType, selectedProjectId, drawNumber, invoiceFiles, rowRangeAnalysis, deleteExistingBudget, existingBudgetCount, onClose, onSuccess])
 
   const handleReset = () => {
     setStep('upload')
@@ -284,6 +327,8 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     setSelectedProjectId('')
     setDrawNumber(1)
     setInvoiceFiles([])
+    setDeleteExistingBudget(false)
+    setExistingBudgetCount(0)
   }
 
   const hasCategoryMapping = mappings.some(m => m.mappedTo === 'category')
@@ -402,6 +447,25 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                           </option>
                         ))}
                       </select>
+                      
+                      {/* Replace existing budget checkbox - only for budget imports with existing items */}
+                      {importType === 'budget' && existingBudgetCount > 0 && (
+                        <>
+                          <div className="w-px h-4" style={{ background: 'var(--border)' }} />
+                          <label className="flex items-center gap-2 text-xs cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={deleteExistingBudget}
+                              onChange={(e) => setDeleteExistingBudget(e.target.checked)}
+                              className="rounded"
+                              style={{ accentColor: 'var(--warning)' }}
+                            />
+                            <span style={{ color: 'var(--warning)' }}>
+                              Replace existing budget ({existingBudgetCount} items)
+                            </span>
+                          </label>
+                        </>
+                      )}
                       
                       {importType === 'draw' && (
                         <>
