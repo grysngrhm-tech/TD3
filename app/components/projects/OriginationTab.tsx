@@ -573,21 +573,13 @@ export function OriginationTab({
       <div className="card-ios">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Loan Details</h3>
-          {projectCode && (
-            <span 
-              className="px-3 py-1 rounded-full text-sm font-mono font-medium"
-              style={{ background: 'var(--bg-hover)', color: 'var(--accent)' }}
-            >
-              {projectCode}
-            </span>
-          )}
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
           {/* Project Code - auto-generated, shown first */}
           <div>
             <div style={{ color: 'var(--text-muted)' }}>Project Code</div>
-            <div className="font-medium font-mono" style={{ color: projectCode ? 'var(--accent)' : 'var(--text-muted)' }}>
-              {projectCode || (isEditing ? 'Auto-generated from Subdivision + Lot' : '—')}
+            <div className="text-lg font-semibold font-mono" style={{ color: projectCode ? 'var(--accent)' : 'var(--text-muted)' }}>
+              {projectCode || (isEditing ? 'Auto-generated' : '—')}
             </div>
           </div>
           {renderField('Subdivision', 'subdivision_name', 'text', 'e.g., Discovery West')}
