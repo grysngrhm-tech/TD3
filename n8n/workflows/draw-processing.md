@@ -175,6 +175,8 @@ return { lines: flaggedLines };
 
 ## Expected Response
 
+**Important:** The response must include the `category` field for each line. TD3 matches response lines to database records by category name (case-insensitive). If category matching fails, it falls back to index-based matching (assumes lines are in the same order as the input `categories` array).
+
 ```json
 {
   "success": true,
@@ -193,6 +195,16 @@ return { lines: flaggedLines };
     }
   ]
 }
+```
+
+### Response Field Reference
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `category` | string | **Yes** | Must match the input category name for line matching |
+| `budget_id` | uuid/null | No | The matched budget line ID from the `budgets` input |
+| `confidence_score` | number | No | AI confidence score (0-1) for the match |
+| `flags` | string[] | No | Array of flag codes for issues found |
 ```
 
 ## Flag Codes
