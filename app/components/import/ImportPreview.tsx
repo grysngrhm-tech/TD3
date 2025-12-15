@@ -313,61 +313,168 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
   const handleImport = useCallback(async () => {
     if (!data || !file || !selectedProjectId) return
     
-    const webhookUrl = importType === 'budget' ? BUDGET_WEBHOOK_URL : DRAW_WEBHOOK_URL
-    
-    // Check if webhook URL is configured
-    if (!webhookUrl) {
-      setError(`${importType === 'budget' ? 'Budget' : 'Draw'} import webhook URL not configured. Set NEXT_PUBLIC_N8N_${importType.toUpperCase()}_WEBHOOK in environment.`)
-      return
-    }
-    
     setImporting(true)
     setError(null)
     
     try {
-      // Delete existing budget if checkbox is checked (for budget imports)
-      if (importType === 'budget' && deleteExistingBudget && existingBudgetCount > 0) {
-        const { error: deleteError } = await supabase
-          .from('budgets')
-          .delete()
-          .eq('project_id', selectedProjectId)
+      // Get mapped columns
+      const categoryCol = mappings.find(m => m.mappedTo === 'category')
+      const amountCol = mappings.find(m => m.mappedTo === 'amount')
+      
+      if (!categoryCol || !amountCol) {
+        throw new Error('Category and amount columns must be mapped')
+      }
+      
+      // Extract values from mapped columns
+      const startRow = rowRangeAnalysis?.startRow ?? 0
+      const endRow = rowRangeAnalysis?.endRow ?? data.rows.length - 1
+      
+      const categoryValues: string[] = []
+      const amountValues: number[] = []
+      
+      for (let i = startRow; i <= endRow && i < data.rows.length; i++) {
+        const row = data.rows[i]
+        const catValue = row[categoryCol.columnIndex]
+        const amtValue = row[amountCol.columnIndex]
         
-        if (deleteError) {
-          setError('Failed to delete existing budget: ' + deleteError.message)
-          setImporting(false)
-          return
+        const category = catValue ? String(catValue).trim() : ''
+        const amount = typeof amtValue === 'number' ? amtValue : 
+          parseFloat(String(amtValue || '0').replace(/[$,]/g, '')) || 0
+        
+        // Only include rows with valid category and non-zero amount
+        if (category && amount > 0) {
+          categoryValues.push(category)
+          amountValues.push(amount)
         }
       }
       
-      // Convert invoice files to base64 for draw imports
-      let invoices: Invoice[] | undefined
-      if (importType === 'draw' && invoiceFiles.length > 0) {
-        invoices = await Promise.all(
-          invoiceFiles.map(async (invoiceFile) => ({
-            fileName: invoiceFile.name,
-            fileData: await fileToBase64(invoiceFile)
-          }))
-        )
-      }
-      
-      const exportData = prepareColumnExport(data, mappings, importType, {
-        projectId: selectedProjectId,
-        drawNumber: importType === 'draw' ? drawNumber : undefined,
-        fileName: file.name,
-        invoices,
-        rowRange: rowRangeAnalysis ? { startRow: rowRangeAnalysis.startRow, endRow: rowRangeAnalysis.endRow } : undefined
-      })
-      
-      // POST to n8n webhook
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(exportData)
-      })
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Webhook failed (${response.status}): ${errorText}`)
+      if (importType === 'draw') {
+        // === DRAW IMPORT: Create directly in Supabase ===
+        
+        // Calculate total amount
+        const totalAmount = amountValues.reduce((sum, amt) => sum + amt, 0)
+        
+        // 1. Create draw_request in Supabase
+        const { data: newDraw, error: drawError } = await supabase
+          .from('draw_requests')
+          .insert({
+            project_id: selectedProjectId,
+            draw_number: drawNumber,
+            total_amount: totalAmount,
+            status: 'review',
+            request_date: new Date().toISOString(),
+            notes: `Imported from ${file.name}`
+          })
+          .select()
+          .single()
+        
+        if (drawError) {
+          throw new Error('Failed to create draw request: ' + drawError.message)
+        }
+        
+        // 2. Create draw_request_lines
+        const drawLines = categoryValues.map((category, i) => ({
+          draw_request_id: newDraw.id,
+          category: category,
+          amount_requested: amountValues[i]
+        }))
+        
+        const { error: linesError } = await supabase
+          .from('draw_request_lines')
+          .insert(drawLines)
+        
+        if (linesError) {
+          console.error('Failed to create draw lines:', linesError)
+          // Don't throw - draw was created, lines can be added later
+        }
+        
+        // 3. Upload invoices to Supabase Storage (if any)
+        for (const invoiceFile of invoiceFiles) {
+          const filePath = `invoices/${selectedProjectId}/${newDraw.id}/${crypto.randomUUID()}-${invoiceFile.name}`
+          
+          const { error: uploadError } = await supabase.storage
+            .from('documents')
+            .upload(filePath, invoiceFile)
+          
+          if (!uploadError) {
+            const { data: urlData } = supabase.storage
+              .from('documents')
+              .getPublicUrl(filePath)
+            
+            // Create invoice record
+            await supabase.from('invoices').insert({
+              project_id: selectedProjectId,
+              draw_request_id: newDraw.id,
+              vendor_name: 'Pending Review',
+              amount: 0,
+              file_path: filePath,
+              file_url: urlData.publicUrl,
+              status: 'pending'
+            })
+          }
+        }
+        
+        // 4. Optionally call N8N webhook for AI processing (can fail gracefully)
+        const webhookUrl = DRAW_WEBHOOK_URL
+        if (webhookUrl) {
+          try {
+            const exportData = prepareColumnExport(data, mappings, importType, {
+              projectId: selectedProjectId,
+              drawNumber,
+              fileName: file.name,
+              rowRange: rowRangeAnalysis ? { startRow: rowRangeAnalysis.startRow, endRow: rowRangeAnalysis.endRow } : undefined
+            })
+            
+            await fetch(webhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...exportData, drawRequestId: newDraw.id })
+            })
+          } catch (n8nError) {
+            console.warn('N8N processing failed, draw created successfully:', n8nError)
+          }
+        }
+        
+      } else {
+        // === BUDGET IMPORT: Use existing webhook flow ===
+        const webhookUrl = BUDGET_WEBHOOK_URL
+        
+        if (!webhookUrl) {
+          setError('Budget import webhook URL not configured. Set NEXT_PUBLIC_N8N_BUDGET_WEBHOOK in environment.')
+          setImporting(false)
+          return
+        }
+        
+        // Delete existing budget if checkbox is checked
+        if (deleteExistingBudget && existingBudgetCount > 0) {
+          const { error: deleteError } = await supabase
+            .from('budgets')
+            .delete()
+            .eq('project_id', selectedProjectId)
+          
+          if (deleteError) {
+            setError('Failed to delete existing budget: ' + deleteError.message)
+            setImporting(false)
+            return
+          }
+        }
+        
+        const exportData = prepareColumnExport(data, mappings, importType, {
+          projectId: selectedProjectId,
+          fileName: file.name,
+          rowRange: rowRangeAnalysis ? { startRow: rowRangeAnalysis.startRow, endRow: rowRangeAnalysis.endRow } : undefined
+        })
+        
+        const response = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(exportData)
+        })
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`Webhook failed (${response.status}): ${errorText}`)
+        }
       }
       
       // Success - close modal and trigger refresh
