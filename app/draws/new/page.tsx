@@ -29,8 +29,12 @@ type UploadedInvoice = {
 function NewDrawPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const preselectedBuilderId = searchParams.get('builder')
   const preselectedProjectId = searchParams.get('project')
   
+  // Builder and project state
+  const [builders, setBuilders] = useState<Builder[]>([])
+  const [selectedBuilder, setSelectedBuilder] = useState('')
   const [projects, setProjects] = useState<ProjectWithBuilder[]>([])
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [selectedProject, setSelectedProject] = useState('')
@@ -52,13 +56,35 @@ function NewDrawPageContent() {
   const [processingStatus, setProcessingStatus] = useState('')
   const [error, setError] = useState('')
 
+  // Load builders on mount
   useEffect(() => {
-    loadProjects()
+    loadBuilders()
   }, [])
 
+  // Pre-select builder from URL param
+  useEffect(() => {
+    if (preselectedBuilderId && builders.length > 0) {
+      setSelectedBuilder(preselectedBuilderId)
+    }
+  }, [preselectedBuilderId, builders])
+
+  // Load projects when builder changes
+  useEffect(() => {
+    if (selectedBuilder) {
+      loadProjectsForBuilder(selectedBuilder)
+    } else {
+      setProjects([])
+      setSelectedProject('')
+    }
+  }, [selectedBuilder])
+
+  // Pre-select project from URL param (after projects load)
   useEffect(() => {
     if (preselectedProjectId && projects.length > 0) {
-      setSelectedProject(preselectedProjectId)
+      const project = projects.find(p => p.id === preselectedProjectId)
+      if (project) {
+        setSelectedProject(preselectedProjectId)
+      }
     }
   }, [preselectedProjectId, projects])
 
@@ -68,13 +94,34 @@ function NewDrawPageContent() {
     }
   }, [selectedProject])
 
-  async function loadProjects() {
+  async function loadBuilders() {
+    // Load builders that have at least one active project
+    const { data: buildersData } = await supabase
+      .from('builders')
+      .select('*')
+      .order('company_name')
+    
+    // Filter to only builders with active projects
+    const { data: activeProjects } = await supabase
+      .from('projects')
+      .select('builder_id')
+      .eq('lifecycle_stage', 'active')
+    
+    const builderIdsWithActiveProjects = new Set(activeProjects?.map(p => p.builder_id) || [])
+    const filteredBuilders = (buildersData || []).filter(b => builderIdsWithActiveProjects.has(b.id))
+    
+    setBuilders(filteredBuilders)
+  }
+
+  async function loadProjectsForBuilder(builderId: string) {
     const { data } = await supabase
       .from('projects')
       .select('*, builder:builders(*)')
+      .eq('builder_id', builderId)
       .eq('lifecycle_stage', 'active')
-      .order('name')
+      .order('project_code')
     setProjects((data as ProjectWithBuilder[]) || [])
+    setSelectedProject('') // Reset project selection when builder changes
   }
 
   async function loadProjectData() {
@@ -425,32 +472,84 @@ function NewDrawPageContent() {
       </div>
 
       <div className="space-y-6">
-        {/* Project Selection */}
+        {/* Builder & Project Selection */}
         <div className="card p-6">
           <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-            Project *
+            Builder *
           </label>
           <select
-            value={selectedProject}
-            onChange={(e) => setSelectedProject(e.target.value)}
+            value={selectedBuilder}
+            onChange={(e) => setSelectedBuilder(e.target.value)}
             className="input w-full"
             required
           >
-            <option value="">Select a project...</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.project_code || p.name} - {p.builder?.company_name || 'No Builder'}
+            <option value="">Select a builder...</option>
+            {builders.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.company_name}
               </option>
             ))}
           </select>
 
+          {/* Active Loans List - appears when builder selected */}
+          {selectedBuilder && (
+            <div className="mt-4">
+              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                Select Active Loan
+              </label>
+              {projects.length === 0 ? (
+                <p className="text-sm py-3" style={{ color: 'var(--text-muted)' }}>
+                  No active loans for this builder
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {projects.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setSelectedProject(p.id)}
+                      className={`w-full text-left p-3 rounded-lg border transition-all ${
+                        selectedProject === p.id 
+                          ? 'border-2' 
+                          : 'hover:border-opacity-70'
+                      }`}
+                      style={{ 
+                        background: selectedProject === p.id ? 'var(--accent-glow)' : 'var(--bg-secondary)',
+                        borderColor: selectedProject === p.id ? 'var(--accent)' : 'var(--border-primary)'
+                      }}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                            {p.project_code || p.name}
+                          </p>
+                          {p.address && (
+                            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                              {p.address}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                            {formatCurrency(p.loan_amount || 0)}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Selected Project Details */}
           {selectedProjectData && (
-            <div className="mt-4 p-4 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
+            <div className="mt-4 p-4 rounded-lg" style={{ background: 'var(--bg-secondary)', borderLeft: '3px solid var(--accent)' }}>
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Builder</span>
+                  <span style={{ color: 'var(--text-muted)' }}>Project</span>
                   <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {selectedProjectData.builder?.company_name || 'Not assigned'}
+                    {selectedProjectData.project_code || selectedProjectData.name}
                   </p>
                 </div>
                 <div>

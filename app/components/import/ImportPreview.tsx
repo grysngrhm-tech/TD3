@@ -18,11 +18,17 @@ import {
 import type { SpreadsheetData, ColumnMapping, WorkbookInfo, Invoice, RowRange, RowRangeWithAnalysis, RowAnalysis } from '@/lib/spreadsheet'
 import { supabase } from '@/lib/supabase'
 
+type Builder = {
+  id: string
+  company_name: string
+}
+
 type Project = {
   id: string
   name: string
   project_code: string | null
-  builder_name: string | null
+  builder_id: string | null
+  builder?: Builder | null
 }
 
 type ImportPreviewProps = {
@@ -31,6 +37,7 @@ type ImportPreviewProps = {
   onSuccess?: () => void  // Optional callback after successful webhook submission
   importType: 'budget' | 'draw'
   preselectedProjectId?: string  // Pre-select a project when importing from project page
+  preselectedBuilderId?: string  // Pre-select a builder
 }
 
 type ImportStats = {
@@ -45,7 +52,7 @@ type ImportStats = {
 const BUDGET_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_BUDGET_WEBHOOK || ''
 const DRAW_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_DRAW_WEBHOOK || ''
 
-export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselectedProjectId }: ImportPreviewProps) {
+export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselectedProjectId, preselectedBuilderId }: ImportPreviewProps) {
   const [step, setStep] = useState<'upload' | 'preview'>('upload')
   const [file, setFile] = useState<File | null>(null)
   const [workbookInfo, setWorkbookInfo] = useState<WorkbookInfo | null>(null)
@@ -57,7 +64,9 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
-  // Project selection state
+  // Builder and project selection state
+  const [builders, setBuilders] = useState<Builder[]>([])
+  const [selectedBuilderId, setSelectedBuilderId] = useState<string>('')
   const [projects, setProjects] = useState<Project[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState<string>('')
   const [drawNumber, setDrawNumber] = useState<number>(1)
@@ -73,14 +82,34 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
   const [deleteExistingBudget, setDeleteExistingBudget] = useState(false)
   const [existingBudgetCount, setExistingBudgetCount] = useState<number>(0)
 
-  // Fetch projects when modal opens
+  // Fetch builders when modal opens
   useEffect(() => {
     if (isOpen) {
-      fetchProjects()
+      fetchBuilders()
     } else {
       handleReset()
     }
   }, [isOpen])
+
+  // Set preselected builder after builders are loaded
+  useEffect(() => {
+    if (preselectedBuilderId && builders.length > 0 && !selectedBuilderId) {
+      const exists = builders.some(b => b.id === preselectedBuilderId)
+      if (exists) {
+        setSelectedBuilderId(preselectedBuilderId)
+      }
+    }
+  }, [preselectedBuilderId, builders, selectedBuilderId])
+
+  // Load projects when builder changes
+  useEffect(() => {
+    if (selectedBuilderId) {
+      fetchProjectsForBuilder(selectedBuilderId)
+    } else {
+      setProjects([])
+      setSelectedProjectId('')
+    }
+  }, [selectedBuilderId])
 
   // Set preselected project after projects are loaded
   useEffect(() => {
@@ -117,19 +146,47 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     }
   }
   
-  const fetchProjects = async () => {
+  const fetchBuilders = async () => {
     setLoadingProjects(true)
     try {
-      // Fetch projects that are not historic (pending or active)
+      // Fetch builders that have at least one non-historic project
+      const { data: buildersData, error: buildersError } = await supabase
+        .from('builders')
+        .select('id, company_name')
+        .order('company_name')
+      
+      if (buildersError) throw buildersError
+      
+      // Filter to only builders with pending or active projects
+      const { data: activeProjects } = await supabase
+        .from('projects')
+        .select('builder_id')
+        .in('lifecycle_stage', ['pending', 'active'])
+      
+      const builderIdsWithProjects = new Set(activeProjects?.map(p => p.builder_id) || [])
+      const filteredBuilders = (buildersData || []).filter(b => builderIdsWithProjects.has(b.id))
+      
+      setBuilders(filteredBuilders)
+    } catch (err) {
+      console.error('Failed to fetch builders:', err)
+    } finally {
+      setLoadingProjects(false)
+    }
+  }
+
+  const fetchProjectsForBuilder = async (builderId: string) => {
+    setLoadingProjects(true)
+    try {
       const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
-        .select('id, name, project_code, builder_name, lifecycle_stage')
+        .select('id, name, project_code, builder_id, builder:builders(id, company_name)')
+        .eq('builder_id', builderId)
         .in('lifecycle_stage', ['pending', 'active'])
-        .order('builder_name', { ascending: true })
         .order('project_code', { ascending: true })
       
       if (projectsError) throw projectsError
-      setProjects(projectsData || [])
+      setProjects((projectsData as Project[]) || [])
+      setSelectedProjectId('') // Reset project selection when builder changes
     } catch (err) {
       console.error('Failed to fetch projects:', err)
     } finally {
@@ -324,6 +381,8 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     setRowRangeAnalysis(null)
     setError(null)
     setImporting(false)
+    setSelectedBuilderId('')
+    setProjects([])
     setSelectedProjectId('')
     setDrawNumber(1)
     setInvoiceFiles([])
@@ -426,27 +485,51 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                     exit={{ opacity: 0 }}
                     className="flex-1 flex flex-col min-h-0"
                   >
-                    {/* Project Selection Bar */}
+                    {/* Builder & Project Selection Bar */}
                     <div className="flex items-center gap-3 px-4 py-2 border-b text-xs" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
-                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Project:</span>
+                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Builder:</span>
                       <select
-                        value={selectedProjectId}
-                        onChange={(e) => setSelectedProjectId(e.target.value)}
-                        className="px-2 py-1.5 rounded text-xs min-w-[200px]"
+                        value={selectedBuilderId}
+                        onChange={(e) => setSelectedBuilderId(e.target.value)}
+                        className="px-2 py-1.5 rounded text-xs min-w-[150px]"
                         style={{ 
                           background: 'var(--bg-secondary)', 
                           color: 'var(--text-primary)', 
-                          border: `1px solid ${!hasProjectSelected ? 'var(--warning)' : 'var(--border)'}`
+                          border: `1px solid ${!selectedBuilderId ? 'var(--warning)' : 'var(--border)'}`
                         }}
                         disabled={loadingProjects}
                       >
-                        <option value="">Select a project...</option>
-                        {projects.map(p => (
-                          <option key={p.id} value={p.id}>
-                            {p.project_code || p.name} {p.builder_name ? `(${p.builder_name})` : ''}
+                        <option value="">Select builder...</option>
+                        {builders.map(b => (
+                          <option key={b.id} value={b.id}>
+                            {b.company_name}
                           </option>
                         ))}
                       </select>
+                      
+                      {selectedBuilderId && (
+                        <>
+                          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Project:</span>
+                          <select
+                            value={selectedProjectId}
+                            onChange={(e) => setSelectedProjectId(e.target.value)}
+                            className="px-2 py-1.5 rounded text-xs min-w-[180px]"
+                            style={{ 
+                              background: 'var(--bg-secondary)', 
+                              color: 'var(--text-primary)', 
+                              border: `1px solid ${!hasProjectSelected ? 'var(--warning)' : 'var(--border)'}`
+                            }}
+                            disabled={loadingProjects || projects.length === 0}
+                          >
+                            <option value="">Select project...</option>
+                            {projects.map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.project_code || p.name}
+                              </option>
+                            ))}
+                          </select>
+                        </>
+                      )}
                       
                       {/* Replace existing budget checkbox - only for budget imports with existing items */}
                       {importType === 'budget' && existingBudgetCount > 0 && (

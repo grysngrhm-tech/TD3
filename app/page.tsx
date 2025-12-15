@@ -395,12 +395,14 @@ export default function Dashboard() {
         onClose={() => setImportModal(null)}
         onSuccess={handleImportSuccess}
         importType="budget"
+        preselectedBuilderId={selectedBuilder?.id}
       />
       <ImportPreview
         isOpen={importModal === 'draw'}
         onClose={() => setImportModal(null)}
         onSuccess={handleImportSuccess}
         importType="draw"
+        preselectedBuilderId={selectedBuilder?.id}
       />
     </div>
   )
