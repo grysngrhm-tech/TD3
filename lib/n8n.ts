@@ -30,6 +30,23 @@ export type DrawImportPayload = {
   }>
 }
 
+export type DrawProcessPayload = {
+  drawRequestId: string
+  projectId: string
+  drawNumber: number
+  categories: string[]
+  drawAmounts: number[]
+  budgets: Array<{
+    id: string
+    category: string
+    nahbCategory: string | null
+    nahbSubcategory: string | null
+    costCode: string | null
+    remaining: number | null
+  }>
+  invoiceCount: number
+}
+
 export async function triggerBudgetImport(payload: BudgetImportPayload): Promise<{ success: boolean; message: string; projectId?: string }> {
   try {
     const response = await fetch(`${N8N_BASE_URL}/td3-budget-import`, {

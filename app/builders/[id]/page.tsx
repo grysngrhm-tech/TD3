@@ -5,8 +5,13 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { BuilderInfoCard } from '@/app/components/builders/BuilderInfoCard'
 import { BuilderLoanGrid } from '@/app/components/builders/BuilderLoanGrid'
+import { StagedDrawsSection } from '@/app/components/builders/StagedDrawsSection'
 import { calculateLoanIncome, calculateIRR } from '@/lib/calculations'
-import type { Builder, LifecycleStage, DrawRequest } from '@/types/database'
+import type { Builder, LifecycleStage, DrawRequest, Project } from '@/types/database'
+
+type StagedDraw = DrawRequest & {
+  project?: Project | null
+}
 
 type ProjectWithBudget = {
   id: string
@@ -34,6 +39,7 @@ export default function BuilderDetailPage() {
 
   const [builder, setBuilder] = useState<Builder | null>(null)
   const [projects, setProjects] = useState<ProjectWithBudget[]>([])
+  const [stagedDraws, setStagedDraws] = useState<StagedDraw[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -117,6 +123,26 @@ export default function BuilderDetailPage() {
       )
 
       setProjects(projectsWithBudgets)
+
+      // Fetch staged draws for this builder's projects
+      const projectIds = projectsData.map(p => p.id)
+      if (projectIds.length > 0) {
+        const { data: stagedDrawsData } = await supabase
+          .from('draw_requests')
+          .select('*, projects(*)')
+          .in('project_id', projectIds)
+          .eq('status', 'staged')
+          .order('created_at', { ascending: false })
+
+        setStagedDraws(
+          (stagedDrawsData || []).map(draw => ({
+            ...draw,
+            project: (draw as any).projects as Project
+          }))
+        )
+      } else {
+        setStagedDraws([])
+      }
     } catch (error) {
       console.error('Error loading builder:', error)
     } finally {
@@ -234,6 +260,13 @@ export default function BuilderDetailPage() {
 
       {/* Content */}
       <div className="max-w-6xl mx-auto px-6 py-6 space-y-8">
+        {/* Staged Draws Section - Shows at top when draws are staged */}
+        <StagedDrawsSection 
+          builder={builder} 
+          stagedDraws={stagedDraws} 
+          onRefresh={loadBuilder}
+        />
+
         {/* Builder Information Card */}
         <BuilderInfoCard builder={builder} onDataRefresh={loadBuilder} />
 

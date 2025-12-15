@@ -321,6 +321,8 @@ export type Database = {
           status: string | null
           total_amount: number
           updated_at: string | null
+          funded_at: string | null
+          wire_batch_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -332,6 +334,8 @@ export type Database = {
           status?: string | null
           total_amount?: number
           updated_at?: string | null
+          funded_at?: string | null
+          wire_batch_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -343,8 +347,17 @@ export type Database = {
           status?: string | null
           total_amount?: number
           updated_at?: string | null
+          funded_at?: string | null
+          wire_batch_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "draw_requests_wire_batch_id_fkey"
+            columns: ["wire_batch_id"]
+            referencedRelation: "wire_batches"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       invoices: {
         Row: {
@@ -456,6 +469,55 @@ export type Database = {
           created_at?: string | null
         }
         Relationships: []
+      }
+      wire_batches: {
+        Row: {
+          id: string
+          builder_id: string
+          total_amount: number
+          status: string | null
+          submitted_at: string | null
+          submitted_by: string | null
+          funded_at: string | null
+          funded_by: string | null
+          wire_reference: string | null
+          notes: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          builder_id: string
+          total_amount: number
+          status?: string | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          funded_at?: string | null
+          funded_by?: string | null
+          wire_reference?: string | null
+          notes?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          builder_id?: string
+          total_amount?: number
+          status?: string | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          funded_at?: string | null
+          funded_by?: string | null
+          wire_reference?: string | null
+          notes?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wire_batches_builder_id_fkey"
+            columns: ["builder_id"]
+            referencedRelation: "builders"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       nahb_categories: {
         Row: {
@@ -651,6 +713,33 @@ export type ApprovalInsert = Database["public"]["Tables"]["approvals"]["Insert"]
 export type AuditEventInsert = Database["public"]["Tables"]["audit_events"]["Insert"]
 export type BuilderInsert = Database["public"]["Tables"]["builders"]["Insert"]
 export type BuilderUpdate = Database["public"]["Tables"]["builders"]["Update"]
+export type WireBatch = Database["public"]["Tables"]["wire_batches"]["Row"]
+export type WireBatchInsert = Database["public"]["Tables"]["wire_batches"]["Insert"]
+export type WireBatchUpdate = Database["public"]["Tables"]["wire_batches"]["Update"]
+
+// Draw Request Status Types
+export type DrawStatus = 'draft' | 'processing' | 'review' | 'staged' | 'pending_wire' | 'funded' | 'rejected'
+
+export const DRAW_STATUS_LABELS: Record<DrawStatus, string> = {
+  draft: 'Draft',
+  processing: 'Processing',
+  review: 'Ready for Review',
+  staged: 'Staged for Funding',
+  pending_wire: 'Pending Wire',
+  funded: 'Funded',
+  rejected: 'Rejected'
+}
+
+// Flag types for draw request lines
+export type DrawLineFlag = 'AMOUNT_MISMATCH' | 'NO_INVOICE' | 'OVER_BUDGET' | 'LOW_CONFIDENCE' | 'DUPLICATE_INVOICE'
+
+export const DRAW_FLAG_LABELS: Record<DrawLineFlag, string> = {
+  AMOUNT_MISMATCH: 'Invoice total doesn\'t match requested amount',
+  NO_INVOICE: 'No invoice attached',
+  OVER_BUDGET: 'Would exceed remaining budget',
+  LOW_CONFIDENCE: 'Low confidence in AI match',
+  DUPLICATE_INVOICE: 'Invoice already used in previous draw'
+}
 
 // Validation Types
 export type ValidationResult = {
@@ -686,6 +775,27 @@ export type DrawRequestWithDetails = DrawRequest & {
   project?: Project
   invoices?: Invoice[]
   documents?: Document[]
+  lines?: DrawRequestLine[]
+  wire_batch?: WireBatch | null
+}
+
+// Draw request with project and builder info for list views
+export type DrawRequestWithProject = DrawRequest & {
+  project?: Project & {
+    builder?: Builder | null
+  }
+}
+
+// Wire batch with draws for funding view
+export type WireBatchWithDraws = WireBatch & {
+  builder?: Builder
+  draws?: DrawRequestWithProject[]
+}
+
+// Draw request line with budget info for review
+export type DrawRequestLineWithBudget = DrawRequestLine & {
+  budget?: Budget
+  invoices?: Invoice[]
 }
 
 // Project with builder relation

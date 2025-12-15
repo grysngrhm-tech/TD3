@@ -5,15 +5,15 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { validateDrawRequest } from '@/lib/validations'
 import { ValidationAlerts, ValidationBadge } from '@/components/ValidationAlerts'
-import { ApprovalActions } from '@/components/ApprovalActions'
 import { AuditTimeline } from '@/components/AuditTimeline'
-import { DocumentUpload } from '@/components/DocumentUpload'
-import type { DrawRequestWithDetails, ValidationResult, Budget } from '@/types/database'
+import { motion, AnimatePresence } from 'framer-motion'
+import type { DrawRequestWithDetails, ValidationResult, Budget, Invoice, Builder, Project } from '@/types/database'
+import { DRAW_STATUS_LABELS, DRAW_FLAG_LABELS, DrawStatus, DrawLineFlag } from '@/types/database'
 
 type LineWithBudget = {
   id: string
   draw_request_id: string
-  budget_id: string
+  budget_id: string | null
   amount_requested: number
   amount_approved: number | null
   notes: string | null
@@ -28,16 +28,34 @@ type LineWithBudget = {
   budget?: Budget
 }
 
+type ProjectWithBuilder = Project & {
+  builder?: Builder | null
+}
+
 export default function DrawDetailPage() {
   const params = useParams()
   const router = useRouter()
   const drawId = params.id as string
 
   const [draw, setDraw] = useState<DrawRequestWithDetails | null>(null)
+  const [project, setProject] = useState<ProjectWithBuilder | null>(null)
   const [lines, setLines] = useState<LineWithBudget[]>([])
+  const [invoices, setInvoices] = useState<Invoice[]>([])
   const [validation, setValidation] = useState<ValidationResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'details' | 'documents' | 'history'>('details')
+  
+  // Invoice viewer
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
+  
+  // Editing
+  const [editingLineId, setEditingLineId] = useState<string | null>(null)
+  const [editAmount, setEditAmount] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  
+  // Actions
+  const [isStaging, setIsStaging] = useState(false)
+  const [actionError, setActionError] = useState('')
 
   useEffect(() => {
     loadDrawRequest()
@@ -45,12 +63,15 @@ export default function DrawDetailPage() {
 
   async function loadDrawRequest() {
     try {
-      // Fetch draw request with project
+      // Fetch draw request with project and builder
       const { data: drawData, error: drawError } = await supabase
         .from('draw_requests')
         .select(`
           *,
-          projects (*)
+          projects (
+            *,
+            builder:builders(*)
+          )
         `)
         .eq('id', drawId)
         .single()
@@ -79,9 +100,12 @@ export default function DrawDetailPage() {
         .select('*')
         .eq('draw_request_id', drawId)
 
+      const projectData = (drawData as any).projects as ProjectWithBuilder
+      setProject(projectData)
+      
       setDraw({
         ...drawData,
-        project: (drawData as any).projects,
+        project: projectData,
         invoices: invoicesData || [],
         documents: docsData || [],
       })
@@ -92,6 +116,8 @@ export default function DrawDetailPage() {
           budget: line.budgets,
         }))
       )
+      
+      setInvoices(invoicesData || [])
 
       // Run validation
       const validationResult = await validateDrawRequest(drawId)
@@ -112,35 +138,154 @@ export default function DrawDetailPage() {
     }).format(amount)
   }
 
-  const getStatusClass = (status: string) => {
-    const classes: Record<string, string> = {
-      draft: 'status-draft',
-      submitted: 'status-submitted',
-      approved: 'status-approved',
-      rejected: 'status-rejected',
-      paid: 'status-paid',
+  const getStatusColor = (status: string): string => {
+    const colors: Record<string, string> = {
+      draft: 'var(--text-muted)',
+      processing: 'var(--warning)',
+      review: 'var(--accent)',
+      staged: 'var(--success)',
+      pending_wire: 'var(--warning)',
+      funded: 'var(--success)',
+      rejected: 'var(--error)',
     }
-    return classes[status] || 'status-draft'
-  }
-
-  const getVarianceColor = (variance: number | null) => {
-    if (variance === null) return 'text-slate-500'
-    if (variance === 0) return 'text-emerald-600'
-    if (variance > 0) return 'text-amber-600'
-    return 'text-red-600'
+    return colors[status] || 'var(--text-muted)'
   }
 
   const getConfidenceColor = (score: number | null) => {
-    if (score === null) return 'bg-slate-100 text-slate-600'
-    if (score >= 0.9) return 'bg-emerald-100 text-emerald-700'
-    if (score >= 0.7) return 'bg-amber-100 text-amber-700'
-    return 'bg-red-100 text-red-700'
+    if (score === null) return { bg: 'var(--bg-secondary)', text: 'var(--text-muted)' }
+    if (score >= 0.9) return { bg: 'rgba(16, 185, 129, 0.1)', text: 'var(--success)' }
+    if (score >= 0.7) return { bg: 'rgba(245, 158, 11, 0.1)', text: 'var(--warning)' }
+    return { bg: 'rgba(239, 68, 68, 0.1)', text: 'var(--error)' }
+  }
+
+  const parseFlags = (flagsStr: string | null): DrawLineFlag[] => {
+    if (!flagsStr) return []
+    try {
+      const parsed = JSON.parse(flagsStr)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+
+  const hasFlags = (line: LineWithBudget): boolean => {
+    return parseFlags(line.flags).length > 0
+  }
+
+  const getFlagCount = (): number => {
+    return lines.reduce((count, line) => count + parseFlags(line.flags).length, 0)
+  }
+
+  // Edit line amount
+  const startEditing = (line: LineWithBudget) => {
+    setEditingLineId(line.id)
+    setEditAmount(line.amount_requested.toString())
+  }
+
+  const cancelEditing = () => {
+    setEditingLineId(null)
+    setEditAmount('')
+  }
+
+  const saveLineAmount = async (lineId: string) => {
+    const newAmount = parseFloat(editAmount)
+    if (isNaN(newAmount) || newAmount < 0) return
+
+    setIsSaving(true)
+    try {
+      const { error } = await supabase
+        .from('draw_request_lines')
+        .update({ amount_requested: newAmount })
+        .eq('id', lineId)
+
+      if (error) throw error
+
+      // Update total
+      const newTotal = lines.reduce((sum, l) => 
+        sum + (l.id === lineId ? newAmount : l.amount_requested), 0
+      )
+
+      await supabase
+        .from('draw_requests')
+        .update({ total_amount: newTotal })
+        .eq('id', drawId)
+
+      await loadDrawRequest()
+      setEditingLineId(null)
+    } catch (err) {
+      console.error('Error saving line:', err)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Stage for funding
+  const handleStageForFunding = async () => {
+    setIsStaging(true)
+    setActionError('')
+
+    try {
+      const { error } = await supabase
+        .from('draw_requests')
+        .update({ status: 'staged' })
+        .eq('id', drawId)
+
+      if (error) throw error
+
+      // Log audit event
+      await supabase.from('audit_events').insert({
+        entity_type: 'draw_request',
+        entity_id: drawId,
+        action: 'staged',
+        actor: 'user',
+        old_data: { status: draw?.status },
+        new_data: { status: 'staged' }
+      })
+
+      await loadDrawRequest()
+    } catch (err: any) {
+      setActionError(err.message || 'Failed to stage draw')
+    } finally {
+      setIsStaging(false)
+    }
+  }
+
+  // Reject draw
+  const handleReject = async () => {
+    if (!confirm('Are you sure you want to reject this draw request?')) return
+
+    try {
+      const { error } = await supabase
+        .from('draw_requests')
+        .update({ status: 'rejected' })
+        .eq('id', drawId)
+
+      if (error) throw error
+
+      await supabase.from('audit_events').insert({
+        entity_type: 'draw_request',
+        entity_id: drawId,
+        action: 'rejected',
+        actor: 'user',
+        old_data: { status: draw?.status },
+        new_data: { status: 'rejected' }
+      })
+
+      router.push('/draws')
+    } catch (err: any) {
+      setActionError(err.message || 'Failed to reject draw')
+    }
+  }
+
+  // Get invoices linked to a line
+  const getLineInvoices = (lineId: string): Invoice[] => {
+    return invoices.filter(inv => inv.draw_request_line_id === lineId)
   }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}></div>
       </div>
     )
   }
@@ -148,8 +293,8 @@ export default function DrawDetailPage() {
   if (!draw) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-slate-900">Draw Request Not Found</h2>
-        <p className="text-slate-600 mt-2">The requested draw could not be found.</p>
+        <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>Draw Request Not Found</h2>
+        <p style={{ color: 'var(--text-muted)' }} className="mt-2">The requested draw could not be found.</p>
         <a href="/draws" className="btn-primary inline-block mt-4">
           Back to Draws
         </a>
@@ -158,296 +303,437 @@ export default function DrawDetailPage() {
   }
 
   const totalRequested = lines.reduce((sum, l) => sum + l.amount_requested, 0)
-  const totalApproved = lines.reduce((sum, l) => sum + (l.amount_approved || 0), 0)
   const totalInvoiced = lines.reduce((sum, l) => sum + (l.matched_invoice_amount || 0), 0)
+  const flagCount = getFlagCount()
+  const canStage = draw.status === 'review'
+  const isEditable = draw.status === 'review' || draw.status === 'draft'
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <a href="/draws" className="text-primary-600 hover:text-primary-700 text-sm mb-2 inline-flex items-center gap-1">
+          <a href="/draws" className="text-sm mb-2 inline-flex items-center gap-1 hover:opacity-80" style={{ color: 'var(--accent)' }}>
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
             Back to Draws
           </a>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-            Draw #{draw.draw_number}
-            <span className={getStatusClass(draw.status)}>{draw.status}</span>
+          <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: 'var(--text-primary)' }}>
+            Draw #{draw.draw_number} - {project?.project_code || project?.name}
+            <span 
+              className="px-3 py-1 rounded-full text-sm font-medium"
+              style={{ 
+                background: `${getStatusColor(draw.status || 'draft')}20`,
+                color: getStatusColor(draw.status || 'draft')
+              }}
+            >
+              {DRAW_STATUS_LABELS[(draw.status as DrawStatus) || 'draft']}
+            </span>
           </h1>
-          <p className="text-slate-600 mt-1">
-            {draw.project?.name} • {new Date(draw.request_date).toLocaleDateString()}
+          <p style={{ color: 'var(--text-muted)' }} className="mt-1">
+            {project?.builder?.company_name || 'No Builder'} • {draw.request_date ? new Date(draw.request_date).toLocaleDateString() : 'No date'}
           </p>
         </div>
-        {validation && <ValidationBadge validation={validation} />}
+        
+        {flagCount > 0 && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(245, 158, 11, 0.1)' }}>
+            <svg className="w-5 h-5" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span className="font-medium" style={{ color: 'var(--warning)' }}>
+              {flagCount} item{flagCount !== 1 ? 's' : ''} need attention
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="card">
-          <p className="text-sm text-slate-500">Requested</p>
-          <p className="text-2xl font-bold text-slate-900">{formatCurrency(totalRequested)}</p>
+        <div className="card p-4">
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Total Requested</p>
+          <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(totalRequested)}</p>
         </div>
-        <div className="card">
-          <p className="text-sm text-slate-500">Invoiced</p>
-          <p className="text-2xl font-bold text-slate-900">{formatCurrency(totalInvoiced)}</p>
+        <div className="card p-4">
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Invoices Matched</p>
+          <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(totalInvoiced)}</p>
         </div>
-        <div className="card">
-          <p className="text-sm text-slate-500">Approved</p>
-          <p className="text-2xl font-bold text-emerald-600">
-            {totalApproved > 0 ? formatCurrency(totalApproved) : '—'}
-          </p>
+        <div className="card p-4">
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Line Items</p>
+          <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{lines.length}</p>
         </div>
-        <div className="card">
-          <p className="text-sm text-slate-500">Variance</p>
-          <p className={`text-2xl font-bold ${getVarianceColor(totalRequested - totalInvoiced)}`}>
-            {formatCurrency(Math.abs(totalRequested - totalInvoiced))}
-          </p>
+        <div className="card p-4">
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Invoices Uploaded</p>
+          <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{invoices.length}</p>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-slate-200">
-        <nav className="-mb-px flex gap-6">
-          {(['details', 'documents', 'history'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`py-3 px-1 border-b-2 text-sm font-medium transition-colors capitalize ${
-                activeTab === tab
-                  ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </nav>
-      </div>
-
+      {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {activeTab === 'details' && (
-            <>
-              {/* Validation Alerts */}
-              {validation && (
-                <ValidationAlerts validation={validation} />
+        {/* Line Items */}
+        <div className="lg:col-span-2">
+          <div className="card overflow-hidden">
+            <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-primary)' }}>
+              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Draw Line Items</h3>
+              {isEditable && (
+                <span className="text-xs px-2 py-1 rounded" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                  Click amount to edit
+                </span>
               )}
-
-              {/* Line Items Table */}
-              <div className="card p-0 overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-200">
-                  <h3 className="font-semibold text-slate-900">Line Items</h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr>
-                        <th className="table-header">Category</th>
-                        <th className="table-header text-right">Requested</th>
-                        <th className="table-header text-right">Invoiced</th>
-                        <th className="table-header text-right">Variance</th>
-                        <th className="table-header">Confidence</th>
-                        <th className="table-header">Invoice</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lines.map((line) => (
-                        <tr key={line.id} className="hover:bg-slate-50">
-                          <td className="table-cell">
-                            <div>
-                              <p className="font-medium">{line.budget?.category || 'Unknown'}</p>
-                              {line.budget?.nahb_category && (
-                                <p className="text-xs text-slate-500">
-                                  {line.budget.cost_code} - {line.budget.nahb_category}
-                                </p>
-                              )}
-                            </div>
-                          </td>
-                          <td className="table-cell text-right font-medium">
-                            {formatCurrency(line.amount_requested)}
-                          </td>
-                          <td className="table-cell text-right">
-                            {line.matched_invoice_amount 
-                              ? formatCurrency(line.matched_invoice_amount)
-                              : <span className="text-slate-400">—</span>
-                            }
-                          </td>
-                          <td className={`table-cell text-right ${getVarianceColor(line.variance)}`}>
-                            {line.variance !== null 
-                              ? `${line.variance > 0 ? '+' : ''}${formatCurrency(line.variance)}`
-                              : '—'
-                            }
-                          </td>
-                          <td className="table-cell">
-                            {line.confidence_score !== null ? (
-                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${getConfidenceColor(line.confidence_score)}`}>
-                                {Math.round(line.confidence_score * 100)}%
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 text-sm">—</span>
-                            )}
-                          </td>
-                          <td className="table-cell">
-                            {line.invoice_file_url ? (
-                              <a
-                                href={line.invoice_file_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary-600 hover:text-primary-700 text-sm inline-flex items-center gap-1"
-                              >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                {line.invoice_file_name || 'View'}
-                              </a>
-                            ) : (
-                              <span className="text-slate-400 text-sm">No invoice</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-slate-50 font-semibold">
-                        <td className="table-cell">Total</td>
-                        <td className="table-cell text-right">{formatCurrency(totalRequested)}</td>
-                        <td className="table-cell text-right">{formatCurrency(totalInvoiced)}</td>
-                        <td className={`table-cell text-right ${getVarianceColor(totalRequested - totalInvoiced)}`}>
-                          {formatCurrency(Math.abs(totalRequested - totalInvoiced))}
-                        </td>
-                        <td className="table-cell" colSpan={2}></td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </div>
-
-              {/* Notes */}
-              {draw.notes && (
-                <div className="card">
-                  <h3 className="font-semibold text-slate-900 mb-2">Notes</h3>
-                  <p className="text-slate-600">{draw.notes}</p>
-                </div>
-              )}
-            </>
-          )}
-
-          {activeTab === 'documents' && (
-            <div className="space-y-6">
-              {/* Upload Section */}
-              {draw.status === 'draft' && (
-                <DocumentUpload
-                  drawRequestId={drawId}
-                  projectId={draw.project_id}
-                  onUpload={() => loadDrawRequest()}
-                />
-              )}
-
-              {/* Existing Documents */}
-              <div className="card">
-                <h3 className="font-semibold text-slate-900 mb-4">Attached Documents</h3>
-                {draw.documents && draw.documents.length > 0 ? (
-                  <div className="space-y-2">
-                    {draw.documents.map((doc) => (
-                      <div
-                        key={doc.id}
-                        className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
-                      >
-                        <div className="flex items-center gap-3">
-                          <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          <div>
-                            <p className="font-medium text-slate-900">{doc.file_name}</p>
-                            <p className="text-xs text-slate-500">
-                              {doc.file_size ? `${Math.round(doc.file_size / 1024)}KB • ` : ''}
-                              {new Date(doc.uploaded_at).toLocaleDateString()}
-                            </p>
-                          </div>
+            </div>
+            
+            <div className="divide-y" style={{ borderColor: 'var(--border-primary)' }}>
+              {lines.map((line) => {
+                const lineFlags = parseFlags(line.flags)
+                const lineInvoices = getLineInvoices(line.id)
+                const isEditing = editingLineId === line.id
+                
+                return (
+                  <div key={line.id} className="p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          {lineFlags.length > 0 && (
+                            <svg className="w-5 h-5" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                          )}
+                          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                            {line.budget?.category || 'Unmatched Category'}
+                          </span>
+                          {line.budget?.nahb_category && (
+                            <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                              {line.budget.cost_code}
+                            </span>
+                          )}
                         </div>
-                        {doc.file_url && (
-                          <a
-                            href={doc.file_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-                          >
-                            Download
-                          </a>
+                        
+                        {/* Flags */}
+                        {lineFlags.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {lineFlags.map((flag, i) => (
+                              <p key={i} className="text-sm flex items-center gap-1" style={{ color: 'var(--warning)' }}>
+                                <span>→</span>
+                                {DRAW_FLAG_LABELS[flag] || flag}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Budget remaining */}
+                        {line.budget && (
+                          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                            Budget: {formatCurrency(line.budget.current_amount)} • Remaining: {formatCurrency(line.budget.remaining_amount || 0)}
+                          </p>
                         )}
                       </div>
-                    ))}
+                      
+                      {/* Amount */}
+                      <div className="text-right">
+                        {isEditing ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              value={editAmount}
+                              onChange={(e) => setEditAmount(e.target.value)}
+                              className="input w-32 text-right"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => saveLineAmount(line.id)}
+                              disabled={isSaving}
+                              className="p-1 rounded hover:bg-green-100"
+                              style={{ color: 'var(--success)' }}
+                            >
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={cancelEditing}
+                              className="p-1 rounded hover:bg-red-100"
+                              style={{ color: 'var(--error)' }}
+                            >
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => isEditable && startEditing(line)}
+                            className={`text-xl font-bold ${isEditable ? 'hover:opacity-70 cursor-pointer' : ''}`}
+                            style={{ color: 'var(--text-primary)' }}
+                            disabled={!isEditable}
+                          >
+                            {formatCurrency(line.amount_requested)}
+                          </button>
+                        )}
+                        
+                        {/* Confidence score */}
+                        {line.confidence_score !== null && (
+                          <p 
+                            className="text-xs mt-1 px-2 py-0.5 rounded inline-block"
+                            style={{ 
+                              background: getConfidenceColor(line.confidence_score).bg,
+                              color: getConfidenceColor(line.confidence_score).text
+                            }}
+                          >
+                            {Math.round(line.confidence_score * 100)}% match
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Invoices for this line */}
+                    {lineInvoices.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {lineInvoices.map(inv => (
+                          <button
+                            key={inv.id}
+                            onClick={() => setSelectedInvoice(inv)}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm hover:opacity-80 transition-opacity"
+                            style={{ background: 'var(--bg-secondary)' }}
+                          >
+                            <svg className="w-4 h-4" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span style={{ color: 'var(--text-primary)' }}>{inv.vendor_name}</span>
+                            <span style={{ color: 'var(--text-muted)' }}>{formatCurrency(inv.amount)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {lineFlags.includes('NO_INVOICE' as DrawLineFlag) && lineInvoices.length === 0 && (
+                      <p className="mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                        No invoices matched to this line
+                      </p>
+                    )}
                   </div>
-                ) : (
-                  <p className="text-slate-500 text-center py-8">No documents attached</p>
-                )}
-              </div>
+                )
+              })}
             </div>
-          )}
-
-          {activeTab === 'history' && (
-            <div className="card">
-              <h3 className="font-semibold text-slate-900 mb-4">Activity History</h3>
-              <AuditTimeline entityType="draw_request" entityId={drawId} />
+            
+            {/* Total */}
+            <div className="px-4 py-3 border-t flex justify-between items-center" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-primary)' }}>
+              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Total</span>
+              <span className="text-xl font-bold" style={{ color: 'var(--accent)' }}>{formatCurrency(totalRequested)}</span>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Actions Card */}
-          <div className="card">
-            <h3 className="font-semibold text-slate-900 mb-4">Actions</h3>
-            <ApprovalActions
-              drawId={drawId}
-              currentStatus={draw.status}
-              validation={validation || undefined}
-              onStatusChange={() => loadDrawRequest()}
-            />
+          {/* Actions */}
+          <div className="card p-4">
+            <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Actions</h3>
+            
+            {actionError && (
+              <p className="text-sm mb-4 p-2 rounded" style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)' }}>
+                {actionError}
+              </p>
+            )}
+            
+            <div className="space-y-3">
+              {canStage && (
+                <button
+                  onClick={handleStageForFunding}
+                  disabled={isStaging}
+                  className="btn-primary w-full"
+                >
+                  {isStaging ? 'Staging...' : 'Stage for Funding →'}
+                </button>
+              )}
+              
+              {draw.status === 'staged' && (
+                <div className="text-center py-4">
+                  <svg className="w-12 h-12 mx-auto mb-2" style={{ color: 'var(--success)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="font-medium" style={{ color: 'var(--success)' }}>Staged for Funding</p>
+                  <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                    Go to builder page to fund all staged draws
+                  </p>
+                  {project?.builder_id && (
+                    <a href={`/builders/${project.builder_id}`} className="btn-secondary mt-3 inline-block">
+                      View Builder →
+                    </a>
+                  )}
+                </div>
+              )}
+              
+              {draw.status === 'funded' && (
+                <div className="text-center py-4">
+                  <svg className="w-12 h-12 mx-auto mb-2" style={{ color: 'var(--success)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="font-medium" style={{ color: 'var(--success)' }}>Funded</p>
+                  {draw.funded_at && (
+                    <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                      {new Date(draw.funded_at).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              )}
+              
+              {isEditable && (
+                <button
+                  onClick={handleReject}
+                  className="w-full py-2 px-4 rounded-lg border text-sm font-medium hover:opacity-80"
+                  style={{ borderColor: 'var(--error)', color: 'var(--error)' }}
+                >
+                  Reject Draw
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Project Info */}
-          <div className="card">
-            <h3 className="font-semibold text-slate-900 mb-4">Project Details</h3>
+          <div className="card p-4">
+            <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Project Details</h3>
             <dl className="space-y-3 text-sm">
               <div>
-                <dt className="text-slate-500">Project</dt>
-                <dd className="font-medium text-slate-900">{draw.project?.name}</dd>
+                <dt style={{ color: 'var(--text-muted)' }}>Project</dt>
+                <dd className="font-medium" style={{ color: 'var(--text-primary)' }}>{project?.project_code || project?.name}</dd>
               </div>
-              {draw.project?.address && (
+              {project?.builder && (
                 <div>
-                  <dt className="text-slate-500">Address</dt>
-                  <dd className="text-slate-700">{draw.project.address}</dd>
-                </div>
-              )}
-              {draw.project?.loan_amount && (
-                <div>
-                  <dt className="text-slate-500">Loan Amount</dt>
-                  <dd className="font-medium text-slate-900">
-                    {formatCurrency(draw.project.loan_amount)}
+                  <dt style={{ color: 'var(--text-muted)' }}>Builder</dt>
+                  <dd style={{ color: 'var(--text-primary)' }}>
+                    <a href={`/builders/${project.builder.id}`} className="hover:underline" style={{ color: 'var(--accent)' }}>
+                      {project.builder.company_name}
+                    </a>
                   </dd>
                 </div>
               )}
-              {draw.project?.builder_name && (
+              {project?.loan_amount && (
                 <div>
-                  <dt className="text-slate-500">Builder</dt>
-                  <dd className="text-slate-700">{draw.project.builder_name}</dd>
+                  <dt style={{ color: 'var(--text-muted)' }}>Loan Amount</dt>
+                  <dd className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(project.loan_amount)}</dd>
+                </div>
+              )}
+              {project?.address && (
+                <div>
+                  <dt style={{ color: 'var(--text-muted)' }}>Address</dt>
+                  <dd style={{ color: 'var(--text-primary)' }}>{project.address}</dd>
                 </div>
               )}
             </dl>
             <a
               href={`/projects/${draw.project_id}`}
-              className="text-primary-600 hover:text-primary-700 text-sm font-medium mt-4 inline-block"
+              className="text-sm font-medium mt-4 inline-block hover:underline"
+              style={{ color: 'var(--accent)' }}
             >
-              View Project →
+              View Full Project →
             </a>
           </div>
+
+          {/* All Invoices */}
+          {invoices.length > 0 && (
+            <div className="card p-4">
+              <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>All Invoices ({invoices.length})</h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {invoices.map(inv => (
+                  <button
+                    key={inv.id}
+                    onClick={() => setSelectedInvoice(inv)}
+                    className="w-full flex items-center justify-between p-2 rounded-lg hover:opacity-80 text-left"
+                    style={{ background: 'var(--bg-secondary)' }}
+                  >
+                    <div>
+                      <p className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>{inv.vendor_name}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        {inv.matched_to_category || 'Unmatched'}
+                      </p>
+                    </div>
+                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(inv.amount)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Invoice Viewer Modal */}
+      <AnimatePresence>
+        {selectedInvoice && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.5)' }}
+            onClick={() => setSelectedInvoice(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="card max-w-4xl w-full max-h-[90vh] overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center p-4 border-b" style={{ borderColor: 'var(--border-primary)' }}>
+                <div>
+                  <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>{selectedInvoice.vendor_name}</h3>
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    {formatCurrency(selectedInvoice.amount)} • {selectedInvoice.matched_to_category || 'Unmatched'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedInvoice(null)}
+                  className="p-2 rounded-lg hover:opacity-70"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="p-4 h-[60vh] overflow-auto">
+                {selectedInvoice.file_url ? (
+                  selectedInvoice.file_url.endsWith('.pdf') ? (
+                    <iframe
+                      src={selectedInvoice.file_url}
+                      className="w-full h-full rounded-lg"
+                      title="Invoice PDF"
+                    />
+                  ) : (
+                    <img
+                      src={selectedInvoice.file_url}
+                      alt="Invoice"
+                      className="max-w-full h-auto mx-auto rounded-lg"
+                    />
+                  )
+                ) : (
+                  <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-muted)' }}>
+                    <p>No file available</p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="p-4 border-t flex justify-between" style={{ borderColor: 'var(--border-primary)' }}>
+                <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  {selectedInvoice.invoice_number && <span>Invoice #{selectedInvoice.invoice_number} • </span>}
+                  {selectedInvoice.invoice_date && <span>{new Date(selectedInvoice.invoice_date).toLocaleDateString()}</span>}
+                </div>
+                {selectedInvoice.file_url && (
+                  <a
+                    href={selectedInvoice.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-secondary text-sm"
+                  >
+                    Open in New Tab
+                  </a>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
-
