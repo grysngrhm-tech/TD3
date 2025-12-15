@@ -166,10 +166,10 @@ export function OriginationTab({
 
   const isPending = project?.lifecycle_stage === 'pending' || isNew
 
-  // LTV gauge color
+  // LTV gauge color (≤65% green, 66-74% yellow, ≥75% red)
   const getLtvColor = (ltv: number) => {
-    if (ltv <= 70) return 'var(--success)'
-    if (ltv <= 80) return 'var(--warning)'
+    if (ltv <= 65) return 'var(--success)'
+    if (ltv <= 74) return 'var(--warning)'
     return 'var(--error)'
   }
 
@@ -181,23 +181,26 @@ export function OriginationTab({
     setFormData(prev => ({
       ...prev,
       builder_id: builder.id,
-      // Auto-fill borrower name from builder if not already set
-      borrower_name: prev.borrower_name || builder.borrower_name || '',
+      // Auto-fill borrower name from builder profile
+      borrower_name: builder.borrower_name || prev.borrower_name || '',
     }))
     setBuilderSearchOpen(false)
     setBuilderSearchTerm('')
   }
 
   const handleSave = async () => {
-    if (!formData.name.trim()) {
-      toast({ type: 'error', title: 'Error', message: 'Loan name is required' })
+    // Validate subdivision and lot (needed for project code)
+    if (!formData.subdivision_name.trim() || !formData.lot_number.trim()) {
+      toast({ type: 'error', title: 'Error', message: 'Subdivision and Lot Number are required to generate Project Code' })
       return
     }
 
     setSaving(true)
     try {
+      // Use project code as the name (auto-generated from subdivision + lot)
+      const generatedName = projectCode || `${formData.subdivision_name} Lot ${formData.lot_number}`
       const projectData = {
-        name: formData.name.trim(),
+        name: generatedName,
         project_code: projectCode || null,
         subdivision_name: formData.subdivision_name.trim() || null,
         lot_number: formData.lot_number.trim() || null,
@@ -524,15 +527,15 @@ export function OriginationTab({
                     background: getLtvColor(ltvRatio)
                   }}
                 />
-                {/* 80% marker */}
+                {/* 75% marker */}
                 <div 
                   className="absolute top-0 bottom-0 w-0.5"
-                  style={{ left: '80%', background: 'var(--text-muted)', opacity: 0.5 }}
+                  style={{ left: '75%', background: 'var(--text-muted)', opacity: 0.5 }}
                 />
               </div>
               <div className="flex justify-between mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
                 <span>0%</span>
-                <span>80%</span>
+                <span>75%</span>
                 <span>100%</span>
               </div>
             </>
@@ -580,14 +583,27 @@ export function OriginationTab({
           )}
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-          {renderField('Loan Name', 'name', 'text', 'Enter loan name')}
+          {/* Project Code - auto-generated, shown first */}
+          <div>
+            <div style={{ color: 'var(--text-muted)' }}>Project Code</div>
+            <div className="font-medium font-mono" style={{ color: projectCode ? 'var(--accent)' : 'var(--text-muted)' }}>
+              {projectCode || (isEditing ? 'Auto-generated from Subdivision + Lot' : '—')}
+            </div>
+          </div>
           {renderField('Subdivision', 'subdivision_name', 'text', 'e.g., Discovery West')}
           {renderField('Lot Number', 'lot_number', 'text', 'e.g., 244')}
           {renderBuilderField()}
-          {renderField('Borrower', 'borrower_name', 'text', 'Borrower name')}
+          {renderField('Borrower', 'borrower_name', 'text', 'Auto-filled from builder')}
           {renderField('Address', 'address', 'text', 'Property address')}
           {renderField('Loan Amount', 'loan_amount', 'currency', '0')}
           {renderField('Appraised Value', 'appraised_value', 'currency', '0')}
+          {/* Budget Amount - auto-calculated from budget categories */}
+          <div>
+            <div style={{ color: 'var(--text-muted)' }}>Budget Amount</div>
+            <div className="font-medium" style={{ color: totalBudget > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+              {totalBudget > 0 ? formatCurrency(totalBudget) : (budgets.length === 0 ? 'Upload budget' : '—')}
+            </div>
+          </div>
           {renderField('Sales Price', 'sales_price', 'currency', '0')}
           {renderField('Square Footage', 'square_footage', 'number', '0')}
           {renderField('Interest Rate', 'interest_rate_annual', 'percent', '11')}
