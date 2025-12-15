@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import type { Project, Budget, LifecycleStage } from '@/types/database'
+import { useRouter } from 'next/navigation'
+import type { Project, Budget, LifecycleStage, Builder } from '@/types/database'
 import { ImportPreview } from '@/app/components/import/ImportPreview'
 import { DocumentUploadSection } from './DocumentUploadSection'
 import { BudgetEditor } from './BudgetEditor'
@@ -21,7 +22,7 @@ type FormData = {
   name: string
   subdivision_name: string
   lot_number: string
-  builder_name: string
+  builder_id: string
   borrower_name: string
   address: string
   loan_amount: string
@@ -36,6 +37,7 @@ type FormData = {
 type OriginationTabProps = {
   project?: Project & { lifecycle_stage: LifecycleStage }
   budgets: Budget[]
+  builder?: Builder | null
   isNew?: boolean
   onSave?: (projectId: string) => void
   onCancel?: () => void
@@ -44,22 +46,27 @@ type OriginationTabProps = {
 
 export function OriginationTab({ 
   project, 
-  budgets, 
+  budgets,
+  builder: initialBuilder,
   isNew = false,
   onSave,
   onCancel,
   onBudgetImported 
 }: OriginationTabProps) {
+  const router = useRouter()
   const [isEditing, setIsEditing] = useState(isNew)
   const [showBudgetImport, setShowBudgetImport] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [builders, setBuilders] = useState<Builder[]>([])
+  const [builderSearchOpen, setBuilderSearchOpen] = useState(false)
+  const [builderSearchTerm, setBuilderSearchTerm] = useState('')
   
   // Form state
   const [formData, setFormData] = useState<FormData>({
     name: '',
     subdivision_name: '',
     lot_number: '',
-    builder_name: '',
+    builder_id: '',
     borrower_name: '',
     address: '',
     loan_amount: '',
@@ -71,6 +78,20 @@ export function OriginationTab({
     loan_term_months: DEFAULT_TERMS.loan_term_months.toString(),
   })
 
+  // Load all builders for dropdown
+  useEffect(() => {
+    loadBuilders()
+  }, [])
+
+  async function loadBuilders() {
+    const { data } = await supabase
+      .from('builders')
+      .select('*')
+      .order('company_name', { ascending: true })
+    
+    setBuilders(data || [])
+  }
+
   // Initialize form data from project when not new
   useEffect(() => {
     if (project && !isNew) {
@@ -78,7 +99,7 @@ export function OriginationTab({
         name: project.name || '',
         subdivision_name: project.subdivision_name || '',
         lot_number: project.lot_number || '',
-        builder_name: project.builder_name || '',
+        builder_id: project.builder_id || '',
         borrower_name: project.borrower_name || '',
         address: project.address || '',
         loan_amount: project.loan_amount?.toString() || '',
@@ -95,6 +116,24 @@ export function OriginationTab({
       })
     }
   }, [project, isNew])
+
+  // Get the currently selected builder
+  const selectedBuilder = useMemo(() => {
+    if (formData.builder_id) {
+      return builders.find(b => b.id === formData.builder_id) || initialBuilder || null
+    }
+    return initialBuilder || null
+  }, [formData.builder_id, builders, initialBuilder])
+
+  // Filter builders for search dropdown
+  const filteredBuilders = useMemo(() => {
+    if (!builderSearchTerm) return builders
+    const term = builderSearchTerm.toLowerCase()
+    return builders.filter(b => 
+      b.company_name.toLowerCase().includes(term) ||
+      (b.borrower_name && b.borrower_name.toLowerCase().includes(term))
+    )
+  }, [builders, builderSearchTerm])
 
   // Auto-generate project code
   const projectCode = useMemo(() => {
@@ -138,6 +177,17 @@ export function OriginationTab({
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
+  const handleBuilderSelect = (builder: Builder) => {
+    setFormData(prev => ({
+      ...prev,
+      builder_id: builder.id,
+      // Auto-fill borrower name from builder if not already set
+      borrower_name: prev.borrower_name || builder.borrower_name || '',
+    }))
+    setBuilderSearchOpen(false)
+    setBuilderSearchTerm('')
+  }
+
   const handleSave = async () => {
     if (!formData.name.trim()) {
       toast({ type: 'error', title: 'Error', message: 'Loan name is required' })
@@ -151,7 +201,7 @@ export function OriginationTab({
         project_code: projectCode || null,
         subdivision_name: formData.subdivision_name.trim() || null,
         lot_number: formData.lot_number.trim() || null,
-        builder_name: formData.builder_name.trim() || null,
+        builder_id: formData.builder_id || null,
         borrower_name: formData.borrower_name.trim() || null,
         address: formData.address.trim() || null,
         loan_amount: formData.loan_amount ? parseFloat(formData.loan_amount) : null,
@@ -216,7 +266,7 @@ export function OriginationTab({
           name: project.name || '',
           subdivision_name: project.subdivision_name || '',
           lot_number: project.lot_number || '',
-          builder_name: project.builder_name || '',
+          builder_id: project.builder_id || '',
           borrower_name: project.borrower_name || '',
           address: project.address || '',
           loan_amount: project.loan_amount?.toString() || '',
@@ -297,6 +347,125 @@ export function OriginationTab({
             <span className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>%</span>
           )}
         </div>
+      </div>
+    )
+  }
+
+  // Render builder field with special handling
+  const renderBuilderField = () => {
+    if (!isEditing) {
+      // View mode - show builder name as link
+      return (
+        <div>
+          <div style={{ color: 'var(--text-muted)' }}>Builder</div>
+          <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+            {selectedBuilder ? (
+              <button
+                onClick={() => router.push(`/builders/${selectedBuilder.id}`)}
+                className="hover:underline transition-colors"
+                style={{ color: 'var(--accent)' }}
+              >
+                {selectedBuilder.company_name}
+              </button>
+            ) : (
+              '—'
+            )}
+          </div>
+        </div>
+      )
+    }
+
+    // Edit mode - searchable dropdown
+    return (
+      <div className="relative">
+        <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
+          Builder
+        </label>
+        <button
+          type="button"
+          onClick={() => setBuilderSearchOpen(!builderSearchOpen)}
+          className="input w-full text-left flex items-center justify-between"
+        >
+          <span style={{ color: selectedBuilder ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+            {selectedBuilder?.company_name || 'Select builder...'}
+          </span>
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {builderSearchOpen && (
+          <div 
+            className="absolute top-full left-0 right-0 mt-1 rounded-ios-sm shadow-lg z-50 max-h-64 overflow-hidden"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
+          >
+            {/* Search input */}
+            <div className="p-2 border-b" style={{ borderColor: 'var(--border)' }}>
+              <input
+                type="text"
+                value={builderSearchTerm}
+                onChange={(e) => setBuilderSearchTerm(e.target.value)}
+                placeholder="Search builders..."
+                className="input w-full"
+                autoFocus
+              />
+            </div>
+
+            {/* Builder list */}
+            <div className="max-h-48 overflow-y-auto">
+              {filteredBuilders.length === 0 ? (
+                <div className="p-3 text-sm text-center" style={{ color: 'var(--text-muted)' }}>
+                  No builders found
+                </div>
+              ) : (
+                filteredBuilders.map((builder) => (
+                  <button
+                    key={builder.id}
+                    type="button"
+                    onClick={() => handleBuilderSelect(builder)}
+                    className="w-full p-3 text-left hover:bg-opacity-50 transition-colors flex items-center justify-between"
+                    style={{ 
+                      background: builder.id === formData.builder_id ? 'var(--bg-hover)' : undefined 
+                    }}
+                  >
+                    <div>
+                      <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                        {builder.company_name}
+                      </div>
+                      {builder.borrower_name && (
+                        <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                          {builder.borrower_name}
+                        </div>
+                      )}
+                    </div>
+                    {builder.id === formData.builder_id && (
+                      <svg className="w-4 h-4" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+
+            {/* Clear selection option */}
+            {formData.builder_id && (
+              <div className="border-t p-2" style={{ borderColor: 'var(--border)' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleInputChange('builder_id', '')
+                    setBuilderSearchOpen(false)
+                  }}
+                  className="w-full text-sm p-2 rounded transition-colors"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  Clear selection
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     )
   }
@@ -414,7 +583,7 @@ export function OriginationTab({
           {renderField('Loan Name', 'name', 'text', 'Enter loan name')}
           {renderField('Subdivision', 'subdivision_name', 'text', 'e.g., Discovery West')}
           {renderField('Lot Number', 'lot_number', 'text', 'e.g., 244')}
-          {renderField('Builder', 'builder_name', 'text', 'Builder name')}
+          {renderBuilderField()}
           {renderField('Borrower', 'borrower_name', 'text', 'Borrower name')}
           {renderField('Address', 'address', 'text', 'Property address')}
           {renderField('Loan Amount', 'loan_amount', 'currency', '0')}

@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { useRouter } from 'next/navigation'
 import type { LifecycleStage } from '@/types/database'
 
 type ProjectTileProps = {
@@ -8,6 +9,7 @@ type ProjectTileProps = {
   projectCode: string
   address: string | null
   builderName: string | null
+  builderId?: string | null
   subdivisionName: string | null
   totalBudget: number
   totalSpent: number
@@ -16,6 +18,7 @@ type ProjectTileProps = {
   appraisedValue?: number | null
   payoffAmount?: number | null
   onClick: () => void
+  hideBuilderLink?: boolean
 }
 
 export function ProjectTile({
@@ -23,6 +26,7 @@ export function ProjectTile({
   projectCode,
   address,
   builderName,
+  builderId,
   subdivisionName,
   totalBudget,
   totalSpent,
@@ -31,7 +35,16 @@ export function ProjectTile({
   appraisedValue,
   payoffAmount,
   onClick,
+  hideBuilderLink = false,
 }: ProjectTileProps) {
+  const router = useRouter()
+
+  const handleBuilderClick = (e: React.MouseEvent) => {
+    if (builderId && !hideBuilderLink) {
+      e.stopPropagation()
+      router.push(`/builders/${builderId}`)
+    }
+  }
   const percentSpent = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0
   const ltvRatio = appraisedValue && loanAmount 
     ? (loanAmount / appraisedValue) * 100 
@@ -100,7 +113,17 @@ export function ProjectTile({
           </h3>
           {builderName && (
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              {builderName}
+              {builderId && !hideBuilderLink ? (
+                <button
+                  onClick={handleBuilderClick}
+                  className="hover:underline transition-colors"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  {builderName}
+                </button>
+              ) : (
+                builderName
+              )}
             </p>
           )}
         </div>

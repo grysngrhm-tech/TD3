@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { LoanPageTabs } from '@/app/components/projects/LoanPageTabs'
-import type { Project, Budget, DrawRequest, LifecycleStage } from '@/types/database'
+import type { Project, Budget, DrawRequest, LifecycleStage, Builder } from '@/types/database'
 
 type ProjectWithLifecycle = Project & {
   lifecycle_stage: LifecycleStage
@@ -16,6 +16,7 @@ export default function ProjectDetailPage() {
   const projectId = params.id as string
 
   const [project, setProject] = useState<ProjectWithLifecycle | null>(null)
+  const [builder, setBuilder] = useState<Builder | null>(null)
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [draws, setDraws] = useState<DrawRequest[]>([])
   const [loading, setLoading] = useState(true)
@@ -41,6 +42,19 @@ export default function ProjectDetailPage() {
         lifecycle_stage: (projectData.lifecycle_stage || 'active') as LifecycleStage,
       }
       setProject(projectWithLifecycle)
+
+      // Fetch builder if project has builder_id
+      if (projectData.builder_id) {
+        const { data: builderData } = await supabase
+          .from('builders')
+          .select('*')
+          .eq('id', projectData.builder_id)
+          .single()
+
+        setBuilder(builderData || null)
+      } else {
+        setBuilder(null)
+      }
 
       // Fetch budgets
       const { data: budgetsData } = await supabase
@@ -171,9 +185,22 @@ export default function ProjectDetailPage() {
                   {getStageLabel(project.lifecycle_stage)}
                 </span>
               </div>
-              {project.address && (
-                <p style={{ color: 'var(--text-muted)' }}>{project.address}</p>
-              )}
+              {/* Builder link and address */}
+              <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                {builder && (
+                  <>
+                    <button
+                      onClick={() => router.push(`/builders/${builder.id}`)}
+                      className="hover:underline transition-colors"
+                      style={{ color: 'var(--accent)' }}
+                    >
+                      {builder.company_name}
+                    </button>
+                    {project.address && <span>·</span>}
+                  </>
+                )}
+                {project.address && <span>{project.address}</span>}
+              </div>
             </div>
 
             {/* Quick stats */}
@@ -206,6 +233,7 @@ export default function ProjectDetailPage() {
           project={project}
           budgets={budgets}
           draws={draws}
+          builder={builder}
           onDataRefresh={() => {
             setTimeout(() => loadProject(), 2000)
           }}

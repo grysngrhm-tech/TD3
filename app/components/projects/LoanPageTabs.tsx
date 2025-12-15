@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import * as Tabs from '@radix-ui/react-tabs'
-import type { Project, Budget, DrawRequest, LifecycleStage } from '@/types/database'
+import type { Project, Budget, DrawRequest, LifecycleStage, Builder } from '@/types/database'
 import { OriginationTab } from './OriginationTab'
 import { LoanStatusTab } from './LoanStatusTab'
 import { PerformanceTab } from './PerformanceTab'
@@ -24,10 +24,11 @@ type LoanPageTabsProps = {
   project: Project & { lifecycle_stage: LifecycleStage }
   budgets: Budget[]
   draws: DrawRequest[]
+  builder?: Builder | null
   onDataRefresh?: () => void
 }
 
-export function LoanPageTabs({ project, budgets, draws, onDataRefresh }: LoanPageTabsProps) {
+export function LoanPageTabs({ project, budgets, draws, builder, onDataRefresh }: LoanPageTabsProps) {
   const lifecycleStage = project.lifecycle_stage
 
   // Get available tabs for current lifecycle stage
@@ -106,6 +107,7 @@ export function LoanPageTabs({ project, budgets, draws, onDataRefresh }: LoanPag
         <OriginationTab 
           project={project} 
           budgets={budgets}
+          builder={builder}
           onBudgetImported={onDataRefresh}
         />
       </Tabs.Content>
