@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { BuilderInfoCard } from '@/app/components/builders/BuilderInfoCard'
 import { BuilderLoanGrid } from '@/app/components/builders/BuilderLoanGrid'
-import type { Builder, Budget, LifecycleStage } from '@/types/database'
+import { calculateLoanIncome, calculateIRR } from '@/lib/calculations'
+import type { Builder, LifecycleStage, DrawRequest } from '@/types/database'
 
 type ProjectWithBudget = {
   id: string
@@ -22,6 +23,8 @@ type ProjectWithBudget = {
   lifecycle_stage: LifecycleStage
   appraised_value: number | null
   payoff_amount: number | null
+  totalIncome?: number
+  irr?: number | null
 }
 
 export default function BuilderDetailPage() {
@@ -61,9 +64,10 @@ export default function BuilderDetailPage() {
         return
       }
 
-      // Get budget totals for each project
+      // Get budget totals and draw data for each project
       const projectsWithBudgets = await Promise.all(
         projectsData.map(async (project) => {
+          // Get budgets
           const { data: budgets } = await supabase
             .from('budgets')
             .select('original_amount, current_amount, spent_amount')
@@ -71,6 +75,25 @@ export default function BuilderDetailPage() {
 
           const totalBudget = budgets?.reduce((sum, b) => sum + (b.current_amount || 0), 0) || 0
           const totalSpent = budgets?.reduce((sum, b) => sum + (b.spent_amount || 0), 0) || 0
+
+          // Get draws for historic projects (for income/IRR calculation)
+          let totalIncome = 0
+          let irr: number | null = null
+
+          if (project.lifecycle_stage === 'historic') {
+            const { data: drawsData } = await supabase
+              .from('draw_requests')
+              .select('*')
+              .eq('project_id', project.id)
+              .order('request_date', { ascending: true })
+
+            const draws = drawsData || []
+
+            // Calculate income and IRR
+            const incomeResult = calculateLoanIncome(project, draws)
+            totalIncome = incomeResult.total
+            irr = calculateIRR(draws, project.payoff_amount, project.payoff_date)
+          }
 
           return {
             id: project.id,
@@ -87,6 +110,8 @@ export default function BuilderDetailPage() {
             lifecycle_stage: (project.lifecycle_stage || 'active') as LifecycleStage,
             total_budget: totalBudget,
             total_spent: totalSpent,
+            totalIncome,
+            irr,
           }
         })
       )
@@ -170,25 +195,17 @@ export default function BuilderDetailPage() {
             Back to Dashboard
           </button>
 
-          {/* Builder title and contact */}
+          {/* Builder title */}
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+              <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
                 {builder.company_name}
               </h1>
-              <div className="flex items-center gap-3 text-sm" style={{ color: 'var(--text-muted)' }}>
-                {builder.email && (
-                  <a
-                    href={`mailto:${builder.email}`}
-                    className="hover:underline"
-                    style={{ color: 'var(--accent)' }}
-                  >
-                    {builder.email}
-                  </a>
-                )}
-                {builder.email && builder.phone && <span>·</span>}
-                {builder.phone && <span>{builder.phone}</span>}
-              </div>
+              {builder.borrower_name && (
+                <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                  {builder.borrower_name}
+                </p>
+              )}
             </div>
 
             {/* Quick stats */}

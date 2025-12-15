@@ -17,6 +17,8 @@ type ProjectTileProps = {
   lifecycleStage: LifecycleStage
   appraisedValue?: number | null
   payoffAmount?: number | null
+  totalIncome?: number | null
+  irr?: number | null
   onClick: () => void
   hideBuilderLink?: boolean
 }
@@ -34,6 +36,8 @@ export function ProjectTile({
   lifecycleStage,
   appraisedValue,
   payoffAmount,
+  totalIncome,
+  irr,
   onClick,
   hideBuilderLink = false,
 }: ProjectTileProps) {
@@ -240,26 +244,45 @@ export function ProjectTile({
 
       {lifecycleStage === 'historic' && (
         <div className="space-y-3">
-          {/* Payoff or Total Funded */}
+          {/* Total Income */}
           <div className="flex justify-between items-baseline">
             <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              {payoffAmount ? 'Payoff' : 'Total Funded'}
+              Total Income
             </span>
             <span 
               className="font-semibold text-lg"
-              style={{ color: payoffAmount ? 'var(--success)' : 'var(--text-primary)' }}
+              style={{ color: 'var(--success)' }}
             >
-              {formatCurrency(payoffAmount || totalSpent)}
+              {formatCurrency(totalIncome)}
+            </span>
+          </div>
+
+          {/* IRR */}
+          <div className="flex justify-between items-baseline">
+            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              IRR
+            </span>
+            <span 
+              className="font-semibold text-lg"
+              style={{ 
+                color: irr !== null && irr !== undefined
+                  ? irr >= 0.15 ? 'var(--success)' 
+                    : irr >= 0.10 ? 'var(--warning)' 
+                    : 'var(--error)'
+                  : 'var(--text-muted)'
+              }}
+            >
+              {irr !== null && irr !== undefined ? `${(irr * 100).toFixed(1)}%` : '—'}
             </span>
           </div>
 
           {/* Completed indicator */}
-          <div className="flex items-center justify-center py-2 rounded-md" style={{ background: 'var(--bg-hover)' }}>
-            <svg className="w-4 h-4 mr-2" style={{ color: 'var(--success)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="flex items-center justify-center py-1.5 rounded-md" style={{ background: 'var(--bg-hover)' }}>
+            <svg className="w-3.5 h-3.5 mr-1.5" style={{ color: 'var(--success)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-              Loan Complete
+            <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+              Complete
             </span>
           </div>
         </div>
