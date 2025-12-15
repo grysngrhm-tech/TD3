@@ -433,6 +433,30 @@ export type Database = {
         }
         Relationships: []
       }
+      lenders: {
+        Row: {
+          id: string
+          name: string
+          code: string
+          is_active: boolean
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          code: string
+          is_active?: boolean
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          code?: string
+          is_active?: boolean
+          created_at?: string | null
+        }
+        Relationships: []
+      }
       nahb_categories: {
         Row: {
           id: string
@@ -500,6 +524,7 @@ export type Database = {
           created_at: string | null
           id: string
           interest_rate_annual: number | null
+          lender_id: string | null
           lifecycle_stage: string | null
           loan_amount: number | null
           loan_start_date: string | null
@@ -528,6 +553,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           interest_rate_annual?: number | null
+          lender_id?: string | null
           lifecycle_stage?: string | null
           loan_amount?: number | null
           loan_start_date?: string | null
@@ -556,6 +582,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           interest_rate_annual?: number | null
+          lender_id?: string | null
           lifecycle_stage?: string | null
           loan_amount?: number | null
           loan_start_date?: string | null
@@ -582,6 +609,12 @@ export type Database = {
             columns: ["builder_id"]
             referencedRelation: "builders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_lender_id_fkey"
+            columns: ["lender_id"]
+            referencedRelation: "lenders"
+            referencedColumns: ["id"]
           }
         ]
       }
@@ -606,6 +639,7 @@ export type Document = Database["public"]["Tables"]["documents"]["Row"]
 export type Approval = Database["public"]["Tables"]["approvals"]["Row"]
 export type AuditEvent = Database["public"]["Tables"]["audit_events"]["Row"]
 export type Builder = Database["public"]["Tables"]["builders"]["Row"]
+export type Lender = Database["public"]["Tables"]["lenders"]["Row"]
 
 export type ProjectInsert = Database["public"]["Tables"]["projects"]["Insert"]
 export type BudgetInsert = Database["public"]["Tables"]["budgets"]["Insert"]
@@ -683,6 +717,7 @@ export type ProjectWithBudget = Project & {
   total_budget: number
   total_spent: number
   builder?: Builder | null
+  lender?: Lender | null
 }
 
 // Document Types for origination

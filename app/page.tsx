@@ -6,10 +6,12 @@ import { supabase } from '@/lib/supabase'
 import { FilterSidebar } from '@/app/components/ui/FilterSidebar'
 import { ProjectTile } from '@/app/components/ui/ProjectTile'
 import { StageSelector } from '@/app/components/ui/StageSelector'
+import { StageStatsBar } from '@/app/components/ui/StageStatsBar'
 import { ImportPreview } from '@/app/components/import/ImportPreview'
 import { toast } from '@/app/components/ui/Toast'
 import { useFilters } from '@/app/hooks/useFilters'
-import type { LifecycleStage, Builder } from '@/types/database'
+import { calculateLoanIncome, calculateIRR } from '@/lib/calculations'
+import type { LifecycleStage, Builder, Lender, DrawRequest } from '@/types/database'
 
 type ProjectWithBudget = {
   id: string
@@ -20,6 +22,7 @@ type ProjectWithBudget = {
   status: string
   lifecycle_stage: LifecycleStage
   builder_id: string | null
+  lender_id: string | null
   subdivision_name: string | null
   subdivision_abbrev: string | null
   lot_number: string | null
@@ -28,17 +31,27 @@ type ProjectWithBudget = {
   appraised_value: number | null
   sales_price: number | null
   square_footage: number | null
+  origination_fee_pct: number | null
+  interest_rate_annual: number | null
+  loan_start_date: string | null
+  payoff_date: string | null
+  payoff_amount: number | null
   builder?: Builder | null
+  lender?: Lender | null
+  draws?: DrawRequest[]
+  totalIncome?: number
+  irr?: number | null
 }
 
 export default function Dashboard() {
   const router = useRouter()
   const [projects, setProjects] = useState<ProjectWithBudget[]>([])
   const [builders, setBuilders] = useState<Builder[]>([])
+  const [lenders, setLenders] = useState<Lender[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedStage, setSelectedStage] = useState<LifecycleStage>('active')
   const [importModal, setImportModal] = useState<'budget' | 'draw' | null>(null)
-  const { filters, toggleFilter, clearAll } = useFilters()
+  const { filters, toggleFilter, clearAll, clearSection } = useFilters()
 
   useEffect(() => {
     loadData()
@@ -53,11 +66,19 @@ export default function Dashboard() {
         .order('company_name', { ascending: true })
 
       setBuilders(buildersData || [])
-
-      // Create a map for quick builder lookup
       const builderMap = new Map(buildersData?.map(b => [b.id, b]) || [])
 
-      // Get projects with budget totals
+      // Fetch lenders
+      const { data: lendersData } = await supabase
+        .from('lenders')
+        .select('*')
+        .eq('is_active', true)
+        .order('name', { ascending: true })
+
+      setLenders(lendersData || [])
+      const lenderMap = new Map(lendersData?.map(l => [l.id, l]) || [])
+
+      // Get projects
       const { data: projectsData } = await supabase
         .from('projects')
         .select('*')
@@ -68,9 +89,10 @@ export default function Dashboard() {
         return
       }
 
-      // Get budget totals for each project
+      // Get budget totals and draw requests for each project
       const projectsWithBudgets = await Promise.all(
         projectsData.map(async (project) => {
+          // Get budgets
           const { data: budgets } = await supabase
             .from('budgets')
             .select('original_amount, current_amount, spent_amount')
@@ -79,12 +101,36 @@ export default function Dashboard() {
           const totalBudget = budgets?.reduce((sum, b) => sum + (b.current_amount || 0), 0) || 0
           const totalSpent = budgets?.reduce((sum, b) => sum + (b.spent_amount || 0), 0) || 0
 
+          // Get draws for historic projects (for income/IRR calculation)
+          let draws: DrawRequest[] = []
+          let totalIncome = 0
+          let irr: number | null = null
+
+          if (project.lifecycle_stage === 'historic') {
+            const { data: drawsData } = await supabase
+              .from('draw_requests')
+              .select('*')
+              .eq('project_id', project.id)
+              .order('request_date', { ascending: true })
+
+            draws = drawsData || []
+
+            // Calculate income and IRR
+            const incomeResult = calculateLoanIncome(project, draws)
+            totalIncome = incomeResult.total
+            irr = calculateIRR(draws, project.payoff_amount, project.payoff_date)
+          }
+
           return {
             ...project,
             lifecycle_stage: (project.lifecycle_stage || 'active') as LifecycleStage,
             total_budget: totalBudget,
             total_spent: totalSpent,
             builder: project.builder_id ? builderMap.get(project.builder_id) || null : null,
+            lender: project.lender_id ? lenderMap.get(project.lender_id) || null : null,
+            draws,
+            totalIncome,
+            irr,
           }
         })
       )
@@ -118,6 +164,7 @@ export default function Dashboard() {
   const filterSections = useMemo(() => {
     const builderCounts = new Map<string, { name: string; count: number }>()
     const subdivisions = new Map<string, number>()
+    const lenderCounts = new Map<string, { name: string; count: number }>()
 
     projectsInStage.forEach(p => {
       if (p.builder_id && p.builder) {
@@ -131,36 +178,39 @@ export default function Dashboard() {
       if (p.subdivision_name) {
         subdivisions.set(p.subdivision_name, (subdivisions.get(p.subdivision_name) || 0) + 1)
       }
+      if (p.lender_id && p.lender) {
+        const existing = lenderCounts.get(p.lender_id)
+        if (existing) {
+          existing.count++
+        } else {
+          lenderCounts.set(p.lender_id, { name: p.lender.name, count: 1 })
+        }
+      }
     })
 
-    return [
-      {
-        id: 'builder',
-        title: 'Builder',
-        type: 'multi' as const,
-        options: Array.from(builderCounts.entries()).map(([id, { name, count }]) => ({
-          id,
-          label: name,
-          count,
-        })),
-      },
-      {
-        id: 'subdivision',
-        title: 'Subdivision',
-        type: 'multi' as const,
-        options: Array.from(subdivisions.entries()).map(([name, count]) => ({
-          id: name,
-          label: name,
-          count,
-        })),
-      },
-    ]
+    return {
+      builder: Array.from(builderCounts.entries()).map(([id, { name, count }]) => ({
+        id,
+        label: name,
+        count,
+      })),
+      subdivision: Array.from(subdivisions.entries()).map(([name, count]) => ({
+        id: name,
+        label: name,
+        count,
+      })),
+      lender: Array.from(lenderCounts.entries()).map(([id, { name, count }]) => ({
+        id,
+        label: name,
+        count,
+      })),
+    }
   }, [projectsInStage])
 
   // Apply additional filters
   const filteredProjects = useMemo(() => {
     return projectsInStage.filter(project => {
-      // Builder filter (now using builder_id)
+      // Builder filter
       if (filters.builder?.length > 0) {
         if (!project.builder_id || !filters.builder.includes(project.builder_id)) {
           return false
@@ -169,6 +219,12 @@ export default function Dashboard() {
       // Subdivision filter
       if (filters.subdivision?.length > 0) {
         if (!project.subdivision_name || !filters.subdivision.includes(project.subdivision_name)) {
+          return false
+        }
+      }
+      // Lender filter
+      if (filters.lender?.length > 0) {
+        if (!project.lender_id || !filters.lender.includes(project.lender_id)) {
           return false
         }
       }
@@ -184,29 +240,18 @@ export default function Dashboard() {
     return null
   }, [filters.builder, builders])
 
-  // Calculate totals for current view
-  const totals = useMemo(() => {
-    return filteredProjects.reduce(
-      (acc, p) => ({
-        budget: acc.budget + p.total_budget,
-        spent: acc.spent + p.total_spent,
-        count: acc.count + 1,
-      }),
-      { budget: 0, spent: 0, count: 0 }
-    )
+  // Prepare stats data for StageStatsBar
+  const statsData = useMemo(() => {
+    return filteredProjects.map(p => ({
+      id: p.id,
+      loan_amount: p.loan_amount,
+      appraised_value: p.appraised_value,
+      total_budget: p.total_budget,
+      total_spent: p.total_spent,
+      totalIncome: p.totalIncome,
+      irr: p.irr,
+    }))
   }, [filteredProjects])
-
-  const formatCurrency = (amount: number) => {
-    if (amount >= 1000000) {
-      return `$${(amount / 1000000).toFixed(2)}M`
-    }
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
 
   const handleImportSuccess = () => {
     toast({
@@ -219,13 +264,6 @@ export default function Dashboard() {
 
   const handleProjectClick = (projectId: string) => {
     router.push(`/projects/${projectId}`)
-  }
-
-  // Stage-specific labels
-  const stageLabels = {
-    pending: { title: 'Loans in Origination', stat: 'Pipeline Value' },
-    active: { title: 'Active Loans', stat: 'Total Drawn' },
-    historic: { title: 'Historical Loans', stat: 'Total Funded' },
   }
 
   if (loading) {
@@ -244,6 +282,7 @@ export default function Dashboard() {
         selectedFilters={filters}
         onFilterChange={toggleFilter}
         onClearAll={clearAll}
+        onClearSection={clearSection}
       />
 
       {/* Main Content */}
@@ -285,46 +324,13 @@ export default function Dashboard() {
           )}
 
           {/* Stats Bar */}
-          <div className="flex items-center gap-6 mb-6 pb-6 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div>
-              <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                {selectedStage === 'pending' ? 'In Pipeline' : selectedStage === 'active' ? 'Active Loans' : 'Completed'}
-              </div>
-              <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{totals.count}</div>
-            </div>
-            <div className="w-px h-10" style={{ background: 'var(--border)' }} />
-            <div>
-              <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Total Budget</div>
-              <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(totals.budget)}</div>
-            </div>
-            <div className="w-px h-10" style={{ background: 'var(--border)' }} />
-            <div>
-              <div className="text-sm" style={{ color: 'var(--text-muted)' }}>{stageLabels[selectedStage].stat}</div>
-              <div className="text-2xl font-bold" style={{ color: 'var(--accent)' }}>{formatCurrency(totals.spent)}</div>
-            </div>
-            <div className="flex-1" />
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => router.push('/projects/new')}
-                className="btn-secondary flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                New Loan
-              </button>
-              {selectedStage === 'active' && (
-                <button 
-                  onClick={() => setImportModal('draw')}
-                  className="btn-primary flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Upload Draw
-                </button>
-              )}
-            </div>
+          <div className="mb-6">
+            <StageStatsBar
+              stage={selectedStage}
+              projects={statsData}
+              onNewLoan={() => router.push('/projects/new')}
+              onUploadDraw={selectedStage === 'active' ? () => setImportModal('draw') : undefined}
+            />
           </div>
 
           {/* Project Grid */}
@@ -372,6 +378,9 @@ export default function Dashboard() {
                   loanAmount={project.loan_amount}
                   lifecycleStage={project.lifecycle_stage}
                   appraisedValue={project.appraised_value}
+                  payoffAmount={project.payoff_amount}
+                  totalIncome={project.totalIncome}
+                  irr={project.irr}
                   onClick={() => handleProjectClick(project.id)}
                 />
               ))}

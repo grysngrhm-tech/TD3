@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ProjectTile } from '@/app/components/ui/ProjectTile'
 import { StageSelector } from '@/app/components/ui/StageSelector'
+import { StageStatsBar } from '@/app/components/ui/StageStatsBar'
 import type { LifecycleStage, Builder } from '@/types/database'
 
 type ProjectWithBudget = {
@@ -21,6 +22,8 @@ type ProjectWithBudget = {
   lifecycle_stage: LifecycleStage
   appraised_value?: number | null
   payoff_amount?: number | null
+  totalIncome?: number
+  irr?: number | null
   builder?: Builder | null
 }
 
@@ -50,39 +53,21 @@ export function BuilderLoanGrid({ projects, builder }: BuilderLoanGridProps) {
     return projects.filter(p => p.lifecycle_stage === selectedStage)
   }, [projects, selectedStage])
 
-  // Calculate totals for current view
-  const totals = useMemo(() => {
-    return filteredProjects.reduce(
-      (acc, p) => ({
-        budget: acc.budget + p.total_budget,
-        spent: acc.spent + p.total_spent,
-        count: acc.count + 1,
-      }),
-      { budget: 0, spent: 0, count: 0 }
-    )
+  // Prepare stats data for StageStatsBar
+  const statsData = useMemo(() => {
+    return filteredProjects.map(p => ({
+      id: p.id,
+      loan_amount: p.loan_amount || null,
+      appraised_value: p.appraised_value || null,
+      total_budget: p.total_budget,
+      total_spent: p.total_spent,
+      totalIncome: p.totalIncome,
+      irr: p.irr,
+    }))
   }, [filteredProjects])
-
-  const formatCurrency = (amount: number) => {
-    if (amount >= 1000000) {
-      return `$${(amount / 1000000).toFixed(2)}M`
-    }
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
 
   const handleProjectClick = (projectId: string) => {
     router.push(`/projects/${projectId}`)
-  }
-
-  // Stage-specific labels
-  const stageLabels = {
-    pending: { title: 'In Origination', stat: 'Pipeline Value' },
-    active: { title: 'Active Loans', stat: 'Total Drawn' },
-    historic: { title: 'Completed Loans', stat: 'Total Funded' },
   }
 
   const totalProjects = stageCounts.pending + stageCounts.active + stageCounts.historic
@@ -110,35 +95,10 @@ export function BuilderLoanGrid({ projects, builder }: BuilderLoanGridProps) {
 
       {/* Stats Bar */}
       {filteredProjects.length > 0 && (
-        <div 
-          className="flex items-center gap-6 p-4 rounded-ios-sm"
-          style={{ background: 'var(--bg-card)' }}
-        >
-          <div>
-            <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              {stageLabels[selectedStage].title}
-            </div>
-            <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              {totals.count}
-            </div>
-          </div>
-          <div className="w-px h-10" style={{ background: 'var(--border)' }} />
-          <div>
-            <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Total Budget</div>
-            <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              {formatCurrency(totals.budget)}
-            </div>
-          </div>
-          <div className="w-px h-10" style={{ background: 'var(--border)' }} />
-          <div>
-            <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              {stageLabels[selectedStage].stat}
-            </div>
-            <div className="text-xl font-bold" style={{ color: 'var(--accent)' }}>
-              {formatCurrency(totals.spent)}
-            </div>
-          </div>
-        </div>
+        <StageStatsBar
+          stage={selectedStage}
+          projects={statsData}
+        />
       )}
 
       {/* Project Grid */}
@@ -194,6 +154,8 @@ export function BuilderLoanGrid({ projects, builder }: BuilderLoanGridProps) {
               lifecycleStage={project.lifecycle_stage}
               appraisedValue={project.appraised_value}
               payoffAmount={project.payoff_amount}
+              totalIncome={project.totalIncome}
+              irr={project.irr}
               onClick={() => handleProjectClick(project.id)}
               hideBuilderLink // Don't show builder link since we're already on builder page
             />
