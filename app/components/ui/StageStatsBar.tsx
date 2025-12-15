@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import type { LifecycleStage } from '@/types/database'
 
@@ -17,11 +18,10 @@ type ProjectStats = {
 type StageStatsBarProps = {
   stage: LifecycleStage
   projects: ProjectStats[]
-  onNewLoan?: () => void
-  onUploadDraw?: () => void
 }
 
-export function StageStatsBar({ stage, projects, onNewLoan, onUploadDraw }: StageStatsBarProps) {
+export function StageStatsBar({ stage, projects }: StageStatsBarProps) {
+  const router = useRouter()
   const [hoveredSegment, setHoveredSegment] = useState<string | null>(null)
 
   const stats = useMemo(() => {
@@ -264,26 +264,25 @@ export function StageStatsBar({ stage, projects, onNewLoan, onUploadDraw }: Stag
       {/* Visual Element */}
       {renderVisualElement()}
       
-      {/* Actions */}
+      {/* Dashboard Button */}
       <div className="flex-1" />
-      <div className="flex items-center gap-2">
-        {onNewLoan && (
-          <button onClick={onNewLoan} className="btn-secondary flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            New Loan
-          </button>
-        )}
-        {stage === 'active' && onUploadDraw && (
-          <button onClick={onUploadDraw} className="btn-primary flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Upload Draw
-          </button>
-        )}
-      </div>
+      <button 
+        onClick={() => router.push('/staging')}
+        className="flex items-center gap-3 px-6 py-3 rounded-ios font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
+        style={{ 
+          background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%)',
+          color: 'white',
+          boxShadow: '0 4px 14px rgba(var(--accent-rgb), 0.25)'
+        }}
+      >
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+        </svg>
+        Dashboard
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
     </div>
   )
 }
