@@ -31,13 +31,13 @@ export function StageStatsBar({ stage, projects, onNewLoan, onUploadDraw }: Stag
     const totalLoanAmount = projects.reduce((sum, p) => sum + (p.loan_amount || 0), 0)
     const totalIncome = projects.reduce((sum, p) => sum + (p.totalIncome || 0), 0)
     
-    // LTV distribution for pending
+    // LTV distribution for pending (≤65% green, 66-74% yellow, ≥75% red)
     let ltvLow = 0, ltvMid = 0, ltvHigh = 0
     projects.forEach(p => {
       if (p.loan_amount && p.appraised_value && p.appraised_value > 0) {
         const ltv = (p.loan_amount / p.appraised_value) * 100
-        if (ltv <= 70) ltvLow++
-        else if (ltv <= 80) ltvMid++
+        if (ltv <= 65) ltvLow++
+        else if (ltv <= 74) ltvMid++
         else ltvHigh++
       }
     })
@@ -113,7 +113,7 @@ export function StageStatsBar({ stage, projects, onNewLoan, onUploadDraw }: Stag
                 {hoveredSegment === 'low' && (
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs rounded whitespace-nowrap z-10"
                        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
-                    ≤70% LTV: {stats.ltvLow} loans
+                    ≤65% LTV: {stats.ltvLow} loans
                   </div>
                 )}
               </motion.div>
@@ -131,7 +131,7 @@ export function StageStatsBar({ stage, projects, onNewLoan, onUploadDraw }: Stag
                 {hoveredSegment === 'mid' && (
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs rounded whitespace-nowrap z-10"
                        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
-                    70-80% LTV: {stats.ltvMid} loans
+                    66-74% LTV: {stats.ltvMid} loans
                   </div>
                 )}
               </motion.div>
@@ -149,7 +149,7 @@ export function StageStatsBar({ stage, projects, onNewLoan, onUploadDraw }: Stag
                 {hoveredSegment === 'high' && (
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs rounded whitespace-nowrap z-10"
                        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
-                    &gt;80% LTV: {stats.ltvHigh} loans
+                    ≥75% LTV: {stats.ltvHigh} loans
                   </div>
                 )}
               </motion.div>

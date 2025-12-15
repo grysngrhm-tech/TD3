@@ -174,13 +174,13 @@ export function calculateLTV(loanAmount: number | null, appraisedValue: number |
 }
 
 /**
- * Get LTV color based on value
+ * Get LTV color based on value (≤65% green, 66-74% yellow, ≥75% red)
  */
 export function getLTVColor(ltv: number | null): string {
   if (ltv === null) return 'var(--text-muted)'
-  if (ltv <= 70) return 'var(--success)' // ≤70% = green
-  if (ltv <= 80) return 'var(--warning)' // 70-80% = yellow
-  return 'var(--error)' // >80% = red
+  if (ltv <= 65) return 'var(--success)' // ≤65% = green
+  if (ltv <= 74) return 'var(--warning)' // 66-74% = yellow
+  return 'var(--error)' // ≥75% = red
 }
 
 /**

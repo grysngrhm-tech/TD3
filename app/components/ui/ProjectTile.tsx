@@ -93,9 +93,10 @@ export function ProjectTile({
     }
   }
 
+  // LTV color coding: ≤65% green, 66-74% yellow, ≥75% red
   const getLtvColor = (ltv: number) => {
-    if (ltv <= 70) return 'var(--success)'
-    if (ltv <= 80) return 'var(--warning)'
+    if (ltv <= 65) return 'var(--success)'
+    if (ltv <= 74) return 'var(--warning)'
     return 'var(--error)'
   }
 
