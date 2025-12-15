@@ -418,7 +418,18 @@ export default function DrawDetailPage() {
         throw new Error(`Webhook returned ${response.status}`)
       }
       
-      const result = await response.json()
+      // Handle empty responses gracefully
+      const text = await response.text()
+      if (!text) {
+        throw new Error('Workflow returned empty response - check n8n logs')
+      }
+      
+      let result
+      try {
+        result = JSON.parse(text)
+      } catch {
+        throw new Error('Invalid JSON response from workflow')
+      }
       
       if (result.success) {
         // Reload to show updated data
