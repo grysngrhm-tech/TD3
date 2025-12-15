@@ -589,6 +589,8 @@ export type Database = {
           lender_id: string | null
           lifecycle_stage: string | null
           loan_amount: number | null
+          loan_docs_recorded: boolean | null
+          loan_docs_recorded_at: string | null
           loan_start_date: string | null
           loan_term_months: number | null
           lot_number: string | null
@@ -596,6 +598,8 @@ export type Database = {
           name: string
           origination_fee_pct: number | null
           payoff_amount: number | null
+          payoff_approved: boolean | null
+          payoff_approved_at: string | null
           payoff_date: string | null
           project_code: string | null
           rejection_reason: string | null
@@ -618,6 +622,8 @@ export type Database = {
           lender_id?: string | null
           lifecycle_stage?: string | null
           loan_amount?: number | null
+          loan_docs_recorded?: boolean | null
+          loan_docs_recorded_at?: string | null
           loan_start_date?: string | null
           loan_term_months?: number | null
           lot_number?: string | null
@@ -625,6 +631,8 @@ export type Database = {
           name: string
           origination_fee_pct?: number | null
           payoff_amount?: number | null
+          payoff_approved?: boolean | null
+          payoff_approved_at?: string | null
           payoff_date?: string | null
           project_code?: string | null
           rejection_reason?: string | null
@@ -647,6 +655,8 @@ export type Database = {
           lender_id?: string | null
           lifecycle_stage?: string | null
           loan_amount?: number | null
+          loan_docs_recorded?: boolean | null
+          loan_docs_recorded_at?: string | null
           loan_start_date?: string | null
           loan_term_months?: number | null
           lot_number?: string | null
@@ -654,6 +664,8 @@ export type Database = {
           name?: string
           origination_fee_pct?: number | null
           payoff_amount?: number | null
+          payoff_approved?: boolean | null
+          payoff_approved_at?: string | null
           payoff_date?: string | null
           project_code?: string | null
           rejection_reason?: string | null

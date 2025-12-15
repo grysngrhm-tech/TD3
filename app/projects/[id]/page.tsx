@@ -235,6 +235,9 @@ export default function ProjectDetailPage() {
           draws={draws}
           builder={builder}
           onDataRefresh={() => {
+            // Immediate refresh for direct updates (like lifecycle changes)
+            loadProject()
+            // Delayed refresh for any background processing (N8N workflows)
             setTimeout(() => loadProject(), 2000)
           }}
         />
