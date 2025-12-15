@@ -405,14 +405,36 @@ export function SpreadsheetViewer({
                 Reset
               </button>
             )}
-            {/* Keyboard shortcut hint */}
-            <span 
-              className="text-[10px] opacity-60"
-              style={{ color: 'var(--text-muted)' }}
-              title="↑↓ adjust start, Shift+↑↓ adjust end, R to reset"
-            >
-              ⌨
-            </span>
+            {/* Keyboard shortcut hint - ? icon with tooltip */}
+            <div className="relative group">
+              <button
+                type="button"
+                className="w-4 h-4 rounded-full text-[10px] font-medium flex items-center justify-center"
+                style={{ 
+                  background: 'var(--bg-tertiary)', 
+                  color: 'var(--text-muted)',
+                  border: '1px solid var(--border)'
+                }}
+                title="Keyboard shortcuts"
+              >
+                ?
+              </button>
+              {/* Expandable tooltip on hover */}
+              <div 
+                className="absolute bottom-full right-0 mb-1 px-2 py-1.5 rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50"
+                style={{ 
+                  background: 'var(--bg-primary)', 
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                }}
+              >
+                <div className="font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Keyboard Shortcuts</div>
+                <div>↑↓ &nbsp;Adjust start row</div>
+                <div>⇧↑↓ Adjust end row</div>
+                <div>R &nbsp;&nbsp;&nbsp;Reset selection</div>
+              </div>
+            </div>
           </div>
         )}
       </div>

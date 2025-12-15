@@ -487,7 +487,14 @@ export function analyzeRows(
     }
   }
   
-  // Third pass: calculate scores and classify
+  // Third pass: calculate scores for each row (store raw scores, classify later)
+  const HEADER_THRESHOLD = 50
+  const TOTAL_THRESHOLD = 40
+  const CLOSING_THRESHOLD = 35
+  
+  // Score storage for single-best selection
+  const rowScores: { headerScore: number; totalScore: number; closingScore: number }[] = []
+  
   for (let i = 0; i < analyses.length; i++) {
     const a = analyses[i]
     const s = a.signals
@@ -496,6 +503,7 @@ export function analyzeRows(
     if (!s.hasCategory) {
       a.classification = 'empty'
       a.confidence = 100
+      rowScores.push({ headerScore: 0, totalScore: 0, closingScore: 0 })
       continue
     }
     
@@ -506,6 +514,8 @@ export function analyzeRows(
     if (!s.hasAmount && s.hasCategory) headerScore += 10
     if (s.followsGap && i < 5) headerScore += 15
     if (i < 3) headerScore += 25  // First 3 rows likely headers
+    // Apply penalty for rows deep in the file (unlikely to be headers)
+    if (i > 5) headerScore -= 40
     
     // Calculate total score
     let totalScore = 0
@@ -518,24 +528,78 @@ export function analyzeRows(
     let closingScore = s.closingKeywordScore // Use the weighted score directly
     if (s.isBold) closingScore += 10
     
-    // Classify based on scores
-    if (headerScore >= 50) {
-      a.classification = 'header'
-      a.confidence = Math.min(100, headerScore)
-    } else if (totalScore >= 45) {
-      a.classification = 'total'
-      a.confidence = Math.min(100, totalScore)
-    } else if (closingScore >= 35) {
-      a.classification = 'closing'
-      a.confidence = Math.min(100, closingScore)
-    } else if (s.hasCategory) {
-      a.classification = 'data'
-      // Confidence based on how clearly it's NOT a header/total
-      a.confidence = Math.max(50, 100 - headerScore - totalScore)
-    } else {
-      a.classification = 'unknown'
-      a.confidence = 30
+    rowScores.push({ headerScore, totalScore, closingScore })
+    
+    // Initially mark all non-empty rows as 'data' (will refine with single-best logic)
+    a.classification = 'data'
+    a.confidence = 50
+  }
+  
+  // SINGLE-BEST SELECTION: Find the ONE best header and ONE best total/closing
+  
+  // Find best header (highest score above threshold)
+  let bestHeaderIdx = -1
+  let bestHeaderScore = HEADER_THRESHOLD - 1  // Must exceed threshold
+  for (let i = 0; i < rowScores.length; i++) {
+    if (rowScores[i].headerScore > bestHeaderScore) {
+      bestHeaderScore = rowScores[i].headerScore
+      bestHeaderIdx = i
     }
+  }
+  
+  // Mark the single best header
+  if (bestHeaderIdx >= 0) {
+    analyses[bestHeaderIdx].classification = 'header'
+    analyses[bestHeaderIdx].confidence = Math.min(100, bestHeaderScore)
+  }
+  
+  // Find best total/closing AFTER the header (or from start if no header)
+  const searchStartIdx = bestHeaderIdx >= 0 ? bestHeaderIdx + 1 : 0
+  
+  let bestTotalIdx = -1
+  let bestTotalRanking = TOTAL_THRESHOLD - 1
+  let bestClosingIdx = -1
+  let bestClosingRanking = CLOSING_THRESHOLD - 1
+  
+  for (let i = searchStartIdx; i < rowScores.length; i++) {
+    const scores = rowScores[i]
+    
+    // Check total score (apply proximity penalty for ranking, not qualification)
+    if (scores.totalScore >= TOTAL_THRESHOLD) {
+      let ranking = scores.totalScore
+      // Proximity penalty: if too close to header, reduce ranking
+      if (bestHeaderIdx >= 0 && i - bestHeaderIdx < 5) {
+        ranking -= 25
+      }
+      if (ranking > bestTotalRanking) {
+        bestTotalRanking = ranking
+        bestTotalIdx = i
+      }
+    }
+    
+    // Check closing score (apply proximity penalty for ranking)
+    if (scores.closingScore >= CLOSING_THRESHOLD) {
+      let ranking = scores.closingScore
+      if (bestHeaderIdx >= 0 && i - bestHeaderIdx < 5) {
+        ranking -= 30
+      }
+      if (ranking > bestClosingRanking) {
+        bestClosingRanking = ranking
+        bestClosingIdx = i
+      }
+    }
+  }
+  
+  // Mark the single best total
+  if (bestTotalIdx >= 0) {
+    analyses[bestTotalIdx].classification = 'total'
+    analyses[bestTotalIdx].confidence = Math.min(100, rowScores[bestTotalIdx].totalScore)
+  }
+  
+  // Mark the single best closing
+  if (bestClosingIdx >= 0) {
+    analyses[bestClosingIdx].classification = 'closing'
+    analyses[bestClosingIdx].confidence = Math.min(100, rowScores[bestClosingIdx].closingScore)
   }
   
   return analyses
