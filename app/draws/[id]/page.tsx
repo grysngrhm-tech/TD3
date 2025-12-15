@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { validateDrawRequest } from '@/lib/validations'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { DrawRequestWithDetails, ValidationResult, Budget, Invoice, Builder, Project } from '@/types/database'
+import type { DrawRequestWithDetails, ValidationResult, Budget, Invoice, Builder, Project, NahbCategory, NahbSubcategory } from '@/types/database'
 import { DRAW_STATUS_LABELS, DRAW_FLAG_LABELS, DrawStatus, DrawLineFlag } from '@/types/database'
 
 type LineWithBudget = {
@@ -57,8 +57,11 @@ export default function DrawDetailPage() {
   const [editAmount, setEditAmount] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   
-  // Budget selection for unmatched lines
+  // Budget selection for unmatched lines - cascading dropdowns
   const [selectingBudgetLineId, setSelectingBudgetLineId] = useState<string | null>(null)
+  const [nahbCategories, setNahbCategories] = useState<NahbCategory[]>([])
+  const [nahbSubcategories, setNahbSubcategories] = useState<NahbSubcategory[]>([])
+  const [selectedCategoryPerLine, setSelectedCategoryPerLine] = useState<Record<string, string>>({})
   
   // Actions
   const [isStaging, setIsStaging] = useState(false)
@@ -105,6 +108,21 @@ export default function DrawDetailPage() {
         
         setAllBudgets(budgetsData || [])
       }
+
+      // Fetch NAHB categories and subcategories for cascading dropdowns
+      const { data: catData } = await supabase
+        .from('nahb_categories')
+        .select('*')
+        .order('sort_order', { ascending: true })
+      
+      setNahbCategories((catData as NahbCategory[]) || [])
+
+      const { data: subData } = await supabase
+        .from('nahb_subcategories')
+        .select('*')
+        .order('sort_order', { ascending: true })
+      
+      setNahbSubcategories((subData as NahbSubcategory[]) || [])
 
       // Fetch invoices
       const { data: invoicesData } = await supabase
@@ -186,6 +204,41 @@ export default function DrawDetailPage() {
   // Separate matched and unmatched lines
   const unmatchedLines = lines.filter(l => !l.budget_id)
   const matchedLines = lines.filter(l => l.budget_id)
+
+  // Get budgets that are already assigned to matched lines (to filter them out)
+  const assignedBudgetIds = new Set(matchedLines.map(l => l.budget_id).filter(Boolean))
+
+  // Get available NAHB categories that have at least one unassigned budget
+  const getAvailableCategories = () => {
+    // Get budgets that are not already assigned
+    const availableBudgets = allBudgets.filter(b => !assignedBudgetIds.has(b.id))
+    
+    // Get unique NAHB categories from available budgets
+    const availableCategoryNames = new Set(
+      availableBudgets.map(b => b.nahb_category).filter(Boolean)
+    )
+    
+    return nahbCategories.filter(c => availableCategoryNames.has(c.name))
+  }
+
+  // Get available budgets for a selected category (filtered by category AND not already assigned)
+  const getAvailableBudgetsForCategory = (categoryName: string | null) => {
+    if (!categoryName) return []
+    
+    return allBudgets.filter(b => 
+      b.nahb_category === categoryName && 
+      !assignedBudgetIds.has(b.id)
+    )
+  }
+
+  // Handle category selection for an unmatched line
+  const handleCategorySelect = (lineId: string, categoryId: string) => {
+    const category = nahbCategories.find(c => c.id === categoryId)
+    setSelectedCategoryPerLine(prev => ({
+      ...prev,
+      [lineId]: categoryId
+    }))
+  }
 
   // Edit line amount
   const startEditing = (line: LineWithBudget) => {
@@ -537,38 +590,74 @@ export default function DrawDetailPage() {
               </div>
               
               <div className="divide-y" style={{ borderColor: 'var(--border-primary)' }}>
-                {unmatchedLines.map((line) => (
-                  <div key={line.id} className="p-4 flex items-center gap-4">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                        {line.notes?.replace('Original category: ', '') || 'Unknown Category'}
-                      </p>
-                      <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
-                        {formatCurrency(line.amount_requested)}
-                      </p>
-                    </div>
-                    <div className="flex-1">
-                      <select
-                        value=""
-                        onChange={(e) => e.target.value && assignBudgetToLine(line.id, e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg text-sm"
-                        style={{ 
-                          background: 'var(--bg-secondary)', 
-                          color: 'var(--text-primary)', 
-                          border: '2px solid var(--warning)'
-                        }}
-                        disabled={isSaving}
-                      >
-                        <option value="">Select budget category...</option>
-                        {allBudgets.map(b => (
-                          <option key={b.id} value={b.id}>
-                            {b.builder_category_raw || b.category} - {formatCurrency(b.remaining_amount || 0)} remaining
+                {unmatchedLines.map((line) => {
+                  const originalCategory = line.notes?.replace('Original category: ', '').replace(/^Fuzzy matched \(\d+%\): /, '') || 'Unknown Category'
+                  const selectedCatId = selectedCategoryPerLine[line.id] || ''
+                  const selectedCategory = nahbCategories.find(c => c.id === selectedCatId)
+                  const availableBudgets = getAvailableBudgetsForCategory(selectedCategory?.name || null)
+                  
+                  return (
+                    <div key={line.id} className="p-4">
+                      {/* Original category and amount */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Original:</p>
+                          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                            "{originalCategory}"
+                          </p>
+                        </div>
+                        <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+                          {formatCurrency(line.amount_requested)}
+                        </p>
+                      </div>
+                      
+                      {/* Cascading dropdowns */}
+                      <div className="flex items-center gap-2">
+                        {/* Category dropdown */}
+                        <select
+                          value={selectedCatId}
+                          onChange={(e) => handleCategorySelect(line.id, e.target.value)}
+                          className="flex-1 px-3 py-2 rounded-lg text-sm"
+                          style={{ 
+                            background: 'var(--bg-secondary)', 
+                            color: 'var(--text-primary)', 
+                            border: `1px solid ${!selectedCatId ? 'var(--warning)' : 'var(--border)'}`
+                          }}
+                          disabled={isSaving}
+                        >
+                          <option value="">Category...</option>
+                          {getAvailableCategories().map(c => (
+                            <option key={c.id} value={c.id}>
+                              {c.code} – {c.name}
+                            </option>
+                          ))}
+                        </select>
+                        
+                        {/* Budget/Subcategory dropdown - only enabled when category selected */}
+                        <select
+                          value=""
+                          onChange={(e) => e.target.value && assignBudgetToLine(line.id, e.target.value)}
+                          className="flex-1 px-3 py-2 rounded-lg text-sm"
+                          style={{ 
+                            background: 'var(--bg-secondary)', 
+                            color: 'var(--text-primary)', 
+                            border: `1px solid ${selectedCatId ? 'var(--warning)' : 'var(--border)'}`
+                          }}
+                          disabled={isSaving || !selectedCatId}
+                        >
+                          <option value="">
+                            {!selectedCatId ? 'Select category first...' : `Budget (${availableBudgets.length} available)...`}
                           </option>
-                        ))}
-                      </select>
+                          {availableBudgets.map(b => (
+                            <option key={b.id} value={b.id}>
+                              {b.builder_category_raw || b.nahb_subcategory || b.category} – {formatCurrency(b.remaining_amount || 0)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
