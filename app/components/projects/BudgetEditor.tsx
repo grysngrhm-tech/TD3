@@ -262,6 +262,38 @@ export function BudgetEditor({
     }
   }
 
+  // Delete all budget items for the project
+  const handleDeleteAllBudgets = async () => {
+    if (!confirm('Delete ALL budget items for this project? This cannot be undone.')) {
+      return
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('budgets')
+        .delete()
+        .eq('project_id', projectId)
+
+      if (error) throw error
+
+      toast({
+        type: 'success',
+        title: 'Budget Cleared',
+        message: 'All budget items have been deleted'
+      })
+
+      setEditableBudgets([])
+      onBudgetsChange?.()
+    } catch (err) {
+      console.error('Delete all error:', err)
+      toast({
+        type: 'error',
+        title: 'Delete Failed',
+        message: 'Failed to clear budget'
+      })
+    }
+  }
+
   const handleSaveChanges = async () => {
     setSaving(true)
     try {
@@ -354,6 +386,18 @@ export function BudgetEditor({
                 </svg>
                 Upload
               </button>
+              {editableBudgets.length > 0 && (
+                <button 
+                  onClick={handleDeleteAllBudgets}
+                  className="btn-secondary text-sm flex items-center gap-1.5"
+                  style={{ color: 'var(--error)' }}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Clear All
+                </button>
+              )}
               {hasDirtyChanges && (
                 <button 
                   onClick={handleSaveChanges}

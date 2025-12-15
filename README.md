@@ -228,10 +228,13 @@ TD3 is currently in active development.
 - ✅ Excel formatting preservation (bold, borders)
 - ✅ Weighted keyword scoring for closing costs
 - ✅ Interactive row range controls (click, drag, keyboard)
-- ✅ Inline budget editor with NAHB code dropdowns
+- ✅ Inline budget editor with cascading Category → Subcategory dropdowns
 - ✅ Auto-generated project codes (e.g., "DW-244")
 - ✅ Webhook integration with n8n workflows
 - ✅ n8n Budget Import workflow with AI-powered NAHB categorization
+- ✅ Hierarchical NAHB category database schema (16 categories, 118 subcategories)
+- ✅ Budget deletion tools (Clear All button, auto-replace on upload)
+- ✅ Standardized NAHB cost code taxonomy with "Other" catch-all subcategories
 
 **In Progress:**
 - 🔄 Draw Import workflow with invoice matching
