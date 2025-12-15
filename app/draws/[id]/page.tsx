@@ -431,6 +431,11 @@ export default function DrawDetailPage() {
         throw new Error('Invalid JSON response from workflow')
       }
       
+      // Validate result is an object with expected shape
+      if (!result || typeof result !== 'object') {
+        throw new Error('Unexpected response format from workflow')
+      }
+      
       if (result.success) {
         // Reload to show updated data
         await loadDrawRequest()
