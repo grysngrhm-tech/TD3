@@ -248,10 +248,19 @@ TD3 is currently in active development.
 - ✅ **Compact Builder Info Card** — 4-column layout with clickable email/phone links and collapsible notes
 - ✅ **Borrower Auto-Fill** — Automatically populates from selected builder profile
 - ✅ **Budget Amount Field** — Auto-calculated from uploaded budget categories in origination view
+- ✅ **Loan Lifecycle Transitions** — "Loan Documents Recorded" checkbox (Pending→Active), "Payoff Approved" checkbox (Active→Historic)
+- ✅ **Home/Dashboard Navigation** — Two-page model with Dashboard button on Home, Home button on Dashboard
+- ✅ **Staging Dashboard** — Central hub for new loans, builders, lenders, and draw staging by builder
+- ✅ **Draw Request System** — Complete draw upload workflow with spreadsheet parsing and invoice management
+- ✅ **Fuzzy Category Matching** — Levenshtein distance + tokenized word matching for draw-to-budget matching (0.6 threshold)
+- ✅ **Draw Review Page** — Comprehensive table view with inline editing, flag display, and invoice management
+- ✅ **Cascading Dropdowns for Unmatched Lines** — NAHB Category → Budget selectors with auto-filtering of assigned budgets
+- ✅ **Invoice Upload & Preview** — Drag-drop with thumbnail gallery and modal viewer with navigation
+- ✅ **N8N Draw Processing** — Enriched webhook payload for AI invoice matching after client-side draw creation
 
 **In Progress:**
-- 🔄 Draw Import workflow with invoice matching
-- 🔄 Full invoice-to-budget-line AI matching
+- 🔄 Full invoice-to-budget-line AI matching via N8N
+- 🔄 Wire batch processing and bookkeeper notification workflow
 - 🔄 Approval workflow and validation engine
 
 ---
