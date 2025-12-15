@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeToggle } from '@/app/components/ui/ThemeToggle'
 import { ToastContainer } from '@/app/components/ui/Toast'
+import { DevNav } from '@/app/components/ui/DevNav'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -57,6 +58,9 @@ export default function RootLayout({
           
           {/* Toast Notifications */}
           <ToastContainer />
+          
+          {/* Dev Navigation */}
+          <DevNav />
         </div>
       </body>
     </html>

@@ -174,27 +174,8 @@ async function handleDrawProcessing(body: {
         
         // If N8N returns matched lines with flags, update the draw_request_lines
         if (n8nResult.lines && Array.isArray(n8nResult.lines)) {
-          // Fetch existing draw_request_lines to match by category or index
-          const { data: existingLines } = await supabaseAdmin
-            .from('draw_request_lines')
-            .select('id, category')
-            .eq('draw_request_id', drawRequestId)
-            .order('created_at', { ascending: true })
-
-          for (let i = 0; i < n8nResult.lines.length; i++) {
-            const line = n8nResult.lines[i]
-            
-            // Match by category name first, then fall back to index
-            let matchedLine = existingLines?.find(
-              el => el.category?.toLowerCase() === line.category?.toLowerCase()
-            )
-            
-            // If no category match, try matching by index (assumes same order)
-            if (!matchedLine && existingLines && i < existingLines.length) {
-              matchedLine = existingLines[i]
-            }
-            
-            if (matchedLine) {
+          for (const line of n8nResult.lines) {
+            if (line.id) {
               await supabaseAdmin
                 .from('draw_request_lines')
                 .update({
@@ -202,7 +183,7 @@ async function handleDrawProcessing(body: {
                   confidence_score: line.confidence_score || null,
                   flags: line.flags ? JSON.stringify(line.flags) : null
                 })
-                .eq('id', matchedLine.id)
+                .eq('id', line.id)
             }
           }
         }
@@ -280,4 +261,3 @@ async function handleDrawProcessing(body: {
     )
   }
 }
-
