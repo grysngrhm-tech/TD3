@@ -48,6 +48,7 @@ export default function DrawDetailPage() {
   const [newInvoiceFiles, setNewInvoiceFiles] = useState<File[]>([])
   const [isUploadingInvoices, setIsUploadingInvoices] = useState(false)
   const [isRerunningMatching, setIsRerunningMatching] = useState(false)
+  const [isClearingInvoices, setIsClearingInvoices] = useState(false)
   
   // Invoice viewer
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
@@ -431,11 +432,6 @@ export default function DrawDetailPage() {
         throw new Error('Invalid JSON response from workflow')
       }
       
-      // Validate result is an object with expected shape
-      if (!result || typeof result !== 'object') {
-        throw new Error('Unexpected response format from workflow')
-      }
-      
       if (result.success) {
         // Reload to show updated data
         await loadDrawRequest()
@@ -452,6 +448,36 @@ export default function DrawDetailPage() {
       setActionError(err.message || 'Failed to re-run invoice matching')
     } finally {
       setIsRerunningMatching(false)
+    }
+  }
+
+  // Clear all invoices for this draw
+  const clearInvoices = async () => {
+    if (!confirm('Are you sure you want to remove all invoices from this draw request?')) {
+      return
+    }
+    
+    setIsClearingInvoices(true)
+    setActionError('')
+    
+    try {
+      const response = await fetch(`/api/invoices/clear?drawRequestId=${drawId}`, {
+        method: 'DELETE'
+      })
+      
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to clear invoices')
+      }
+      
+      // Reload to show updated data
+      await loadDrawRequest()
+      setNewInvoiceFiles([])
+    } catch (err: any) {
+      console.error('Error clearing invoices:', err)
+      setActionError(err.message || 'Failed to clear invoices')
+    } finally {
+      setIsClearingInvoices(false)
     }
   }
 
@@ -1013,9 +1039,21 @@ export default function DrawDetailPage() {
                   {isRerunningMatching ? 'Processing...' : 'Re-run Invoice Matching'}
                 </button>
                 
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  {invoices.length} invoice(s) attached
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    {invoices.length} invoice(s) attached
+                  </p>
+                  {invoices.length > 0 && (
+                    <button
+                      onClick={clearInvoices}
+                      disabled={isClearingInvoices}
+                      className="text-xs hover:underline disabled:opacity-50"
+                      style={{ color: 'var(--error)' }}
+                    >
+                      {isClearingInvoices ? 'Clearing...' : 'Clear All'}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}
