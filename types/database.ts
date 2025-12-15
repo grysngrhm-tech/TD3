@@ -91,6 +91,7 @@ export type Database = {
           is_change_order: boolean | null
           nahb_category: string | null
           nahb_subcategory: string | null
+          subcategory_id: string | null
           original_amount: number
           project_id: string | null
           remaining_amount: number | null
@@ -110,6 +111,7 @@ export type Database = {
           is_change_order?: boolean | null
           nahb_category?: string | null
           nahb_subcategory?: string | null
+          subcategory_id?: string | null
           original_amount?: number
           project_id?: string | null
           remaining_amount?: number | null
@@ -129,6 +131,7 @@ export type Database = {
           is_change_order?: boolean | null
           nahb_category?: string | null
           nahb_subcategory?: string | null
+          subcategory_id?: string | null
           original_amount?: number
           project_id?: string | null
           remaining_amount?: number | null
@@ -136,7 +139,14 @@ export type Database = {
           spent_amount?: number
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "budgets_subcategory_id_fkey"
+            columns: ["subcategory_id"]
+            referencedRelation: "nahb_subcategories"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       documents: {
         Row: {
@@ -366,6 +376,64 @@ export type Database = {
         }
         Relationships: []
       }
+      nahb_categories: {
+        Row: {
+          id: string
+          code: string
+          name: string
+          sort_order: number
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          code: string
+          name: string
+          sort_order: number
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          code?: string
+          name?: string
+          sort_order?: number
+          created_at?: string | null
+        }
+        Relationships: []
+      }
+      nahb_subcategories: {
+        Row: {
+          id: string
+          category_id: string
+          code: string
+          name: string
+          sort_order: number
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          category_id: string
+          code: string
+          name: string
+          sort_order: number
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          category_id?: string
+          code?: string
+          name?: string
+          sort_order?: number
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nahb_subcategories_category_id_fkey"
+            columns: ["category_id"]
+            referencedRelation: "nahb_categories"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       projects: {
         Row: {
           address: string | null
@@ -467,6 +535,8 @@ export type Budget = Database["public"]["Tables"]["budgets"]["Row"]
 export type DrawRequest = Database["public"]["Tables"]["draw_requests"]["Row"]
 export type DrawRequestLine = Database["public"]["Tables"]["draw_request_lines"]["Row"]
 export type NahbCostCode = Database["public"]["Tables"]["nahb_cost_codes"]["Row"]
+export type NahbCategory = Database["public"]["Tables"]["nahb_categories"]["Row"]
+export type NahbSubcategory = Database["public"]["Tables"]["nahb_subcategories"]["Row"]
 export type Invoice = Database["public"]["Tables"]["invoices"]["Row"]
 export type Document = Database["public"]["Tables"]["documents"]["Row"]
 export type Approval = Database["public"]["Tables"]["approvals"]["Row"]
