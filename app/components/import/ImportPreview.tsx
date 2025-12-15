@@ -266,15 +266,24 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
   }, [workbookInfo])
 
   const handleMappingChange = useCallback((
-    columnIndex: number, 
+    columnIndex: number,
     newMapping: ColumnMapping['mappedTo']
   ) => {
     setMappings(prev => {
-      const updated = prev.map(m => 
-        m.columnIndex === columnIndex 
-          ? { ...m, mappedTo: newMapping, confidence: 1 }
-          : m
-      )
+      // For 'category' and 'amount', only one column can have that mapping
+      // Clear the previous column with this mapping before setting the new one
+      const updated = prev.map(m => {
+        if (m.columnIndex === columnIndex) {
+          // This is the column being changed - apply new mapping
+          return { ...m, mappedTo: newMapping, confidence: 1 }
+        } else if (newMapping === 'category' || newMapping === 'amount') {
+          // If another column already has this mapping, clear it
+          if (m.mappedTo === newMapping) {
+            return { ...m, mappedTo: 'ignore' as const, confidence: 0 }
+          }
+        }
+        return m
+      })
       if (data) {
         // Re-detect row boundaries with new mappings
         const newAnalysis = detectRowBoundariesWithAnalysis(data.rows, updated, data.styles)
