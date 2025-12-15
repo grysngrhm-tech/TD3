@@ -7,8 +7,6 @@ import { FilterSidebar } from '@/app/components/ui/FilterSidebar'
 import { ProjectTile } from '@/app/components/ui/ProjectTile'
 import { StageSelector } from '@/app/components/ui/StageSelector'
 import { StageStatsBar } from '@/app/components/ui/StageStatsBar'
-import { ImportPreview } from '@/app/components/import/ImportPreview'
-import { toast } from '@/app/components/ui/Toast'
 import { useFilters } from '@/app/hooks/useFilters'
 import { calculateLoanIncome, calculateIRR } from '@/lib/calculations'
 import type { LifecycleStage, Builder, Lender, DrawRequest } from '@/types/database'
@@ -50,7 +48,6 @@ export default function Dashboard() {
   const [lenders, setLenders] = useState<Lender[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedStage, setSelectedStage] = useState<LifecycleStage>('active')
-  const [importModal, setImportModal] = useState<'budget' | 'draw' | null>(null)
   const { filters, toggleFilter, clearAll, clearSection } = useFilters()
 
   useEffect(() => {
@@ -253,15 +250,6 @@ export default function Dashboard() {
     }))
   }, [filteredProjects])
 
-  const handleImportSuccess = () => {
-    toast({
-      type: 'success',
-      title: importModal === 'budget' ? 'Budget Submitted' : 'Draw Submitted',
-      message: 'Data sent to processing workflow. Refresh in a moment to see updates.'
-    })
-    setTimeout(() => loadData(), 2000)
-  }
-
   const handleProjectClick = (projectId: string) => {
     router.push(`/projects/${projectId}`)
   }
@@ -328,8 +316,6 @@ export default function Dashboard() {
             <StageStatsBar
               stage={selectedStage}
               projects={statsData}
-              onNewLoan={() => router.push('/projects/new')}
-              onUploadDraw={selectedStage === 'active' ? () => setImportModal('draw') : undefined}
             />
           </div>
 
@@ -389,21 +375,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Import Modals */}
-      <ImportPreview
-        isOpen={importModal === 'budget'}
-        onClose={() => setImportModal(null)}
-        onSuccess={handleImportSuccess}
-        importType="budget"
-        preselectedBuilderId={selectedBuilder?.id}
-      />
-      <ImportPreview
-        isOpen={importModal === 'draw'}
-        onClose={() => setImportModal(null)}
-        onSuccess={handleImportSuccess}
-        importType="draw"
-        preselectedBuilderId={selectedBuilder?.id}
-      />
     </div>
   )
 }
