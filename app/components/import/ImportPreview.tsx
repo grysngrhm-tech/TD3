@@ -523,29 +523,32 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
           // Don't throw - draw was created, lines can be added later
         }
         
-        // 5. Upload invoices to Supabase Storage (if any)
-        for (const invoiceFile of invoiceFiles) {
-          const filePath = `invoices/${selectedProjectId}/${newDraw.id}/${crypto.randomUUID()}-${invoiceFile.name}`
+        // 5. Upload invoices via server-side API (if any)
+        if (invoiceFiles.length > 0) {
+          const formData = new FormData()
+          formData.append('projectId', selectedProjectId)
+          formData.append('drawRequestId', newDraw.id)
           
-          const { error: uploadError } = await supabase.storage
-            .from('documents')
-            .upload(filePath, invoiceFile)
+          for (const file of invoiceFiles) {
+            formData.append('files', file)
+          }
           
-          if (!uploadError) {
-            const { data: urlData } = supabase.storage
-              .from('documents')
-              .getPublicUrl(filePath)
-            
-            // Create invoice record
-            await supabase.from('invoices').insert({
-              project_id: selectedProjectId,
-              draw_request_id: newDraw.id,
-              vendor_name: 'Pending Review',
-              amount: 0,
-              file_path: filePath,
-              file_url: urlData.publicUrl,
-              status: 'pending'
+          try {
+            const uploadResponse = await fetch('/api/invoices/upload', {
+              method: 'POST',
+              body: formData
             })
+            
+            const uploadResult = await uploadResponse.json()
+            
+            if (!uploadResponse.ok) {
+              console.error('Invoice upload failed:', uploadResult.error)
+            } else if (uploadResult.failed > 0) {
+              console.warn('Some invoice uploads failed:', uploadResult.errors)
+            }
+          } catch (uploadErr) {
+            console.error('Invoice upload error:', uploadErr)
+            // Don't throw - draw was created, invoices can be added later
           }
         }
         

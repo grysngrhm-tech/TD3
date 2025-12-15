@@ -326,42 +326,43 @@ export default function DrawDetailPage() {
     e.target.value = '' // Reset input
   }
 
-  // Upload new invoices
+  // Upload new invoices via server-side API
   const uploadNewInvoices = async () => {
     if (newInvoiceFiles.length === 0) return
     
     setIsUploadingInvoices(true)
+    setActionError('')
+    
     try {
-      for (const invoiceFile of newInvoiceFiles) {
-        const filePath = `invoices/${draw?.project_id}/${drawId}/${crypto.randomUUID()}-${invoiceFile.name}`
-        
-        const { error: uploadError } = await supabase.storage
-          .from('documents')
-          .upload(filePath, invoiceFile)
-        
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage
-            .from('documents')
-            .getPublicUrl(filePath)
-          
-          // Create invoice record
-          await supabase.from('invoices').insert({
-            project_id: draw?.project_id,
-            draw_request_id: drawId,
-            vendor_name: 'Pending Review',
-            amount: 0,
-            file_path: filePath,
-            file_url: urlData.publicUrl,
-            status: 'pending'
-          })
-        }
+      const formData = new FormData()
+      formData.append('projectId', draw?.project_id || '')
+      formData.append('drawRequestId', drawId)
+      
+      for (const file of newInvoiceFiles) {
+        formData.append('files', file)
+      }
+      
+      const response = await fetch('/api/invoices/upload', {
+        method: 'POST',
+        body: formData
+      })
+      
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed')
+      }
+      
+      if (result.failed > 0) {
+        console.warn('Some uploads failed:', result.errors)
+        setActionError(`${result.failed} file(s) failed to upload`)
       }
       
       setNewInvoiceFiles([])
       await loadDrawRequest()
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error uploading invoices:', err)
-      setActionError('Failed to upload invoices')
+      setActionError(err.message || 'Failed to upload invoices')
     } finally {
       setIsUploadingInvoices(false)
     }
@@ -396,25 +397,43 @@ export default function DrawDetailPage() {
       })
       
       const webhookUrl = process.env.NEXT_PUBLIC_N8N_DRAW_WEBHOOK
-      if (webhookUrl) {
-        await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            drawRequestId: drawId,
-            projectId: draw?.project_id,
-            lines: enrichedLines,
-            invoiceCount: invoices.length,
-            rerunMatching: true
-          })
-        })
+      if (!webhookUrl) {
+        setActionError('Invoice matching webhook not configured')
+        return
       }
       
-      // Wait a bit then reload to see results
-      setTimeout(() => loadDrawRequest(), 2000)
-    } catch (err) {
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          drawRequestId: drawId,
+          projectId: draw?.project_id,
+          lines: enrichedLines,
+          invoiceCount: invoices.length,
+          rerunMatching: true
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Webhook returned ${response.status}`)
+      }
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        // Reload to show updated data
+        await loadDrawRequest()
+        
+        // Show success message (brief - data is visible in UI)
+        if (result.matchedWithInvoice > 0) {
+          console.log(`Invoice matching complete: ${result.matchedWithInvoice}/${result.processedLines} lines matched`)
+        }
+      } else {
+        throw new Error(result.error || 'Invoice matching failed')
+      }
+    } catch (err: any) {
       console.error('Error re-running matching:', err)
-      setActionError('Failed to re-run invoice matching')
+      setActionError(err.message || 'Failed to re-run invoice matching')
     } finally {
       setIsRerunningMatching(false)
     }
@@ -504,6 +523,9 @@ export default function DrawDetailPage() {
   }
 
   const totalRequested = lines.reduce((sum, l) => sum + l.amount_requested, 0)
+  const totalBudget = matchedLines.reduce((sum, l) => sum + (l.budget?.current_amount || 0), 0)
+  const totalRemaining = matchedLines.reduce((sum, l) => sum + (l.budget?.remaining_amount || 0), 0)
+  const linesWithInvoice = lines.filter(l => l.invoice_file_url).length
   const flagCount = getFlagCount()
   const canStage = draw.status === 'review' && unmatchedLines.length === 0
   const isEditable = draw.status === 'review' || draw.status === 'draft'
@@ -551,22 +573,35 @@ export default function DrawDetailPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Budget / Remaining / Requested */}
         <div className="card p-4">
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Total Requested</p>
-          <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(totalRequested)}</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Budget</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Remaining</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Requested</p>
+          </div>
+          <div className="flex items-center justify-between">
+            <p className="text-lg font-bold" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(totalBudget)}</p>
+            <p className="text-lg font-bold" style={{ color: totalRemaining < totalRequested ? 'var(--error)' : 'var(--text-secondary)' }}>{formatCurrency(totalRemaining)}</p>
+            <p className="text-lg font-bold" style={{ color: 'var(--accent)' }}>{formatCurrency(totalRequested)}</p>
+          </div>
         </div>
+        
+        {/* Lines Matched */}
         <div className="card p-4">
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Line Items</p>
-          <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{lines.length}</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Lines Matched</p>
+          <p className="text-2xl font-bold" style={{ color: matchedLines.length === lines.length ? 'var(--success)' : 'var(--warning)' }}>
+            {matchedLines.length}/{lines.length}
+          </p>
         </div>
+        
+        {/* Invoices Matched */}
         <div className="card p-4">
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Matched</p>
-          <p className="text-2xl font-bold" style={{ color: 'var(--success)' }}>{matchedLines.length}</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Invoices</p>
-          <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{invoices.length}</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Invoices Matched</p>
+          <p className="text-2xl font-bold" style={{ color: linesWithInvoice === lines.length ? 'var(--success)' : 'var(--text-primary)' }}>
+            {linesWithInvoice}/{lines.length}
+          </p>
         </div>
       </div>
 
@@ -700,7 +735,7 @@ export default function DrawDetailPage() {
                       </p>
                       {line.budget?.nahb_category && (
                         <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
-                          {line.budget.cost_code}
+                          {line.budget.nahb_category}{line.budget.nahb_subcategory ? ` : ${line.budget.nahb_subcategory}` : ''}
                         </p>
                       )}
                     </div>
