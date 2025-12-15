@@ -112,14 +112,14 @@ Your team reviews AI recommendations instead of doing manual data entry. Tasks t
 │  │            │ │            │ │             │ │                       ││
 │  │ • name     │ │ • category │ │ • draw_num  │ │ • amount_requested    ││
 │  │ • builder  │ │ • amount   │ │ • status    │ │ • budget_id (FK)      ││
-│  │ • loan_amt │ │ • nahb_code│ │ • total     │ │ • invoice data        ││
+│  │ • lender   │ │ • nahb_code│ │ • total     │ │ • invoice data        ││
 │  └────────────┘ └────────────┘ └─────────────┘ └────────────────────────┘│
 │                                                                          │
 │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────────────────┐│
-│  │  invoices  │ │ documents  │ │ approvals  │ │    audit_events       ││
+│  │  builders  │ │  lenders   │ │ approvals  │ │    audit_events       ││
 │  │            │ │            │ │            │ │                       ││
-│  │ • vendor   │ │ • file_url │ │ • decision │ │ • entity_type/id      ││
-│  │ • amount   │ │ • hash     │ │ • comments │ │ • action + timestamp  ││
+│  │ • company  │ │ • name     │ │ • decision │ │ • entity_type/id      ││
+│  │ • banking  │ │ • code     │ │ • comments │ │ • action + timestamp  ││
 │  └────────────┘ └────────────┘ └────────────┘ └────────────────────────┘│
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -162,10 +162,14 @@ Your team reviews AI recommendations instead of doing manual data entry. Tasks t
 | Feature | Description |
 |---------|-------------|
 | **Project Management** | Create and track construction projects with loan details, builder info, and milestones |
+| **Builder Portal** | Dedicated builder pages with company info, banking details, and aggregated loan portfolio |
+| **Multi-Lender Support** | Track loans by lending entity (TD2, TenBrook, Tennant) with database-level separation |
 | **Budget Tracking** | Line-item budgets with NAHB cost code classification and real-time remaining balances |
 | **Draw Requests** | Submit, review, and approve draw requests with full documentation |
 | **Invoice Processing** | Upload invoices and let AI extract and match data automatically |
 | **Smart Import** | Client-side spreadsheet parsing with intelligent column detection |
+| **Financial Analytics** | IRR and income calculations for historic loans, LTV risk distribution for pending |
+| **Toggle Filters** | 3-way filter sidebar with persistent selections across Builder/Subdivision/Lender |
 | **Validation Engine** | Automatic checks prevent errors before they happen |
 | **Progress Reports** | Generate printable reports showing budget status and draw history |
 | **Audit Trail** | Complete history of every action for compliance and accountability |
@@ -235,6 +239,15 @@ TD3 is currently in active development.
 - ✅ Hierarchical NAHB category database schema (16 categories, 118 subcategories)
 - ✅ Budget deletion tools (Clear All button, auto-replace on upload)
 - ✅ Standardized NAHB cost code taxonomy with "Other" catch-all subcategories
+- ✅ **Builder Page System** — Dedicated builder management with company info, banking details, and loan portfolio view
+- ✅ **Lender Support** — Multi-lender tracking (TD2, TenBrook, Tennant) with database-level separation for future RLS
+- ✅ **Toggle-Based Filter Sidebar** — 3-way toggle (Builder/Subdivision/Lender) with persistent multi-category filtering
+- ✅ **Stage-Specific Stats Bar** — Dynamic metrics per lifecycle stage with visual elements (LTV distribution, utilization progress, income breakdown)
+- ✅ **Historic Loan Metrics** — Total Income and IRR calculations displayed on historic loan tiles
+- ✅ **Enhanced LTV Color Coding** — Risk-based thresholds (≤65% green, 66-74% yellow, ≥75% red)
+- ✅ **Compact Builder Info Card** — 4-column layout with clickable email/phone links and collapsible notes
+- ✅ **Borrower Auto-Fill** — Automatically populates from selected builder profile
+- ✅ **Budget Amount Field** — Auto-calculated from uploaded budget categories in origination view
 
 **In Progress:**
 - 🔄 Draw Import workflow with invoice matching
