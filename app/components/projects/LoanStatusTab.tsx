@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import type { Project, Budget, DrawRequest, LifecycleStage } from '@/types/database'
 import { ImportPreview } from '@/app/components/import/ImportPreview'
 import { toast } from '@/app/components/ui/Toast'
+import { supabase } from '@/lib/supabase'
 
 type LoanStatusTabProps = {
   project: Project & { lifecycle_stage: LifecycleStage }
@@ -15,6 +16,12 @@ type LoanStatusTabProps = {
 
 export function LoanStatusTab({ project, budgets, draws, onDrawImported }: LoanStatusTabProps) {
   const [showDrawImport, setShowDrawImport] = useState(false)
+  
+  // Payoff state
+  const [payoffAmount, setPayoffAmount] = useState(project.payoff_amount?.toString() || '')
+  const [payoffDate, setPayoffDate] = useState(project.payoff_date || new Date().toISOString().split('T')[0])
+  const [payoffApproved, setPayoffApproved] = useState(project.payoff_approved ?? false)
+  const [completing, setCompleting] = useState(false)
 
   const formatCurrency = (amount: number | null) => {
     if (amount === null || amount === undefined) return '—'
@@ -72,6 +79,40 @@ export function LoanStatusTab({ project, budgets, draws, onDrawImported }: LoanS
   }
 
   const isActive = project.lifecycle_stage === 'active'
+
+  // Handle loan completion (Active -> Historic)
+  const handleCompleteLoan = async () => {
+    if (!payoffApproved || !payoffAmount) return
+    
+    setCompleting(true)
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({
+          lifecycle_stage: 'historic',
+          payoff_approved: true,
+          payoff_approved_at: new Date().toISOString(),
+          payoff_date: payoffDate,
+          payoff_amount: parseFloat(payoffAmount),
+          stage_changed_at: new Date().toISOString(),
+        })
+        .eq('id', project.id)
+
+      if (error) throw error
+
+      toast({ 
+        type: 'success', 
+        title: 'Loan Completed', 
+        message: 'The loan has been marked as paid off and moved to historic.' 
+      })
+      onDrawImported?.() // Refresh data
+    } catch (err: any) {
+      console.error('Completion error:', err)
+      toast({ type: 'error', title: 'Error', message: err.message || 'Failed to complete loan' })
+    } finally {
+      setCompleting(false)
+    }
+  }
 
   const getStatusBadgeClass = (status: string | null) => {
     const statusMap: Record<string, string> = {
@@ -261,6 +302,110 @@ export function LoanStatusTab({ project, budgets, draws, onDrawImported }: LoanS
                 <span style={{ color: 'var(--text-secondary)' }}>{alert.message}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Loan Payoff Section - Only show for active loans */}
+      {isActive && (
+        <div 
+          className="card-ios"
+          style={{ borderLeft: '4px solid var(--success)' }}
+        >
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Loan Payoff</h3>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                Record the payoff to complete this loan and move it to historic.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {/* Payoff Amount and Date Inputs */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
+                  Payoff Amount
+                </label>
+                <div className="relative">
+                  <span 
+                    className="absolute left-3 top-1/2 -translate-y-1/2"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    value={payoffAmount}
+                    onChange={(e) => setPayoffAmount(e.target.value)}
+                    placeholder="0"
+                    className="input w-full pl-7"
+                    style={{ background: 'var(--bg-secondary)' }}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
+                  Payoff Date
+                </label>
+                <input
+                  type="date"
+                  value={payoffDate}
+                  onChange={(e) => setPayoffDate(e.target.value)}
+                  className="input w-full"
+                  style={{ background: 'var(--bg-secondary)' }}
+                />
+              </div>
+            </div>
+
+            {/* Payoff Approved Checkbox */}
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={payoffApproved}
+                onChange={(e) => setPayoffApproved(e.target.checked)}
+                className="mt-1 h-5 w-5 rounded"
+                style={{ accentColor: 'var(--success)' }}
+              />
+              <div>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Payoff Approved
+                </span>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  Confirm that payoff has been received and recorded
+                </p>
+              </div>
+            </label>
+
+            {/* Complete Loan Button */}
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={handleCompleteLoan}
+                disabled={!payoffApproved || !payoffAmount || completing}
+                className="flex items-center gap-2 px-4 py-2 rounded-ios-sm font-medium transition-all"
+                style={{ 
+                  background: (payoffApproved && payoffAmount && !completing) ? 'var(--success)' : 'var(--bg-hover)',
+                  color: (payoffApproved && payoffAmount && !completing) ? 'white' : 'var(--text-muted)',
+                  opacity: (!payoffApproved || !payoffAmount || completing) ? 0.6 : 1,
+                  cursor: (!payoffApproved || !payoffAmount || completing) ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {completing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent border-white" />
+                    Completing...
+                  </>
+                ) : (
+                  <>
+                    Complete Loan
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

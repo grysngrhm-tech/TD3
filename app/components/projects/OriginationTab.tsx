@@ -61,6 +61,10 @@ export function OriginationTab({
   const [builderSearchOpen, setBuilderSearchOpen] = useState(false)
   const [builderSearchTerm, setBuilderSearchTerm] = useState('')
   
+  // Loan activation state
+  const [loanDocsRecorded, setLoanDocsRecorded] = useState(project?.loan_docs_recorded ?? false)
+  const [activating, setActivating] = useState(false)
+  
   // Form state
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -286,6 +290,51 @@ export function OriginationTab({
         })
       }
       setIsEditing(false)
+    }
+  }
+
+  // Handle loan activation (Pending -> Active)
+  const handleActivateLoan = async () => {
+    if (!project || !loanDocsRecorded) return
+    
+    setActivating(true)
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      
+      // Calculate maturity date from loan term
+      let maturityDate: string | null = null
+      const termMonths = project.loan_term_months || parseInt(formData.loan_term_months) || 12
+      if (termMonths) {
+        const maturity = new Date()
+        maturity.setMonth(maturity.getMonth() + termMonths)
+        maturityDate = maturity.toISOString().split('T')[0]
+      }
+
+      const { error } = await supabase
+        .from('projects')
+        .update({
+          lifecycle_stage: 'active',
+          loan_docs_recorded: true,
+          loan_docs_recorded_at: new Date().toISOString(),
+          loan_start_date: today,
+          maturity_date: maturityDate,
+          stage_changed_at: new Date().toISOString(),
+        })
+        .eq('id', project.id)
+
+      if (error) throw error
+
+      toast({ 
+        type: 'success', 
+        title: 'Loan Activated', 
+        message: 'The loan is now active and ready for draws.' 
+      })
+      onBudgetImported?.() // Refresh data
+    } catch (err: any) {
+      console.error('Activation error:', err)
+      toast({ type: 'error', title: 'Error', message: err.message || 'Failed to activate loan' })
+    } finally {
+      setActivating(false)
     }
   }
 
@@ -660,6 +709,93 @@ export function OriginationTab({
             preselectedProjectId={project.id}
           />
         </>
+      )}
+
+      {/* Loan Activation Section - Only show for pending loans */}
+      {!isNew && project && isPending && (
+        <div 
+          className="card-ios"
+          style={{ borderLeft: '4px solid var(--warning)' }}
+        >
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Ready to Activate</h3>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                Once loan documents are recorded, activate the loan to begin funding draws.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {/* Loan Documents Recorded Checkbox */}
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={loanDocsRecorded}
+                onChange={(e) => setLoanDocsRecorded(e.target.checked)}
+                className="mt-1 h-5 w-5 rounded"
+                style={{ accentColor: 'var(--accent)' }}
+              />
+              <div>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Loan Documents Recorded
+                </span>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  DocuSign loan agreement has been executed and recorded
+                </p>
+              </div>
+            </label>
+
+            {/* Info about what happens on activation */}
+            {loanDocsRecorded && (
+              <div 
+                className="p-3 rounded-lg text-sm"
+                style={{ background: 'var(--bg-secondary)' }}
+              >
+                <div className="flex items-start gap-2">
+                  <svg className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div style={{ color: 'var(--text-secondary)' }}>
+                    <p>When activated:</p>
+                    <ul className="list-disc ml-4 mt-1">
+                      <li>Loan start date will be set to today</li>
+                      <li>Maturity date calculated from term ({formData.loan_term_months || 12} months)</li>
+                      <li>Loan status changes to Active</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Activate Button */}
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={handleActivateLoan}
+                disabled={!loanDocsRecorded || activating}
+                className="btn-primary flex items-center gap-2"
+                style={{ 
+                  opacity: (!loanDocsRecorded || activating) ? 0.5 : 1,
+                  cursor: (!loanDocsRecorded || activating) ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {activating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent border-white" />
+                    Activating...
+                  </>
+                ) : (
+                  <>
+                    Activate Loan
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
