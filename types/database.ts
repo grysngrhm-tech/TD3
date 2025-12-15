@@ -743,14 +743,15 @@ export const DRAW_STATUS_LABELS: Record<DrawStatus, string> = {
 }
 
 // Flag types for draw request lines
-export type DrawLineFlag = 'AMOUNT_MISMATCH' | 'NO_INVOICE' | 'OVER_BUDGET' | 'LOW_CONFIDENCE' | 'DUPLICATE_INVOICE'
+export type DrawLineFlag = 'AMOUNT_MISMATCH' | 'NO_INVOICE' | 'OVER_BUDGET' | 'LOW_CONFIDENCE' | 'DUPLICATE_INVOICE' | 'NO_BUDGET_MATCH'
 
 export const DRAW_FLAG_LABELS: Record<DrawLineFlag, string> = {
   AMOUNT_MISMATCH: 'Invoice total doesn\'t match requested amount',
   NO_INVOICE: 'No invoice attached',
   OVER_BUDGET: 'Would exceed remaining budget',
   LOW_CONFIDENCE: 'Low confidence in AI match',
-  DUPLICATE_INVOICE: 'Invoice already used in previous draw'
+  DUPLICATE_INVOICE: 'Invoice already used in previous draw',
+  NO_BUDGET_MATCH: 'Category not found in budget'
 }
 
 // Validation Types

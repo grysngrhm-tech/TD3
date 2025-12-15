@@ -360,10 +360,20 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       if (importType === 'draw') {
         // === DRAW IMPORT: Create directly in Supabase ===
         
+        // 1. Fetch existing budgets for this project to match against
+        const { data: budgets, error: budgetsError } = await supabase
+          .from('budgets')
+          .select('*')
+          .eq('project_id', selectedProjectId)
+        
+        if (budgetsError) {
+          console.error('Failed to fetch budgets:', budgetsError)
+        }
+        
         // Calculate total amount
         const totalAmount = amountValues.reduce((sum, amt) => sum + amt, 0)
         
-        // 1. Create draw_request in Supabase
+        // 2. Create draw_request in Supabase
         const { data: newDraw, error: drawError } = await supabase
           .from('draw_requests')
           .insert({
@@ -381,23 +391,56 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
           throw new Error('Failed to create draw request: ' + drawError.message)
         }
         
-        // 2. Create draw_request_lines
-        const drawLines = categoryValues.map((category, i) => ({
-          draw_request_id: newDraw.id,
-          category: category,
-          amount_requested: amountValues[i]
-        }))
+        // 3. Match draw categories to BUILDER categories (builder_category_raw) from budgets
+        // Builders use consistent naming, so draw spreadsheet categories should match their budget categories
+        const drawLinesData = categoryValues.map((category, i) => {
+          const categoryLower = category.toLowerCase().trim()
+          
+          // Priority: Match against builder_category_raw first, then fall back to standardized category
+          const matchedBudget = budgets?.find(b => {
+            const builderCat = (b.builder_category_raw || '').toLowerCase().trim()
+            const stdCat = b.category.toLowerCase().trim()
+            
+            // Exact match first
+            if (builderCat === categoryLower || stdCat === categoryLower) return true
+            
+            // Partial match (one contains the other)
+            if (builderCat && (builderCat.includes(categoryLower) || categoryLower.includes(builderCat))) return true
+            if (stdCat.includes(categoryLower) || categoryLower.includes(stdCat)) return true
+            
+            return false
+          })
+          
+          // Generate flags based on matching results
+          const flags: string[] = []
+          if (!matchedBudget) {
+            flags.push('NO_BUDGET_MATCH')
+          } else if (matchedBudget && amountValues[i] > (matchedBudget.remaining_amount || 0)) {
+            flags.push('OVER_BUDGET')
+          }
+          
+          return {
+            draw_request_id: newDraw.id,
+            budget_id: matchedBudget?.id || null,
+            amount_requested: amountValues[i],
+            flags: flags.length > 0 ? JSON.stringify(flags) : null,
+            // Store original category for reference (in notes)
+            notes: !matchedBudget ? `Original category: ${category}` : null
+          }
+        })
         
-        const { error: linesError } = await supabase
+        // 4. Insert draw_request_lines with proper budget_id
+        const { data: createdLines, error: linesError } = await supabase
           .from('draw_request_lines')
-          .insert(drawLines)
+          .insert(drawLinesData)
+          .select()
         
         if (linesError) {
           console.error('Failed to create draw lines:', linesError)
           // Don't throw - draw was created, lines can be added later
         }
         
-        // 3. Upload invoices to Supabase Storage (if any)
+        // 5. Upload invoices to Supabase Storage (if any)
         for (const invoiceFile of invoiceFiles) {
           const filePath = `invoices/${selectedProjectId}/${newDraw.id}/${crypto.randomUUID()}-${invoiceFile.name}`
           
@@ -423,21 +466,35 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
           }
         }
         
-        // 4. Optionally call N8N webhook for AI processing (can fail gracefully)
+        // 6. Call N8N webhook AFTER lines are created with enriched payload for AI invoice matching
         const webhookUrl = DRAW_WEBHOOK_URL
-        if (webhookUrl) {
+        if (webhookUrl && createdLines && createdLines.length > 0) {
           try {
-            const exportData = prepareColumnExport(data, mappings, importType, {
-              projectId: selectedProjectId,
-              drawNumber,
-              fileName: file.name,
-              rowRange: rowRangeAnalysis ? { startRow: rowRangeAnalysis.startRow, endRow: rowRangeAnalysis.endRow } : undefined
+            // Build enriched line data with NAHB categories for AI context
+            const enrichedLines = createdLines.map((line, i) => {
+              const matchedBudget = budgets?.find(b => b.id === line.budget_id)
+              return {
+                lineId: line.id,
+                builderCategory: categoryValues[i], // Original from spreadsheet
+                nahbCategory: matchedBudget?.nahb_category || null,
+                nahbSubcategory: matchedBudget?.nahb_subcategory || null,
+                costCode: matchedBudget?.cost_code || null,
+                budgetAmount: matchedBudget?.current_amount || 0,
+                remainingAmount: matchedBudget?.remaining_amount || 0,
+                amountRequested: line.amount_requested
+              }
             })
             
+            // N8N gets full context for smarter invoice matching
             await fetch(webhookUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ ...exportData, drawRequestId: newDraw.id })
+              body: JSON.stringify({
+                drawRequestId: newDraw.id,
+                projectId: selectedProjectId,
+                lines: enrichedLines,
+                invoiceCount: invoiceFiles.length
+              })
             })
           } catch (n8nError) {
             console.warn('N8N processing failed, draw created successfully:', n8nError)
