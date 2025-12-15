@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Budget, NahbCostCode } from '@/types/database'
+import { Budget, NahbCategory, NahbSubcategory } from '@/types/database'
 import { toast } from '@/app/components/ui/Toast'
 
 type BudgetEditorProps = {
@@ -16,6 +16,7 @@ type BudgetEditorProps = {
 type EditableBudget = Budget & {
   isNew?: boolean
   isDirty?: boolean
+  category_id?: string | null  // Track selected category ID
 }
 
 export function BudgetEditor({ 
@@ -26,34 +27,66 @@ export function BudgetEditor({
   onUploadClick 
 }: BudgetEditorProps) {
   const [editableBudgets, setEditableBudgets] = useState<EditableBudget[]>([])
-  const [nahbCodes, setNahbCodes] = useState<NahbCostCode[]>([])
+  const [categories, setCategories] = useState<NahbCategory[]>([])
+  const [subcategories, setSubcategories] = useState<NahbSubcategory[]>([])
   const [saving, setSaving] = useState(false)
   const [editingCell, setEditingCell] = useState<{id: string, field: string} | null>(null)
   
   // Track which row's subcategory dropdown should auto-open
   const [openSubcategoryDropdown, setOpenSubcategoryDropdown] = useState<string | null>(null)
 
-  // Load NAHB codes
+  // Load categories and subcategories from new hierarchical tables
   useEffect(() => {
-    loadNahbCodes()
+    loadCategoriesAndSubcategories()
   }, [])
 
-  // Sync budgets to editable state
+  // Sync budgets to editable state with backward compatibility matching
   useEffect(() => {
-    setEditableBudgets(budgets.map(b => ({ ...b, isDirty: false, isNew: false })))
-  }, [budgets])
+    const enrichedBudgets = budgets.map(b => {
+      // Try to find category_id from subcategory_id or legacy text matching
+      let categoryId = null
+      
+      if (b.subcategory_id) {
+        // If we have subcategory_id, look up the category
+        const sub = subcategories.find(s => s.id === b.subcategory_id)
+        categoryId = sub?.category_id || null
+      } else if (b.nahb_category) {
+        // Legacy: try to match category by name (normalize by removing code prefix)
+        const normalizedCatName = b.nahb_category.replace(/^\d{4}\s*[–-]\s*/, '').trim()
+        const matchedCat = categories.find(c => 
+          c.name === b.nahb_category || 
+          c.name === normalizedCatName ||
+          c.name.toLowerCase() === normalizedCatName.toLowerCase()
+        )
+        categoryId = matchedCat?.id || null
+      }
+      
+      return { ...b, isDirty: false, isNew: false, category_id: categoryId }
+    })
+    setEditableBudgets(enrichedBudgets)
+  }, [budgets, categories, subcategories])
 
-  const loadNahbCodes = async () => {
+  const loadCategoriesAndSubcategories = async () => {
     try {
-      const { data, error } = await supabase
-        .from('nahb_cost_codes')
+      // Load categories
+      const { data: catData, error: catError } = await supabase
+        .from('nahb_categories')
         .select('*')
         .order('sort_order', { ascending: true })
 
-      if (error) throw error
-      setNahbCodes((data as NahbCostCode[]) || [])
+      if (catError) throw catError
+      setCategories((catData as NahbCategory[]) || [])
+
+      // Load subcategories
+      const { data: subData, error: subError } = await supabase
+        .from('nahb_subcategories')
+        .select('*')
+        .order('sort_order', { ascending: true })
+
+      if (subError) throw subError
+      setSubcategories((subData as NahbSubcategory[]) || [])
     } catch (err) {
-      console.error('Error loading NAHB codes:', err)
+      console.error('Error loading categories:', err)
     }
   }
 
@@ -71,15 +104,30 @@ export function BudgetEditor({
     return editableBudgets.reduce((sum, b) => sum + (b.current_amount || 0), 0)
   }, [editableBudgets])
 
-  // Get unique categories from NAHB codes for the category dropdown
-  const uniqueCategories = useMemo(() => {
-    const cats = new Set(nahbCodes.map(c => c.category))
-    return Array.from(cats).sort()
-  }, [nahbCodes])
+  // Get subcategories filtered by selected category ID
+  const getSubcategoriesForCategory = (categoryId: string | null) => {
+    if (!categoryId) return []
+    return subcategories.filter(s => s.category_id === categoryId)
+  }
 
-  // Get subcategories filtered by selected category
-  const getSubcategoriesForCategory = (category: string) => {
-    return nahbCodes.filter(c => c.category === category)
+  // Helper to find matching subcategory for legacy budgets
+  const findMatchingSubcategory = (budget: EditableBudget): NahbSubcategory | null => {
+    if (budget.subcategory_id) {
+      return subcategories.find(s => s.id === budget.subcategory_id) || null
+    }
+    // Legacy: try to match by subcategory name or cost_code
+    if (budget.nahb_subcategory) {
+      const normalizedSubName = budget.nahb_subcategory.replace(/^\d{4}\s*/, '').trim()
+      return subcategories.find(s => 
+        s.name === budget.nahb_subcategory ||
+        s.name === normalizedSubName ||
+        s.name.toLowerCase() === normalizedSubName.toLowerCase()
+      ) || null
+    }
+    if (budget.cost_code) {
+      return subcategories.find(s => s.code === budget.cost_code) || null
+    }
+    return null
   }
 
   const handleAmountChange = (budgetId: string, value: string) => {
@@ -100,37 +148,43 @@ export function BudgetEditor({
   }
 
   // Handle category change - clears subcategory and code, opens subcategory dropdown
-  const handleCategoryChange = (budgetId: string, category: string) => {
+  const handleCategoryChange = (budgetId: string, categoryId: string) => {
+    const cat = categories.find(c => c.id === categoryId)
     setEditableBudgets(prev => prev.map(b => 
       b.id === budgetId 
         ? { 
             ...b, 
-            nahb_category: category || null,
+            category_id: categoryId || null,
+            nahb_category: cat?.name || null,
             nahb_subcategory: null,
+            subcategory_id: null,
             cost_code: null,
-            category: category || b.category,
+            category: cat?.name || b.category,
             isDirty: true 
           }
         : b
     ))
     // Auto-open subcategory dropdown for this row
-    if (category) {
+    if (categoryId) {
       setOpenSubcategoryDropdown(budgetId)
     } else {
       setOpenSubcategoryDropdown(null)
     }
   }
 
-  // Handle subcategory change - auto-fills the code
-  const handleSubcategoryChange = (budgetId: string, subcategory: string) => {
-    const nahbCode = nahbCodes.find(n => n.subcategory === subcategory)
+  // Handle subcategory change - auto-fills the code and category
+  const handleSubcategoryChange = (budgetId: string, subcategoryId: string) => {
+    const sub = subcategories.find(s => s.id === subcategoryId)
+    const cat = sub ? categories.find(c => c.id === sub.category_id) : null
     setEditableBudgets(prev => prev.map(b => 
       b.id === budgetId 
         ? { 
             ...b, 
-            nahb_subcategory: subcategory || null,
-            cost_code: nahbCode?.code || null,
-            category: nahbCode?.category || b.category,
+            subcategory_id: subcategoryId || null,
+            nahb_subcategory: sub?.name || null,
+            cost_code: sub?.code || null,
+            nahb_category: cat?.name || b.nahb_category,
+            category: cat?.name || b.category,
             isDirty: true 
           }
         : b
@@ -146,6 +200,7 @@ export function BudgetEditor({
       category: '',
       nahb_category: null,
       nahb_subcategory: null,
+      subcategory_id: null,
       builder_category_raw: '',
       original_amount: 0,
       current_amount: 0,
@@ -159,6 +214,7 @@ export function BudgetEditor({
       updated_at: new Date().toISOString(),
       isNew: true,
       isDirty: true,
+      category_id: null,
     }
     setEditableBudgets(prev => [...prev, newBudget])
   }
@@ -218,6 +274,7 @@ export function BudgetEditor({
           category: budget.category || budget.nahb_category || 'Uncategorized',
           nahb_category: budget.nahb_category,
           nahb_subcategory: budget.nahb_subcategory,
+          subcategory_id: budget.subcategory_id || null,
           builder_category_raw: budget.builder_category_raw || null,
           original_amount: budget.original_amount || budget.current_amount,
           current_amount: budget.current_amount,
@@ -376,13 +433,13 @@ export function BudgetEditor({
                   <td className="table-cell">
                     {isEditing ? (
                       <select
-                        value={budget.nahb_category || ''}
+                        value={budget.category_id || ''}
                         onChange={(e) => handleCategoryChange(budget.id, e.target.value)}
                         className="input w-full text-sm"
                       >
                         <option value="">Select category...</option>
-                        {uniqueCategories.map(cat => (
-                          <option key={cat} value={cat}>{cat}</option>
+                        {categories.map(cat => (
+                          <option key={cat.id} value={cat.id}>{cat.code} – {cat.name}</option>
                         ))}
                       </select>
                     ) : (
@@ -397,15 +454,15 @@ export function BudgetEditor({
                     {isEditing ? (
                       <select
                         ref={openSubcategoryDropdown === budget.id ? (el) => { if (el) { el.focus(); el.click(); } } : undefined}
-                        value={budget.nahb_subcategory || ''}
+                        value={budget.subcategory_id || findMatchingSubcategory(budget)?.id || ''}
                         onChange={(e) => handleSubcategoryChange(budget.id, e.target.value)}
                         className="input w-full text-sm"
-                        disabled={!budget.nahb_category}
+                        disabled={!budget.category_id}
                         onBlur={() => setOpenSubcategoryDropdown(null)}
                       >
                         <option value="">Select subcategory...</option>
-                        {getSubcategoriesForCategory(budget.nahb_category || '').map(code => (
-                          <option key={code.code} value={code.subcategory || ''}>{code.subcategory}</option>
+                        {getSubcategoriesForCategory(budget.category_id || null).map(sub => (
+                          <option key={sub.id} value={sub.id}>{sub.code} – {sub.name}</option>
                         ))}
                       </select>
                     ) : (
