@@ -5,7 +5,8 @@ import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Builder, DrawRequest, Project, WireBatch } from '@/types/database'
-import { DashboardNavButton } from '@/app/components/ui/DashboardNavButton'
+import { DashboardHeader } from '@/app/components/ui/DashboardHeader'
+import { DrawStatusSelector } from '@/app/components/ui/DrawStatusSelector'
 import { DrawFilterSidebar } from '@/app/components/ui/DrawFilterSidebar'
 import { DrawStatsBar } from '@/app/components/ui/DrawStatsBar'
 
@@ -137,6 +138,19 @@ function StagingDashboardContent() {
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  // Calculate status counts for DrawStatusSelector
+  const statusCounts = useMemo(() => {
+    const reviewCount = pendingReview.length
+    const stagedCount = stagedByBuilder.reduce((sum, b) => sum + b.stagedDraws.length, 0)
+    const wireCount = pendingWireBatches.length
+    return {
+      all: reviewCount + stagedCount + wireCount,
+      review: reviewCount,
+      staged: stagedCount,
+      pending_wire: wireCount
+    }
+  }, [pendingReview, stagedByBuilder, pendingWireBatches])
 
   // Build builder filter options with cross-filtering
   const builderFilters = useMemo(() => {
@@ -367,32 +381,27 @@ function StagingDashboardContent() {
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto">
         <div className="p-6">
-          {/* Header with Navigation */}
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-6">
-              <DashboardNavButton 
-                href="/" 
-                label="Portfolio" 
-                icon="home" 
-                direction="left" 
+          {/* Dashboard Header */}
+          <DashboardHeader
+            title="Draw Dashboard"
+            subtitle="Manage draw requests and wire funding"
+            toggleElement={
+              <DrawStatusSelector
+                value={selectedStatus}
+                onChange={setSelectedStatus}
+                counts={statusCounts}
               />
-              <div>
-                <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                  Draw Dashboard
-                </h1>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                  Manage draw requests and wire funding
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <a href="/builders/new" className="btn-secondary">+ Builder</a>
-              <a href="/projects/new" className="btn-secondary">+ Project</a>
-              <a href="/draws/new" className="btn-primary">+ Draw Request</a>
-            </div>
-          </div>
+            }
+            actions={
+              <>
+                <a href="/builders/new" className="btn-secondary">+ Builder</a>
+                <a href="/projects/new" className="btn-secondary">+ Project</a>
+                <a href="/draws/new" className="btn-primary">+ Draw Request</a>
+              </>
+            }
+          />
 
-          {/* Stats Bar */}
+          {/* Stats Bar with Nav Button on Left */}
           <DrawStatsBar
             pendingReviewCount={summaryStats.pendingReview}
             pendingReviewAmount={summaryStats.pendingReviewAmount}
@@ -400,6 +409,12 @@ function StagingDashboardContent() {
             stagedAmount={summaryStats.stagedAmount}
             pendingWireCount={summaryStats.pendingWires}
             pendingWireAmount={summaryStats.pendingWireAmount}
+            navButton={{
+              href: '/',
+              label: 'Portfolio',
+              icon: 'home',
+              position: 'left'
+            }}
           />
 
           {/* Content Sections */}
@@ -579,8 +594,6 @@ function StagingDashboardContent() {
 
       {/* Right Sidebar - Filter Panel */}
       <DrawFilterSidebar
-        selectedStatus={selectedStatus}
-        onStatusChange={setSelectedStatus}
         builderFilters={builderFilters}
         selectedBuilders={selectedBuilders}
         onBuilderFilterChange={handleBuilderFilterChange}

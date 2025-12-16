@@ -2,6 +2,13 @@
 
 import { motion } from 'framer-motion'
 
+type NavButtonConfig = {
+  href: string
+  label: string
+  icon: 'home' | 'chart'
+  position: 'left' | 'right'
+}
+
 type DrawStatsBarProps = {
   pendingReviewCount: number
   pendingReviewAmount: number
@@ -9,6 +16,20 @@ type DrawStatsBarProps = {
   stagedAmount: number
   pendingWireCount: number
   pendingWireAmount: number
+  navButton?: NavButtonConfig
+}
+
+const icons = {
+  home: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+    </svg>
+  ),
+  chart: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  ),
 }
 
 function formatCurrency(amount: number): string {
@@ -26,15 +47,6 @@ function formatCurrency(amount: number): string {
   }).format(amount)
 }
 
-function formatFullCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
-
 export function DrawStatsBar({
   pendingReviewCount,
   pendingReviewAmount,
@@ -42,6 +54,7 @@ export function DrawStatsBar({
   stagedAmount,
   pendingWireCount,
   pendingWireAmount,
+  navButton,
 }: DrawStatsBarProps) {
   const totalAmount = pendingReviewAmount + stagedAmount + pendingWireAmount
   const totalCount = pendingReviewCount + stagedCount + pendingWireCount
@@ -50,6 +63,42 @@ export function DrawStatsBar({
   const fundedPercentage = totalAmount > 0 
     ? ((stagedAmount + pendingWireAmount) / totalAmount) * 100 
     : 0
+
+  // Render nav button
+  const renderNavButton = () => {
+    if (!navButton) return null
+    
+    const isLeft = navButton.position === 'left'
+    
+    return (
+      <motion.a
+        href={navButton.href}
+        className="flex items-center gap-3 px-6 py-3 rounded-ios font-semibold transition-all"
+        style={{ 
+          background: 'var(--accent)',
+          color: 'white',
+          boxShadow: '0 4px 14px rgba(59, 130, 246, 0.35)'
+        }}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+      >
+        {isLeft && (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        )}
+        {icons[navButton.icon]}
+        <span>{navButton.label}</span>
+        {!isLeft && (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        )}
+      </motion.a>
+    )
+  }
+
+  const isLeftNav = navButton?.position === 'left'
 
   return (
     <motion.div
@@ -62,6 +111,12 @@ export function DrawStatsBar({
       }}
     >
       <div className="flex items-center justify-between gap-6">
+        {/* Nav button on left if configured */}
+        {isLeftNav && renderNavButton()}
+        {isLeftNav && navButton && (
+          <div className="w-px h-12" style={{ background: 'var(--border-subtle)' }} />
+        )}
+
         {/* Pending Review */}
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
@@ -160,6 +215,12 @@ export function DrawStatsBar({
             />
           </div>
         </div>
+
+        {/* Nav button on right if configured */}
+        {!isLeftNav && navButton && (
+          <div className="w-px h-12" style={{ background: 'var(--border-subtle)' }} />
+        )}
+        {!isLeftNav && renderNavButton()}
       </div>
     </motion.div>
   )

@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import type { LifecycleStage } from '@/types/database'
 
@@ -15,13 +14,33 @@ type ProjectStats = {
   irr?: number | null
 }
 
+type NavButtonConfig = {
+  href: string
+  label: string
+  icon: 'home' | 'chart'
+  position: 'left' | 'right'
+}
+
 type StageStatsBarProps = {
   stage: LifecycleStage
   projects: ProjectStats[]
+  navButton?: NavButtonConfig
 }
 
-export function StageStatsBar({ stage, projects }: StageStatsBarProps) {
-  const router = useRouter()
+const icons = {
+  home: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+    </svg>
+  ),
+  chart: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  ),
+}
+
+export function StageStatsBar({ stage, projects, navButton }: StageStatsBarProps) {
   const [hoveredSegment, setHoveredSegment] = useState<string | null>(null)
 
   const stats = useMemo(() => {
@@ -215,11 +234,53 @@ export function StageStatsBar({ stage, projects }: StageStatsBarProps) {
     return null
   }
 
+  // Render nav button
+  const renderNavButton = () => {
+    if (!navButton) return null
+    
+    const isLeft = navButton.position === 'left'
+    
+    return (
+      <motion.a
+        href={navButton.href}
+        className="flex items-center gap-3 px-6 py-3 rounded-ios font-semibold transition-all"
+        style={{ 
+          background: 'var(--accent)',
+          color: 'white',
+          boxShadow: '0 4px 14px rgba(59, 130, 246, 0.35)'
+        }}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+      >
+        {isLeft && (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        )}
+        {icons[navButton.icon]}
+        <span>{navButton.label}</span>
+        {!isLeft && (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        )}
+      </motion.a>
+    )
+  }
+
+  const isLeftNav = navButton?.position === 'left'
+
   return (
-    <div 
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
       className="flex items-center gap-6 p-4 rounded-ios-sm"
       style={{ background: 'var(--bg-card)' }}
     >
+      {/* Nav button on left if configured */}
+      {isLeftNav && renderNavButton()}
+      {isLeftNav && navButton && <div className="w-px h-10" style={{ background: 'var(--border)' }} />}
+
       {/* Count */}
       <div>
         <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -264,25 +325,9 @@ export function StageStatsBar({ stage, projects }: StageStatsBarProps) {
       {/* Visual Element */}
       {renderVisualElement()}
       
-      {/* Draw Dashboard Button */}
+      {/* Spacer and nav button on right if configured */}
       <div className="flex-1" />
-      <button 
-        onClick={() => router.push('/staging')}
-        className="flex items-center gap-3 px-6 py-3 rounded-ios font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
-        style={{ 
-          background: 'var(--accent)',
-          color: 'white',
-          boxShadow: '0 4px 14px rgba(59, 130, 246, 0.35)'
-        }}
-      >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-        Draw Dashboard
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
-    </div>
+      {!isLeftNav && renderNavButton()}
+    </motion.div>
   )
 }
