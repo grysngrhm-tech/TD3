@@ -217,18 +217,20 @@ type AmortizationProjectFinancials = {
 
 /**
  * Amortization schedule row type
+ * Supports compound interest with monthly and draw-event accrual
  */
 export type AmortizationRow = {
   date: Date
-  drawNumber: number | null  // null for payoff row or fee rows
-  type: 'draw' | 'interest' | 'fee' | 'payoff'
+  drawNumber: number | null      // null for month-end or payoff rows
+  type: 'draw' | 'month_end' | 'payoff' | 'current'
   description: string
-  amount: number             // draw amount, interest, or fee
-  days: number               // days since previous row
-  interest: number           // interest accrued for this period
-  feeRate: number            // current fee rate (with escalation)
-  balance: number            // running principal balance
-  cumulativeInterest: number // total interest accrued to date
+  drawAmount: number             // draw amount only (0 for non-draw rows)
+  days: number                   // days since LAST ACCRUAL event
+  accruedInterest: number        // interest accrued THIS period
+  totalInterest: number          // cumulative interest to date (compound)
+  feeRate: number                // current fee rate (with escalation)
+  principal: number              // sum of all draws to date
+  totalBalance: number           // principal + totalInterest (compound balance)
 }
 
 /**
@@ -316,18 +318,59 @@ export function calculateCurrentFeeRate(
 
 /**
  * Calculate per diem (daily interest amount)
+ * Now calculates on total balance (principal + accrued interest) for compound interest
  */
 export function calculatePerDiem(
-  principalBalance: number,
+  totalBalance: number,
   annualRate: number
 ): number {
-  if (principalBalance <= 0 || annualRate <= 0) return 0
-  return (principalBalance * annualRate) / 365
+  if (totalBalance <= 0 || annualRate <= 0) return 0
+  return (totalBalance * annualRate) / 365
 }
 
 /**
- * Calculate amortization schedule from draw lines
- * Uses draw_request_lines for granular interest tracking
+ * Generate month-end dates for interest accrual
+ * Returns the last day of each month from startDate through endDate
+ */
+function generateMonthEndDates(startDate: Date, endDate: Date): Date[] {
+  const monthEnds: Date[] = []
+  
+  // Start from the month of startDate
+  let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
+  
+  while (current <= endDate) {
+    // Get last day of current month
+    const lastDay = new Date(current.getFullYear(), current.getMonth() + 1, 0)
+    // Only include if it's after startDate and on or before endDate
+    if (lastDay > startDate && lastDay <= endDate) {
+      monthEnds.push(lastDay)
+    }
+    // Move to next month
+    current.setMonth(current.getMonth() + 1)
+  }
+  
+  return monthEnds
+}
+
+/**
+ * Accrual event type for compound interest calculation
+ */
+type AccrualEvent = {
+  date: Date
+  type: 'draw' | 'month_end' | 'current' | 'payoff'
+  drawAmount: number
+  drawNumber: number | null
+  description: string
+}
+
+/**
+ * Calculate amortization schedule with COMPOUND INTEREST
+ * Interest accrues at two trigger points:
+ * 1. Last day of each calendar month
+ * 2. When a new draw is funded
+ * 
+ * When interest accrues, it's added to the balance
+ * Interest is charged on total balance (principal + all previously accrued interest)
  */
 export function calculateAmortizationSchedule(
   drawLines: DrawLineWithDate[],
@@ -339,9 +382,9 @@ export function calculateAmortizationSchedule(
   const annualRate = project.interest_rate_annual || 0
   const dailyRate = annualRate / 365
   const baseFeeRate = project.origination_fee_pct || 0
-  const loanStartDate = project.loan_start_date ? new Date(project.loan_start_date) : null
+  const feeStartDate = project.loan_start_date ? new Date(project.loan_start_date) : null
   
-  if (!loanStartDate || drawLines.length === 0) {
+  if (!feeStartDate || drawLines.length === 0) {
     return schedule
   }
   
@@ -350,75 +393,135 @@ export function calculateAmortizationSchedule(
     new Date(a.date).getTime() - new Date(b.date).getTime()
   )
   
-  let runningBalance = 0
-  let cumulativeInterest = 0
-  let previousDate = loanStartDate
+  // Determine the date range for month-end events
+  const firstDrawDate = new Date(sortedDraws[0].date)
+  const endDate = payoffDate || new Date()
   
-  // Process each draw
+  // Generate all accrual events
+  const events: AccrualEvent[] = []
+  
+  // Add draw events
   for (const draw of sortedDraws) {
-    const drawDate = new Date(draw.date)
-    const days = Math.max(0, Math.floor((drawDate.getTime() - previousDate.getTime()) / (1000 * 60 * 60 * 24)))
+    events.push({
+      date: new Date(draw.date),
+      type: 'draw',
+      drawAmount: draw.amount,
+      drawNumber: draw.drawNumber || null,
+      description: draw.drawNumber ? `Draw #${draw.drawNumber}` : 'Draw',
+    })
+  }
+  
+  // Add month-end events (interest accrues at end of each month)
+  const monthEnds = generateMonthEndDates(firstDrawDate, endDate)
+  for (const monthEnd of monthEnds) {
+    // Check if this month-end coincides with a draw date
+    const sameDayDraw = events.find(e => 
+      e.type === 'draw' && 
+      e.date.getFullYear() === monthEnd.getFullYear() &&
+      e.date.getMonth() === monthEnd.getMonth() &&
+      e.date.getDate() === monthEnd.getDate()
+    )
     
-    // Calculate interest for the period before this draw
-    const periodInterest = runningBalance * dailyRate * days
-    cumulativeInterest += periodInterest
+    // Only add month-end if there's no draw on the same day
+    // (draw events already trigger accrual)
+    if (!sameDayDraw) {
+      events.push({
+        date: monthEnd,
+        type: 'month_end',
+        drawAmount: 0,
+        drawNumber: null,
+        description: monthEnd.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) + ' End',
+      })
+    }
+  }
+  
+  // Add final "Current" or "Payoff" event if not already on the last event date
+  const lastEventDate = events.length > 0 
+    ? events.reduce((max, e) => e.date > max ? e.date : max, events[0].date)
+    : firstDrawDate
+    
+  const isSameDay = (d1: Date, d2: Date) => 
+    d1.getFullYear() === d2.getFullYear() && 
+    d1.getMonth() === d2.getMonth() && 
+    d1.getDate() === d2.getDate()
+  
+  if (!isSameDay(lastEventDate, endDate)) {
+    events.push({
+      date: endDate,
+      type: payoffDate ? 'payoff' : 'current',
+      drawAmount: 0,
+      drawNumber: null,
+      description: payoffDate ? 'Payoff' : 'Current',
+    })
+  }
+  
+  // Sort all events chronologically
+  events.sort((a, b) => a.date.getTime() - b.date.getTime())
+  
+  // Process events with compound interest
+  let principal = 0
+  let totalInterest = 0
+  let totalBalance = 0
+  let previousAccrualDate = firstDrawDate
+  let isFirstEvent = true
+  
+  for (const event of events) {
+    // Calculate days since last accrual
+    // For first draw: 1 day (interest accrues on funding day)
+    // For subsequent events: actual days between accrual points
+    let days: number
+    if (isFirstEvent && event.type === 'draw') {
+      days = 1  // First draw has 1 day of interest (funding day)
+    } else {
+      days = Math.max(0, Math.floor(
+        (event.date.getTime() - previousAccrualDate.getTime()) / (1000 * 60 * 60 * 24)
+      ))
+    }
+    
+    // Calculate interest for this period on TOTAL BALANCE (compound!)
+    const accruedInterest = totalBalance * dailyRate * days
+    
+    // Add interest to totals (compound: interest added to balance)
+    totalInterest += accruedInterest
+    totalBalance += accruedInterest
+    
+    // If this is a draw, add to principal and balance
+    if (event.type === 'draw') {
+      principal += event.drawAmount
+      totalBalance += event.drawAmount
+    }
     
     // Get current fee rate
     const { rate: currentFeeRate } = calculateCurrentFeeRate(
       baseFeeRate,
-      loanStartDate,
-      drawDate
+      feeStartDate,
+      event.date
     )
     
-    // Add draw row
-    runningBalance += draw.amount
-    
+    // Add row to schedule
     schedule.push({
-      date: drawDate,
-      drawNumber: draw.drawNumber || null,
-      type: 'draw',
-      description: draw.drawNumber ? `Draw #${draw.drawNumber}` : 'Draw',
-      amount: draw.amount,
+      date: event.date,
+      drawNumber: event.drawNumber,
+      type: event.type,
+      description: event.description,
+      drawAmount: event.drawAmount,
       days,
-      interest: periodInterest,
+      accruedInterest,
+      totalInterest,
       feeRate: currentFeeRate,
-      balance: runningBalance,
-      cumulativeInterest,
+      principal,
+      totalBalance,
     })
     
-    previousDate = drawDate
+    previousAccrualDate = event.date
+    isFirstEvent = false
   }
-  
-  // Add payoff row if date provided
-  const endDate = payoffDate || new Date()
-  const finalDays = Math.max(0, Math.floor((endDate.getTime() - previousDate.getTime()) / (1000 * 60 * 60 * 24)))
-  const finalInterest = runningBalance * dailyRate * finalDays
-  cumulativeInterest += finalInterest
-  
-  const { rate: finalFeeRate } = calculateCurrentFeeRate(
-    baseFeeRate,
-    loanStartDate,
-    endDate
-  )
-  
-  schedule.push({
-    date: endDate,
-    drawNumber: null,
-    type: payoffDate ? 'payoff' : 'interest',
-    description: payoffDate ? 'Payoff' : 'Current',
-    amount: 0,
-    days: finalDays,
-    interest: finalInterest,
-    feeRate: finalFeeRate,
-    balance: runningBalance,
-    cumulativeInterest,
-  })
   
   return schedule
 }
 
 /**
- * Project interest at a future date
+ * Project interest at a future date (compound interest)
  */
 export function projectInterestAtDate(
   currentSchedule: AmortizationRow[],
@@ -430,27 +533,28 @@ export function projectInterestAtDate(
   }
   
   const lastRow = currentSchedule[currentSchedule.length - 1]
-  const balance = lastRow.balance
-  const currentInterest = lastRow.cumulativeInterest
+  const totalBalance = lastRow.totalBalance
+  const currentInterest = lastRow.totalInterest
   
   const daysDiff = Math.max(0, Math.floor(
     (targetDate.getTime() - lastRow.date.getTime()) / (1000 * 60 * 60 * 24)
   ))
   
   const dailyRate = annualRate / 365
-  const additionalInterest = balance * dailyRate * daysDiff
-  const perDiem = calculatePerDiem(balance, annualRate)
+  // Compound: interest calculated on total balance (includes prior interest)
+  const additionalInterest = totalBalance * dailyRate * daysDiff
+  const perDiem = calculatePerDiem(totalBalance, annualRate)
   
   return {
     interest: currentInterest + additionalInterest,
-    total: balance + currentInterest + additionalInterest,
+    total: totalBalance + additionalInterest,
     daysDiff,
     perDiem,
   }
 }
 
 /**
- * Simulate adding a new draw to the schedule
+ * Simulate adding a new draw to the schedule (compound interest)
  */
 export function simulateNextDraw(
   currentSchedule: AmortizationRow[],
@@ -471,22 +575,24 @@ export function simulateNextDraw(
   const annualRate = project.interest_rate_annual || 0
   const dailyRate = annualRate / 365
   const baseFeeRate = project.origination_fee_pct || 0
-  const loanStartDate = project.loan_start_date ? new Date(project.loan_start_date) : new Date()
+  const feeStartDate = project.loan_start_date ? new Date(project.loan_start_date) : new Date()
   
   // Calculate days since last entry
   const days = Math.max(0, Math.floor(
     (drawDate.getTime() - lastRow.date.getTime()) / (1000 * 60 * 60 * 24)
   ))
   
-  // Calculate interest for the period
-  const periodInterest = lastRow.balance * dailyRate * days
-  const newCumulativeInterest = lastRow.cumulativeInterest + periodInterest
-  const newBalance = lastRow.balance + drawAmount
+  // Calculate interest for the period (compound: on total balance)
+  const accruedInterest = lastRow.totalBalance * dailyRate * days
+  const newTotalInterest = lastRow.totalInterest + accruedInterest
+  const newPrincipal = lastRow.principal + drawAmount
+  // Compound: add interest to balance, then add draw
+  const newTotalBalance = lastRow.totalBalance + accruedInterest + drawAmount
   
   // Get current fee rate
   const { rate: currentFeeRate } = calculateCurrentFeeRate(
     baseFeeRate,
-    loanStartDate,
+    feeStartDate,
     drawDate
   )
   
@@ -504,12 +610,13 @@ export function simulateNextDraw(
     drawNumber: null, // Simulated
     type: 'draw',
     description: 'Simulated Draw',
-    amount: drawAmount,
+    drawAmount,
     days,
-    interest: periodInterest,
+    accruedInterest,
+    totalInterest: newTotalInterest,
     feeRate: currentFeeRate,
-    balance: newBalance,
-    cumulativeInterest: newCumulativeInterest,
+    principal: newPrincipal,
+    totalBalance: newTotalBalance,
   })
   
   // Add trailing "Current" row with interest accrued from simulated draw to today
@@ -517,24 +624,26 @@ export function simulateNextDraw(
   const daysAfterSimDraw = Math.max(0, Math.floor(
     (today.getTime() - drawDate.getTime()) / (1000 * 60 * 60 * 24)
   ))
-  const trailingInterest = newBalance * dailyRate * daysAfterSimDraw
+  // Compound: interest on the new total balance
+  const trailingInterest = newTotalBalance * dailyRate * daysAfterSimDraw
   const { rate: trailingFeeRate } = calculateCurrentFeeRate(
     baseFeeRate,
-    loanStartDate,
+    feeStartDate,
     today
   )
   
   newSchedule.push({
     date: today,
     drawNumber: null,
-    type: 'interest',
+    type: 'current',
     description: 'Current (Simulated)',
-    amount: 0,
+    drawAmount: 0,
     days: daysAfterSimDraw,
-    interest: trailingInterest,
+    accruedInterest: trailingInterest,
+    totalInterest: newTotalInterest + trailingInterest,
     feeRate: trailingFeeRate,
-    balance: newBalance,
-    cumulativeInterest: newCumulativeInterest + trailingInterest,
+    principal: newPrincipal,
+    totalBalance: newTotalBalance + trailingInterest,
   })
   
   return newSchedule
@@ -565,21 +674,24 @@ export function calculateOriginationFee(
 
 /**
  * Get amortization summary statistics
+ * Updated for compound interest with principal and totalBalance separation
  */
 export function getAmortizationSummary(schedule: AmortizationRow[]): {
   totalDraws: number
-  maxPrincipal: number
-  currentPrincipal: number
-  totalInterest: number
+  principal: number           // Sum of all draws
+  totalInterest: number       // Compound interest accrued
+  totalBalance: number        // Principal + Total Interest
+  maxBalance: number          // Max total balance reached
   totalDays: number
   avgDailyInterest: number
 } {
   if (schedule.length === 0) {
     return {
       totalDraws: 0,
-      maxPrincipal: 0,
-      currentPrincipal: 0,
+      principal: 0,
       totalInterest: 0,
+      totalBalance: 0,
+      maxBalance: 0,
       totalDays: 0,
       avgDailyInterest: 0,
     }
@@ -587,16 +699,17 @@ export function getAmortizationSummary(schedule: AmortizationRow[]): {
   
   const draws = schedule.filter(row => row.type === 'draw')
   const lastRow = schedule[schedule.length - 1]
-  const maxPrincipal = Math.max(...schedule.map(row => row.balance))
+  const maxBalance = Math.max(...schedule.map(row => row.totalBalance))
   const totalDays = schedule.reduce((sum, row) => sum + row.days, 0)
   
   return {
     totalDraws: draws.length,
-    maxPrincipal,
-    currentPrincipal: lastRow.balance,
-    totalInterest: lastRow.cumulativeInterest,
+    principal: lastRow.principal,
+    totalInterest: lastRow.totalInterest,
+    totalBalance: lastRow.totalBalance,
+    maxBalance,
     totalDays,
-    avgDailyInterest: totalDays > 0 ? lastRow.cumulativeInterest / totalDays : 0,
+    avgDailyInterest: totalDays > 0 ? lastRow.totalInterest / totalDays : 0,
   }
 }
 
@@ -663,13 +776,14 @@ export function calculatePayoffBreakdown(
   // Calculate fees
   const financeFee = loanAmount * feeRate
   const documentFee = terms.documentFee
-  const perDiem = calculatePerDiem(summary.currentPrincipal, annualRate)
+  // Per diem calculated on total balance (compound interest)
+  const perDiem = calculatePerDiem(summary.totalBalance, annualRate)
   
-  // Calculate total payoff
-  const totalPayoff = summary.currentPrincipal + summary.totalInterest + financeFee + documentFee
+  // Calculate total payoff (principal + interest already in totalBalance, plus fees)
+  const totalPayoff = summary.principal + summary.totalInterest + financeFee + documentFee
   
   return {
-    principalBalance: summary.currentPrincipal,
+    principalBalance: summary.principal,
     accruedInterest: summary.totalInterest,
     daysOfInterest: summary.totalDays,
     perDiem,

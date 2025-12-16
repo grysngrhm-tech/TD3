@@ -138,7 +138,8 @@ export function PolymorphicLoanDetails({
     )
 
     const summary = getAmortizationSummary(schedule)
-    const perDiem = calculatePerDiem(summary.currentPrincipal, project.interest_rate_annual || 0)
+    // Per diem calculated on total balance (compound interest)
+    const perDiem = calculatePerDiem(summary.totalBalance, project.interest_rate_annual || 0)
 
     // Calculate current month and fee rate
     let currentFeeRate = terms.baseFee
@@ -270,16 +271,21 @@ function BudgetView({ stats }: { stats: any }) {
 // Amortization View Component
 function AmortizationView({ stats, project }: { stats: any; project: Project }) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
       <StatCard
-        label="Principal Balance"
-        value={formatCurrency(stats.currentPrincipal)}
+        label="Principal"
+        value={formatCurrency(stats.principal)}
         color="var(--text-primary)"
       />
       <StatCard
         label="Total Interest"
         value={formatCurrencyPrecise(stats.totalInterest)}
         color="var(--warning)"
+      />
+      <StatCard
+        label="Total Balance"
+        value={formatCurrency(stats.totalBalance)}
+        color="var(--accent)"
       />
       <StatCard
         label="Per Diem"
