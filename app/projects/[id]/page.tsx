@@ -138,15 +138,9 @@ export default function ProjectDetailPage() {
         <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
           Project Not Found
         </h2>
-        <p className="mb-4" style={{ color: 'var(--text-muted)' }}>
+        <p style={{ color: 'var(--text-muted)' }}>
           This project may have been deleted or you don't have access.
         </p>
-        <button 
-          onClick={() => router.push('/')}
-          className="btn-primary"
-        >
-          Back to Dashboard
-        </button>
       </div>
     )
   }
@@ -159,18 +153,6 @@ export default function ProjectDetailPage() {
       {/* Header */}
       <div className="border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-secondary)' }}>
         <div className="max-w-6xl mx-auto px-6 py-6">
-          {/* Back button */}
-          <button 
-            onClick={() => router.push('/')}
-            className="flex items-center gap-1 text-sm mb-4 transition-colors hover:opacity-70"
-            style={{ color: 'var(--accent)' }}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Dashboard
-          </button>
-
           {/* Project title and stage */}
           <div className="flex items-start justify-between">
             <div>

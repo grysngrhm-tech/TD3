@@ -557,9 +557,6 @@ export default function DrawDetailPage() {
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>Draw Request Not Found</h2>
         <p style={{ color: 'var(--text-muted)' }} className="mt-2">The requested draw could not be found.</p>
-        <a href="/staging" className="btn-primary inline-block mt-4">
-          Back to Dashboard
-        </a>
       </div>
     )
   }
@@ -577,12 +574,6 @@ export default function DrawDetailPage() {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <a href="/staging" className="text-sm mb-2 inline-flex items-center gap-1 hover:opacity-80" style={{ color: 'var(--accent)' }}>
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Dashboard
-          </a>
           <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: 'var(--text-primary)' }}>
             Draw #{draw.draw_number} - {project?.project_code || project?.name}
             <span 

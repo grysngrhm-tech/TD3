@@ -121,9 +121,6 @@ export default function EditProjectPage() {
     return (
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold text-slate-900">Project Not Found</h2>
-        <a href="/projects" className="btn-primary inline-block mt-4">
-          Back to Projects
-        </a>
       </div>
     )
   }
@@ -132,12 +129,6 @@ export default function EditProjectPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <a href={`/projects/${projectId}`} className="text-primary-600 hover:text-primary-700 text-sm mb-2 inline-flex items-center gap-1">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Back to Project
-        </a>
         <h1 className="text-2xl font-bold text-slate-900">Edit Project</h1>
         <p className="text-slate-600 mt-1">Update project details and loan information</p>
       </div>
