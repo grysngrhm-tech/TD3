@@ -1,11 +1,15 @@
 'use client'
 
-import { useEffect, useState, useCallback, Suspense } from 'react'
+import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Builder, DrawRequest, Project, WireBatch } from '@/types/database'
-import { DRAW_STATUS_LABELS, DrawStatus } from '@/types/database'
+import { DashboardNavButton } from '@/app/components/ui/DashboardNavButton'
+import { DrawFilterSidebar } from '@/app/components/ui/DrawFilterSidebar'
+import { DrawStatsBar } from '@/app/components/ui/DrawStatsBar'
+
+type DrawStatus = 'all' | 'review' | 'staged' | 'pending_wire'
 
 type DrawWithProject = DrawRequest & {
   project?: Project & {
@@ -31,6 +35,10 @@ function StagingDashboardContent() {
   const [pendingReview, setPendingReview] = useState<DrawWithProject[]>([])
   const [stagedByBuilder, setStagedByBuilder] = useState<BuilderWithDraws[]>([])
   const [pendingWireBatches, setPendingWireBatches] = useState<WireBatchWithDetails[]>([])
+  
+  // Filter state
+  const [selectedStatus, setSelectedStatus] = useState<DrawStatus>('all')
+  const [selectedBuilders, setSelectedBuilders] = useState<string[]>([])
   
   // Bookkeeper modal state
   const [selectedBatch, setSelectedBatch] = useState<WireBatchWithDetails | null>(null)
@@ -130,6 +138,138 @@ function StagingDashboardContent() {
     loadData()
   }, [loadData])
 
+  // Build builder filter options with cross-filtering
+  const builderFilters = useMemo(() => {
+    const builderCounts = new Map<string, { name: string; count: number }>()
+    
+    // Count draws per builder based on selected status
+    const drawsToCount = selectedStatus === 'all' 
+      ? [...pendingReview, ...stagedByBuilder.flatMap(b => b.stagedDraws)]
+      : selectedStatus === 'review'
+        ? pendingReview
+        : selectedStatus === 'staged'
+          ? stagedByBuilder.flatMap(b => b.stagedDraws)
+          : pendingWireBatches.flatMap(b => b.draws || [])
+    
+    drawsToCount.forEach(draw => {
+      const builder = draw.project?.builder
+      if (builder) {
+        const existing = builderCounts.get(builder.id)
+        if (existing) {
+          existing.count++
+        } else {
+          builderCounts.set(builder.id, { name: builder.company_name, count: 1 })
+        }
+      }
+    })
+
+    // Add wire batch builders
+    if (selectedStatus === 'all' || selectedStatus === 'pending_wire') {
+      pendingWireBatches.forEach(batch => {
+        if (batch.builder) {
+          const existing = builderCounts.get(batch.builder.id)
+          if (existing) {
+            // Already counted from draws
+          } else {
+            builderCounts.set(batch.builder.id, { 
+              name: batch.builder.company_name, 
+              count: batch.draws?.length || 1 
+            })
+          }
+        }
+      })
+    }
+
+    // Get all builders for disabled state
+    const allBuilders = new Set<string>()
+    pendingReview.forEach(d => d.project?.builder && allBuilders.add(d.project.builder.id))
+    stagedByBuilder.forEach(b => allBuilders.add(b.id))
+    pendingWireBatches.forEach(b => b.builder && allBuilders.add(b.builder.id))
+
+    return Array.from(allBuilders).map(id => {
+      const counted = builderCounts.get(id)
+      const builder = pendingReview.find(d => d.project?.builder?.id === id)?.project?.builder
+        || stagedByBuilder.find(b => b.id === id)
+        || pendingWireBatches.find(b => b.builder?.id === id)?.builder
+      
+      return {
+        id,
+        label: counted?.name || builder?.company_name || 'Unknown',
+        count: counted?.count || 0,
+        disabled: !counted || counted.count === 0
+      }
+    })
+  }, [pendingReview, stagedByBuilder, pendingWireBatches, selectedStatus])
+
+  // Filter data based on selections
+  const filteredPendingReview = useMemo(() => {
+    if (selectedStatus !== 'all' && selectedStatus !== 'review') return []
+    
+    return pendingReview.filter(draw => {
+      if (selectedBuilders.length > 0) {
+        if (!draw.project?.builder || !selectedBuilders.includes(draw.project.builder.id)) {
+          return false
+        }
+      }
+      return true
+    })
+  }, [pendingReview, selectedStatus, selectedBuilders])
+
+  const filteredStagedByBuilder = useMemo(() => {
+    if (selectedStatus !== 'all' && selectedStatus !== 'staged') return []
+    
+    return stagedByBuilder
+      .filter(builder => {
+        if (selectedBuilders.length > 0 && !selectedBuilders.includes(builder.id)) {
+          return false
+        }
+        return true
+      })
+      .map(builder => ({
+        ...builder,
+        stagedDraws: builder.stagedDraws,
+        totalAmount: builder.stagedDraws.reduce((sum, d) => sum + d.total_amount, 0)
+      }))
+  }, [stagedByBuilder, selectedStatus, selectedBuilders])
+
+  const filteredPendingWireBatches = useMemo(() => {
+    if (selectedStatus !== 'all' && selectedStatus !== 'pending_wire') return []
+    
+    return pendingWireBatches.filter(batch => {
+      if (selectedBuilders.length > 0) {
+        if (!batch.builder || !selectedBuilders.includes(batch.builder.id)) {
+          return false
+        }
+      }
+      return true
+    })
+  }, [pendingWireBatches, selectedStatus, selectedBuilders])
+
+  // Calculate summary stats
+  const summaryStats = useMemo(() => {
+    const pendingReviewAmount = filteredPendingReview.reduce((sum, d) => sum + d.total_amount, 0)
+    const stagedAmount = filteredStagedByBuilder.reduce((sum, b) => sum + b.totalAmount, 0)
+    const pendingWireAmount = filteredPendingWireBatches.reduce((sum, b) => sum + b.total_amount, 0)
+    
+    return {
+      pendingReview: filteredPendingReview.length,
+      stagedDraws: filteredStagedByBuilder.reduce((sum, b) => sum + b.stagedDraws.length, 0),
+      pendingWires: filteredPendingWireBatches.length,
+      totalPendingAmount: pendingReviewAmount + stagedAmount + pendingWireAmount,
+      stagedAmount,
+      pendingWireAmount,
+      pendingReviewAmount,
+    }
+  }, [filteredPendingReview, filteredStagedByBuilder, filteredPendingWireBatches])
+
+  const handleBuilderFilterChange = (builderId: string) => {
+    setSelectedBuilders(prev => 
+      prev.includes(builderId) 
+        ? prev.filter(id => id !== builderId)
+        : [...prev, builderId]
+    )
+  }
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -223,170 +363,190 @@ function StagingDashboardContent() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)]" style={{ background: 'var(--bg-primary)' }}>
-      <div className="max-w-6xl mx-auto px-6 py-6">
-        {/* Header */}
-        <div className="flex justify-between items-start mb-8">
-          <div className="flex items-center gap-6">
-            {/* Home Button */}
-            <a 
-              href="/"
-              className="flex items-center gap-3 px-6 py-3 rounded-ios font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
-              style={{ 
-                background: 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border-primary)',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
-              }}
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              Home
-            </a>
-            <div>
-              <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                Staging Dashboard
-              </h1>
-              <p style={{ color: 'var(--text-muted)' }}>
-                Manage draw requests and wire funding
-              </p>
+    <div className="flex h-[calc(100vh-3.5rem)]">
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-6">
+          {/* Header with Navigation */}
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-6">
+              <DashboardNavButton 
+                href="/" 
+                label="Portfolio" 
+                icon="home" 
+                direction="left" 
+              />
+              <div>
+                <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                  Draw Dashboard
+                </h1>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  Manage draw requests and wire funding
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <a href="/builders/new" className="btn-secondary">+ Builder</a>
+              <a href="/projects/new" className="btn-secondary">+ Project</a>
+              <a href="/draws/new" className="btn-primary">+ Draw Request</a>
             </div>
           </div>
-          <div className="flex gap-3">
-            <a href="/builders/new" className="btn-secondary">+ Builder</a>
-            <a href="/projects/new" className="btn-secondary">+ Project</a>
-            <a href="/draws/new" className="btn-primary">+ Draw Request</a>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Pending Review */}
-            <div className="card overflow-hidden">
-              <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-primary)' }}>
-                <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                  <span className="w-2 h-2 rounded-full" style={{ background: 'var(--accent)' }}></span>
-                  Pending Review
-                  {pendingReview.length > 0 && (
-                    <span className="text-sm px-2 py-0.5 rounded" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
-                      {pendingReview.length}
-                    </span>
-                  )}
-                </h3>
-              </div>
+          {/* Stats Bar */}
+          <DrawStatsBar
+            pendingReviewCount={summaryStats.pendingReview}
+            pendingReviewAmount={summaryStats.pendingReviewAmount}
+            stagedCount={summaryStats.stagedDraws}
+            stagedAmount={summaryStats.stagedAmount}
+            pendingWireCount={summaryStats.pendingWires}
+            pendingWireAmount={summaryStats.pendingWireAmount}
+          />
 
-              {pendingReview.length === 0 ? (
-                <div className="p-8 text-center" style={{ color: 'var(--text-muted)' }}>
-                  No draws pending review
+          {/* Content Sections */}
+          <div className="space-y-6">
+            {/* Pending Review Section */}
+            {(selectedStatus === 'all' || selectedStatus === 'review') && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="card overflow-hidden"
+              >
+                <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                    <span className="w-2 h-2 rounded-full" style={{ background: 'var(--accent)' }}></span>
+                    Pending Review
+                    {filteredPendingReview.length > 0 && (
+                      <span className="text-sm px-2 py-0.5 rounded" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                        {filteredPendingReview.length}
+                      </span>
+                    )}
+                  </h3>
                 </div>
-              ) : (
-                <div className="divide-y" style={{ borderColor: 'var(--border-primary)' }}>
-                  {pendingReview.map(draw => (
-                    <a
-                      key={draw.id}
-                      href={`/draws/${draw.id}`}
-                      className="flex items-center justify-between p-4 hover:opacity-80 transition-opacity"
-                    >
-                      <div>
-                        <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                          Draw #{draw.draw_number}
-                        </span>
-                        <span className="mx-2" style={{ color: 'var(--text-muted)' }}>—</span>
-                        <span style={{ color: 'var(--text-secondary)' }}>
-                          {draw.project?.builder?.company_name || 'No Builder'}
-                        </span>
-                        <span className="mx-2" style={{ color: 'var(--text-muted)' }}>—</span>
-                        <span style={{ color: 'var(--text-muted)' }}>
-                          {draw.project?.project_code || draw.project?.name}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold" style={{ color: 'var(--text-primary)' }}>
-                          {formatCurrency(draw.total_amount)}
-                        </span>
-                        <svg className="w-5 h-5" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
 
-            {/* Staged by Builder */}
-            <div className="card overflow-hidden">
-              <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-primary)' }}>
-                <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                  <span className="w-2 h-2 rounded-full" style={{ background: 'var(--success)' }}></span>
-                  Staged by Builder
-                </h3>
-              </div>
-
-              {stagedByBuilder.length === 0 ? (
-                <div className="p-8 text-center" style={{ color: 'var(--text-muted)' }}>
-                  No draws staged for funding
-                </div>
-              ) : (
-                <div className="divide-y" style={{ borderColor: 'var(--border-primary)' }}>
-                  {stagedByBuilder.map(builder => (
-                    <div key={builder.id} className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <a
-                          href={`/builders/${builder.id}`}
-                          className="font-semibold hover:underline"
-                          style={{ color: 'var(--text-primary)' }}
-                        >
-                          {builder.company_name}
-                        </a>
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold" style={{ color: 'var(--success)' }}>
-                            {formatCurrency(builder.totalAmount)}
+                {filteredPendingReview.length === 0 ? (
+                  <div className="p-8 text-center" style={{ color: 'var(--text-muted)' }}>
+                    No draws pending review
+                  </div>
+                ) : (
+                  <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                    {filteredPendingReview.map(draw => (
+                      <a
+                        key={draw.id}
+                        href={`/draws/${draw.id}`}
+                        className="flex items-center justify-between p-4 hover:opacity-80 transition-opacity"
+                        style={{ background: 'transparent' }}
+                      >
+                        <div>
+                          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                            Draw #{draw.draw_number}
                           </span>
+                          <span className="mx-2" style={{ color: 'var(--text-muted)' }}>—</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>
+                            {draw.project?.builder?.company_name || 'No Builder'}
+                          </span>
+                          <span className="mx-2" style={{ color: 'var(--text-muted)' }}>—</span>
+                          <span style={{ color: 'var(--text-muted)' }}>
+                            {draw.project?.project_code || draw.project?.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                            {formatCurrency(draw.total_amount)}
+                          </span>
+                          <svg className="w-5 h-5" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* Staged by Builder Section */}
+            {(selectedStatus === 'all' || selectedStatus === 'staged') && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="card overflow-hidden"
+              >
+                <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                    <span className="w-2 h-2 rounded-full" style={{ background: 'var(--success)' }}></span>
+                    Staged by Builder
+                  </h3>
+                </div>
+
+                {filteredStagedByBuilder.length === 0 ? (
+                  <div className="p-8 text-center" style={{ color: 'var(--text-muted)' }}>
+                    No draws staged for funding
+                  </div>
+                ) : (
+                  <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                    {filteredStagedByBuilder.map(builder => (
+                      <div key={builder.id} className="p-4">
+                        <div className="flex items-center justify-between mb-3">
                           <a
                             href={`/builders/${builder.id}`}
-                            className="btn-secondary text-sm"
+                            className="font-semibold hover:underline"
+                            style={{ color: 'var(--text-primary)' }}
                           >
-                            Fund All →
+                            {builder.company_name}
                           </a>
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold" style={{ color: 'var(--success)' }}>
+                              {formatCurrency(builder.totalAmount)}
+                            </span>
+                            <a
+                              href={`/builders/${builder.id}`}
+                              className="btn-secondary text-sm"
+                            >
+                              Fund All →
+                            </a>
+                          </div>
+                        </div>
+                        <div className="space-y-1 text-sm">
+                          {builder.stagedDraws.map(draw => (
+                            <div key={draw.id} className="flex justify-between" style={{ color: 'var(--text-muted)' }}>
+                              <span>{draw.project?.project_code || draw.project?.name} - Draw #{draw.draw_number}</span>
+                              <span>{formatCurrency(draw.total_amount)}</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                      <div className="space-y-1 text-sm">
-                        {builder.stagedDraws.map(draw => (
-                          <div key={draw.id} className="flex justify-between" style={{ color: 'var(--text-muted)' }}>
-                            <span>{draw.project?.project_code || draw.project?.name} - Draw #{draw.draw_number}</span>
-                            <span>{formatCurrency(draw.total_amount)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            )}
 
-          {/* Sidebar - Pending Wire Batches (Bookkeeper View) */}
-          <div className="space-y-6">
-            <div className="card overflow-hidden">
-              <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-primary)', background: 'rgba(245, 158, 11, 0.1)' }}>
-                <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--warning)' }}>
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Pending Wire Confirmation
-                </h3>
-              </div>
-
-              {pendingWireBatches.length === 0 ? (
-                <div className="p-8 text-center" style={{ color: 'var(--text-muted)' }}>
-                  No pending wire batches
+            {/* Pending Wire Batches Section */}
+            {(selectedStatus === 'all' || selectedStatus === 'pending_wire') && filteredPendingWireBatches.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="card overflow-hidden"
+              >
+                <div 
+                  className="px-4 py-3 border-b"
+                  style={{ borderColor: 'var(--border-subtle)', background: 'rgba(245, 158, 11, 0.1)' }}
+                >
+                  <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--warning)' }}>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Pending Wire Confirmation
+                    <span className="text-sm px-2 py-0.5 rounded" style={{ background: 'rgba(245, 158, 11, 0.2)' }}>
+                      {filteredPendingWireBatches.length}
+                    </span>
+                  </h3>
                 </div>
-              ) : (
-                <div className="divide-y" style={{ borderColor: 'var(--border-primary)' }}>
-                  {pendingWireBatches.map(batch => (
+
+                <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                  {filteredPendingWireBatches.map(batch => (
                     <button
                       key={batch.id}
                       onClick={() => setSelectedBatch(batch)}
@@ -411,38 +571,22 @@ function StagingDashboardContent() {
                     </button>
                   ))}
                 </div>
-              )}
-            </div>
-
-            {/* Quick Stats */}
-            <div className="card p-4">
-              <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Summary</h3>
-              <dl className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <dt style={{ color: 'var(--text-muted)' }}>Pending Review</dt>
-                  <dd className="font-medium" style={{ color: 'var(--text-primary)' }}>{pendingReview.length}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt style={{ color: 'var(--text-muted)' }}>Staged Draws</dt>
-                  <dd className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {stagedByBuilder.reduce((sum, b) => sum + b.stagedDraws.length, 0)}
-                  </dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt style={{ color: 'var(--text-muted)' }}>Pending Wires</dt>
-                  <dd className="font-medium" style={{ color: 'var(--warning)' }}>{pendingWireBatches.length}</dd>
-                </div>
-                <div className="pt-3 border-t flex justify-between" style={{ borderColor: 'var(--border-primary)' }}>
-                  <dt className="font-medium" style={{ color: 'var(--text-primary)' }}>Total Pending</dt>
-                  <dd className="font-bold" style={{ color: 'var(--accent)' }}>
-                    {formatCurrency(pendingWireBatches.reduce((sum, b) => sum + b.total_amount, 0))}
-                  </dd>
-                </div>
-              </dl>
-            </div>
+              </motion.div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Right Sidebar - Filter Panel */}
+      <DrawFilterSidebar
+        selectedStatus={selectedStatus}
+        onStatusChange={setSelectedStatus}
+        builderFilters={builderFilters}
+        selectedBuilders={selectedBuilders}
+        onBuilderFilterChange={handleBuilderFilterChange}
+        onClearBuilders={() => setSelectedBuilders([])}
+        summaryStats={summaryStats}
+      />
 
       {/* Bookkeeper Confirmation Modal */}
       <AnimatePresence>
@@ -462,7 +606,7 @@ function StagingDashboardContent() {
               className="card max-w-lg w-full max-h-[90vh] overflow-y-auto"
               onClick={e => e.stopPropagation()}
             >
-              <div className="p-4 border-b" style={{ borderColor: 'var(--border-primary)' }}>
+              <div className="p-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>
@@ -532,7 +676,7 @@ function StagingDashboardContent() {
                 </div>
 
                 {/* Total */}
-                <div className="flex justify-between items-center pt-3 border-t" style={{ borderColor: 'var(--border-primary)' }}>
+                <div className="flex justify-between items-center pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                   <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Total Amount</span>
                   <span className="text-2xl font-bold" style={{ color: 'var(--accent)' }}>
                     {formatCurrency(selectedBatch.total_amount)}
@@ -573,7 +717,7 @@ function StagingDashboardContent() {
                 )}
               </div>
 
-              <div className="p-4 border-t flex justify-between" style={{ borderColor: 'var(--border-primary)' }}>
+              <div className="p-4 border-t flex justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
                 <div className="flex gap-2">
                   <a
                     href={`/api/wire-batches/${selectedBatch.id}/report`}
