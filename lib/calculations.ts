@@ -2,7 +2,14 @@
  * Financial calculations for loan income and IRR
  */
 
-import type { DrawRequest } from '@/types/database'
+import type { DrawRequest, Project } from '@/types/database'
+import { 
+  calculateFeeRateAtMonth, 
+  getMonthNumber, 
+  resolveEffectiveTerms,
+  type LoanTerms,
+  DEFAULT_LOAN_TERMS,
+} from '@/lib/loanTerms'
 
 type ProjectFinancials = {
   loan_amount: number | null
@@ -235,75 +242,76 @@ export type FeeEscalationEntry = {
 }
 
 /**
- * Calculate fee escalation schedule
- * Base fee + 0.25% per month after 6 months
+ * Calculate fee escalation schedule using accurate formula:
+ * - Months 1-6: 2% flat
+ * - Months 7-12: 2.25% + ((month - 7) * 0.25%)
+ * - Month 13: 5.9% (extension fee jump)
+ * - Month 14+: 5.9% + ((month - 13) * 0.4%)
  */
 export function calculateFeeEscalationSchedule(
   baseFeeRate: number,
   loanStartDate: Date,
   endDate: Date,
-  escalationRate: number = 0.0025,  // 0.25% per month
-  escalationStartMonth: number = 6
+  terms: LoanTerms = DEFAULT_LOAN_TERMS
 ): FeeEscalationEntry[] {
   const schedule: FeeEscalationEntry[] = []
   
   // Calculate how many months from start to end
-  const monthsDiff = Math.ceil(
-    (endDate.getTime() - loanStartDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
-  )
+  const endMonth = getMonthNumber(loanStartDate, endDate)
   
-  // Start escalation after the specified month
-  for (let month = escalationStartMonth + 1; month <= monthsDiff; month++) {
+  // Generate schedule for months where fee changes occur
+  // Month 7 is first escalation (from base to 2.25%)
+  for (let month = terms.feeEscalationAfterMonths + 1; month <= Math.max(endMonth, 18); month++) {
     const escalationDate = new Date(loanStartDate)
-    escalationDate.setMonth(escalationDate.getMonth() + month)
+    escalationDate.setMonth(escalationDate.getMonth() + month - 1)
     
-    const monthsSinceEscalationStart = month - escalationStartMonth
-    const previousRate = baseFeeRate + (escalationRate * (monthsSinceEscalationStart - 1))
-    const newRate = baseFeeRate + (escalationRate * monthsSinceEscalationStart)
+    const previousRate = calculateFeeRateAtMonth(month - 1, terms)
+    const newRate = calculateFeeRateAtMonth(month, terms)
     
-    schedule.push({
-      date: escalationDate,
-      previousRate,
-      newRate,
-      monthNumber: month,
-    })
+    // Only add if there's an actual rate change
+    if (Math.abs(newRate - previousRate) > 0.0001) {
+      schedule.push({
+        date: escalationDate,
+        previousRate,
+        newRate,
+        monthNumber: month,
+      })
+    }
   }
   
   return schedule
 }
 
 /**
- * Calculate current fee rate with escalation
- * Returns rate and next escalation date
+ * Calculate current fee rate with accurate escalation formula
+ * Returns rate, months active, and next escalation date
  */
 export function calculateCurrentFeeRate(
   baseFeeRate: number,
   loanStartDate: Date,
   currentDate: Date,
-  escalationRate: number = 0.0025,  // 0.25% per month
-  escalationStartMonth: number = 6
-): { rate: number; monthsActive: number; nextIncrease?: Date } {
-  const monthsActive = Math.floor(
-    (currentDate.getTime() - loanStartDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
-  )
+  terms: LoanTerms = DEFAULT_LOAN_TERMS
+): { rate: number; monthsActive: number; nextIncrease?: Date; isExtension: boolean } {
+  const monthsActive = getMonthNumber(loanStartDate, currentDate)
   
-  let rate = baseFeeRate
+  // Use accurate fee calculation
+  const rate = calculateFeeRateAtMonth(monthsActive, terms)
+  const isExtension = monthsActive >= terms.extensionFeeMonth
+  
+  // Calculate next increase date
   let nextIncrease: Date | undefined
   
-  if (monthsActive > escalationStartMonth) {
-    const escalationMonths = monthsActive - escalationStartMonth
-    rate = baseFeeRate + (escalationRate * escalationMonths)
-    
-    // Calculate next increase date
+  // Fee increases every month after month 6
+  if (monthsActive >= terms.feeEscalationAfterMonths) {
     nextIncrease = new Date(loanStartDate)
-    nextIncrease.setMonth(nextIncrease.getMonth() + monthsActive + 1)
-  } else if (monthsActive === escalationStartMonth) {
-    // Escalation starts next month
+    nextIncrease.setMonth(nextIncrease.getMonth() + monthsActive) // Next month
+  } else {
+    // Before escalation starts, next increase is at month 7
     nextIncrease = new Date(loanStartDate)
-    nextIncrease.setMonth(nextIncrease.getMonth() + escalationStartMonth + 1)
+    nextIncrease.setMonth(nextIncrease.getMonth() + terms.feeEscalationAfterMonths)
   }
   
-  return { rate, monthsActive, nextIncrease }
+  return { rate, monthsActive, nextIncrease, isExtension }
 }
 
 /**
@@ -590,4 +598,323 @@ export function getAmortizationSummary(schedule: AmortizationRow[]): {
     totalDays,
     avgDailyInterest: totalDays > 0 ? lastRow.cumulativeInterest / totalDays : 0,
   }
+}
+
+// =============================================================================
+// PAYOFF CALCULATIONS
+// =============================================================================
+
+/**
+ * Payoff breakdown type
+ */
+export type PayoffBreakdown = {
+  principalBalance: number
+  accruedInterest: number
+  daysOfInterest: number
+  perDiem: number
+  financeFee: number
+  feeRate: number
+  feeRatePct: string
+  documentFee: number
+  credits: number
+  totalPayoff: number
+  goodThroughDate: Date
+  isExtension: boolean
+  monthNumber: number
+}
+
+/**
+ * Calculate complete payoff breakdown
+ */
+export function calculatePayoffBreakdown(
+  project: {
+    loan_amount: number | null
+    interest_rate_annual: number | null
+    origination_fee_pct: number | null
+    loan_start_date: string | null
+  },
+  drawLines: DrawLineWithDate[],
+  payoffDate: Date = new Date(),
+  terms: LoanTerms = DEFAULT_LOAN_TERMS
+): PayoffBreakdown {
+  const loanAmount = project.loan_amount || 0
+  const annualRate = project.interest_rate_annual || terms.interestRateAnnual
+  const loanStartDate = project.loan_start_date ? new Date(project.loan_start_date) : new Date()
+  
+  // Calculate amortization schedule to get current state
+  const schedule = calculateAmortizationSchedule(
+    drawLines,
+    {
+      interest_rate_annual: annualRate,
+      origination_fee_pct: project.origination_fee_pct,
+      loan_start_date: project.loan_start_date,
+      loan_amount: loanAmount,
+    },
+    payoffDate
+  )
+  
+  const summary = getAmortizationSummary(schedule)
+  
+  // Calculate current fee rate using accurate formula
+  const monthNumber = getMonthNumber(loanStartDate, payoffDate)
+  const feeRate = calculateFeeRateAtMonth(monthNumber, terms)
+  const isExtension = monthNumber >= terms.extensionFeeMonth
+  
+  // Calculate fees
+  const financeFee = loanAmount * feeRate
+  const documentFee = terms.documentFee
+  const perDiem = calculatePerDiem(summary.currentPrincipal, annualRate)
+  
+  // Calculate total payoff
+  const totalPayoff = summary.currentPrincipal + summary.totalInterest + financeFee + documentFee
+  
+  return {
+    principalBalance: summary.currentPrincipal,
+    accruedInterest: summary.totalInterest,
+    daysOfInterest: summary.totalDays,
+    perDiem,
+    financeFee,
+    feeRate,
+    feeRatePct: `${(feeRate * 100).toFixed(2)}%`,
+    documentFee,
+    credits: 0,
+    totalPayoff,
+    goodThroughDate: payoffDate,
+    isExtension,
+    monthNumber,
+  }
+}
+
+/**
+ * Calculate payoff at a future date
+ */
+export function projectPayoffAtDate(
+  currentBreakdown: PayoffBreakdown,
+  futureDate: Date,
+  loanStartDate: Date,
+  terms: LoanTerms = DEFAULT_LOAN_TERMS
+): PayoffBreakdown {
+  const daysDiff = Math.max(0, Math.floor(
+    (futureDate.getTime() - currentBreakdown.goodThroughDate.getTime()) / (1000 * 60 * 60 * 24)
+  ))
+  
+  // Calculate additional interest
+  const additionalInterest = currentBreakdown.perDiem * daysDiff
+  const newAccruedInterest = currentBreakdown.accruedInterest + additionalInterest
+  
+  // Calculate fee rate at future date
+  const monthNumber = getMonthNumber(loanStartDate, futureDate)
+  const feeRate = calculateFeeRateAtMonth(monthNumber, terms)
+  const isExtension = monthNumber >= terms.extensionFeeMonth
+  
+  // Recalculate finance fee if in a different month
+  const loanAmount = currentBreakdown.principalBalance // Approximate with principal
+  const financeFee = loanAmount * feeRate
+  
+  return {
+    ...currentBreakdown,
+    accruedInterest: newAccruedInterest,
+    daysOfInterest: currentBreakdown.daysOfInterest + daysDiff,
+    financeFee,
+    feeRate,
+    feeRatePct: `${(feeRate * 100).toFixed(2)}%`,
+    totalPayoff: currentBreakdown.principalBalance + newAccruedInterest + financeFee + currentBreakdown.documentFee - currentBreakdown.credits,
+    goodThroughDate: futureDate,
+    isExtension,
+    monthNumber,
+  }
+}
+
+// =============================================================================
+// PROJECTION DATA FOR CHARTS
+// =============================================================================
+
+/**
+ * Projection data point for Nivo charts
+ */
+export type ProjectionDataPoint = {
+  month: number
+  date: string
+  dateObj: Date
+  feeRate: number           // Fee rate at this month (as decimal)
+  feeRatePct: number        // Fee rate as percentage (for display)
+  cumulativeFee: number     // Total fee cost at this point
+  cumulativeInterest: number // Total interest at this point
+  totalPayoff: number       // Principal + interest + fees
+  principalBalance: number  // Principal balance at this point
+  isActual: boolean         // true = past, false = projected
+  isCurrentMonth: boolean   // Highlight current position
+  isExtensionMonth: boolean // Month 13 extension fee
+}
+
+/**
+ * Generate projection data for Fee + Interest chart
+ * Combines actual past data with projected future data
+ */
+export function generateProjectionData(
+  project: {
+    loan_amount: number | null
+    interest_rate_annual: number | null
+    origination_fee_pct: number | null
+    loan_start_date: string | null
+  },
+  drawLines: DrawLineWithDate[],
+  terms: LoanTerms = DEFAULT_LOAN_TERMS,
+  throughMonth: number = 18
+): ProjectionDataPoint[] {
+  const projectionData: ProjectionDataPoint[] = []
+  
+  const loanAmount = project.loan_amount || 0
+  const annualRate = project.interest_rate_annual || terms.interestRateAnnual
+  const dailyRate = annualRate / 365
+  const loanStartDate = project.loan_start_date ? new Date(project.loan_start_date) : new Date()
+  
+  // Get current month number
+  const today = new Date()
+  const currentMonthNum = getMonthNumber(loanStartDate, today)
+  
+  // Sort draws by date for accurate cumulative calculation
+  const sortedDraws = [...drawLines].sort((a, b) => 
+    new Date(a.date).getTime() - new Date(b.date).getTime()
+  )
+  
+  // Track running totals
+  let runningBalance = 0
+  let cumulativeInterest = 0
+  let lastDate = loanStartDate
+  
+  // Pre-compute draw amounts by month
+  const drawsByMonth: Map<number, number> = new Map()
+  for (const draw of sortedDraws) {
+    const drawDate = new Date(draw.date)
+    const drawMonth = getMonthNumber(loanStartDate, drawDate)
+    const existing = drawsByMonth.get(drawMonth) || 0
+    drawsByMonth.set(drawMonth, existing + draw.amount)
+  }
+  
+  // Generate data for each month
+  for (let month = 1; month <= throughMonth; month++) {
+    const monthDate = new Date(loanStartDate)
+    monthDate.setMonth(monthDate.getMonth() + month - 1)
+    
+    const isActual = month <= currentMonthNum
+    const isCurrentMonth = month === currentMonthNum
+    const isExtensionMonth = month === terms.extensionFeeMonth
+    
+    // Add draws for this month
+    const monthDraws = drawsByMonth.get(month) || 0
+    
+    // Calculate interest since last point (simplified monthly calculation)
+    const daysInPeriod = month === 1 ? 30 : 30 // Approximate month length
+    const periodInterest = runningBalance * dailyRate * daysInPeriod
+    
+    // Update running totals
+    runningBalance += monthDraws
+    cumulativeInterest += periodInterest
+    
+    // For projected months, estimate interest growth
+    if (!isActual && month > currentMonthNum) {
+      // Assume constant principal (no new draws) for projection
+      const projectedInterest = runningBalance * dailyRate * 30
+      cumulativeInterest += projectedInterest
+    }
+    
+    // Calculate fee for this month
+    const feeRate = calculateFeeRateAtMonth(month, terms)
+    const cumulativeFee = loanAmount * feeRate + terms.documentFee
+    
+    // Calculate total payoff
+    const totalPayoff = runningBalance + cumulativeInterest + cumulativeFee
+    
+    projectionData.push({
+      month,
+      date: monthDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+      dateObj: monthDate,
+      feeRate,
+      feeRatePct: feeRate * 100,
+      cumulativeFee,
+      cumulativeInterest,
+      totalPayoff,
+      principalBalance: runningBalance,
+      isActual,
+      isCurrentMonth,
+      isExtensionMonth,
+    })
+  }
+  
+  return projectionData
+}
+
+/**
+ * Format projection data for Nivo Line chart
+ */
+export function formatProjectionForNivo(data: ProjectionDataPoint[]): {
+  feeRateSeries: { id: string; data: { x: string; y: number }[] }
+  interestSeries: { id: string; data: { x: string; y: number }[] }
+  payoffSeries: { id: string; data: { x: string; y: number }[] }
+} {
+  return {
+    feeRateSeries: {
+      id: 'Fee Rate %',
+      data: data.map(d => ({ x: d.date, y: d.feeRatePct })),
+    },
+    interestSeries: {
+      id: 'Cumulative Interest',
+      data: data.map(d => ({ x: d.date, y: d.cumulativeInterest })),
+    },
+    payoffSeries: {
+      id: 'Total Payoff',
+      data: data.map(d => ({ x: d.date, y: d.totalPayoff })),
+    },
+  }
+}
+
+/**
+ * Get chart annotations for key dates
+ */
+export function getChartAnnotations(
+  data: ProjectionDataPoint[],
+  loanTermMonths: number = 12
+): Array<{
+  type: string
+  match: { x: string }
+  note: { text: string; align: string }
+  style: { stroke: string; strokeWidth: number; strokeDasharray: string }
+}> {
+  const annotations = []
+  
+  // Find current month
+  const currentMonth = data.find(d => d.isCurrentMonth)
+  if (currentMonth) {
+    annotations.push({
+      type: 'line',
+      match: { x: currentMonth.date },
+      note: { text: 'Today', align: 'top' },
+      style: { stroke: 'var(--accent)', strokeWidth: 2, strokeDasharray: '5,5' },
+    })
+  }
+  
+  // Find extension month
+  const extensionMonth = data.find(d => d.isExtensionMonth)
+  if (extensionMonth) {
+    annotations.push({
+      type: 'line',
+      match: { x: extensionMonth.date },
+      note: { text: 'Extension Fee', align: 'top' },
+      style: { stroke: 'var(--error)', strokeWidth: 2, strokeDasharray: '3,3' },
+    })
+  }
+  
+  // Find maturity (loan term end)
+  const maturityMonth = data.find(d => d.month === loanTermMonths)
+  if (maturityMonth) {
+    annotations.push({
+      type: 'line',
+      match: { x: maturityMonth.date },
+      note: { text: 'Maturity', align: 'top' },
+      style: { stroke: 'var(--warning)', strokeWidth: 2, strokeDasharray: '3,3' },
+    })
+  }
+  
+  return annotations
 }

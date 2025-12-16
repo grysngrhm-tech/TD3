@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 
-export type ReportType = 'budget' | 'amortization'
+export type ReportType = 'budget' | 'amortization' | 'payoff'
 
 type ReportOption = {
   id: ReportType
@@ -19,7 +19,7 @@ type ReportToggleProps = {
 const defaultOptions: ReportOption[] = [
   { 
     id: 'budget', 
-    label: 'Progress Budget',
+    label: 'Budget',
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -32,6 +32,15 @@ const defaultOptions: ReportOption[] = [
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    )
+  },
+  { 
+    id: 'payoff', 
+    label: 'Payoff',
+    icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     )
   },
@@ -79,7 +88,7 @@ export function ReportToggle({ value, onChange, options = defaultOptions }: Repo
           <motion.button
             key={option.id}
             onClick={() => onChange(option.id)}
-            className="relative z-10 flex items-center justify-center gap-2 px-5 py-2.5 font-medium transition-colors min-w-[140px] touch-target"
+            className="relative z-10 flex items-center justify-center gap-1.5 px-4 py-2.5 font-medium transition-colors min-w-[110px] touch-target"
             style={{
               color: isSelected ? 'white' : 'var(--text-muted)',
               fontSize: 'var(--text-sm)',
@@ -88,7 +97,7 @@ export function ReportToggle({ value, onChange, options = defaultOptions }: Repo
             whileTap={{ scale: 0.98 }}
           >
             {option.icon}
-            <span>{option.label}</span>
+            <span className="hidden sm:inline">{option.label}</span>
           </motion.button>
         )
       })}
