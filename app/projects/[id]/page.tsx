@@ -5,10 +5,15 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { LoanPageTabs } from '@/app/components/projects/LoanPageTabs'
 import { useNavigation } from '@/app/context/NavigationContext'
-import type { Project, Budget, DrawRequest, LifecycleStage, Builder } from '@/types/database'
+import type { Project, Budget, DrawRequest, DrawRequestLine, LifecycleStage, Builder } from '@/types/database'
 
 type ProjectWithLifecycle = Project & {
   lifecycle_stage: LifecycleStage
+}
+
+type DrawLineWithBudget = DrawRequestLine & {
+  budget?: Budget | null
+  draw_request?: DrawRequest | null
 }
 
 export default function ProjectDetailPage() {
@@ -21,6 +26,7 @@ export default function ProjectDetailPage() {
   const [builder, setBuilder] = useState<Builder | null>(null)
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [draws, setDraws] = useState<DrawRequest[]>([])
+  const [drawLines, setDrawLines] = useState<DrawLineWithBudget[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -82,6 +88,23 @@ export default function ProjectDetailPage() {
         .order('draw_number', { ascending: false })
 
       setDraws(drawsData || [])
+
+      // Fetch draw request lines with budget relations for the new reports
+      if (drawsData && drawsData.length > 0) {
+        const drawIds = drawsData.map(d => d.id)
+        const { data: drawLinesData } = await supabase
+          .from('draw_request_lines')
+          .select(`
+            *,
+            budget:budgets(id, category, nahb_category, nahb_subcategory, cost_code, current_amount, spent_amount, original_amount),
+            draw_request:draw_requests(id, draw_number, request_date, status, funded_at, total_amount)
+          `)
+          .in('draw_request_id', drawIds)
+
+        setDrawLines((drawLinesData as DrawLineWithBudget[]) || [])
+      } else {
+        setDrawLines([])
+      }
     } catch (error) {
       console.error('Error loading project:', error)
     } finally {
@@ -224,6 +247,7 @@ export default function ProjectDetailPage() {
           project={project}
           budgets={budgets}
           draws={draws}
+          drawLines={drawLines}
           builder={builder}
           onDataRefresh={() => {
             // Immediate refresh for direct updates (like lifecycle changes)
