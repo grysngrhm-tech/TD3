@@ -15,36 +15,37 @@
 :root {
   /* -------------------------------------------------------------------------
      ACCENT COLORS - Dark Red/Maroon
-     Brand: #950606 (9.1:1 contrast on white)
-     Dark mode uses lighter tints for accessibility
+     Brand: #950606 - consistent across light and dark modes
+     Subdued palette for professional finance portal appearance
      ------------------------------------------------------------------------- */
-  --accent-50: #2D1212;
-  --accent-100: #3F1717;
-  --accent-200: #5C1F1F;
-  --accent-300: #7A2828;
-  --accent-400: #991B1B;
-  --accent-500: #DC2626;
-  --accent-600: #EF4444;
-  --accent-700: #F87171;
-  --accent-800: #FCA5A5;
-  --accent-900: #FEE2E2;
+  --accent-50: #1A0808;
+  --accent-100: #2D1010;
+  --accent-200: #451515;
+  --accent-300: #5C1B1B;
+  --accent-400: #7A2020;
+  --accent-500: #950606;
+  --accent-600: #B00808;
+  --accent-700: #C41919;
+  --accent-800: #D83232;
+  --accent-900: #E85050;
   
   /* Accent utilities */
   --accent: var(--accent-500);
   --accent-hover: var(--accent-600);
-  --accent-glow: rgba(220, 38, 38, 0.25);
-  --accent-muted: rgba(220, 38, 38, 0.15);
+  --accent-glow: rgba(149, 6, 6, 0.35);
+  --accent-muted: rgba(149, 6, 6, 0.20);
 
   /* -------------------------------------------------------------------------
      NEUTRAL COLORS - Dark Mode
+     Warmer charcoal grays that complement the maroon brand color
      ------------------------------------------------------------------------- */
-  --bg-primary: #0A0A0B;
-  --bg-secondary: #141416;
-  --bg-tertiary: #1C1C1F;
-  --bg-card: #1C1C1F;
-  --bg-card-transparent: rgba(28, 28, 31, 0.85);
-  --bg-hover: #2A2A2E;
-  --bg-active: #3A3A3E;
+  --bg-primary: #151518;
+  --bg-secondary: #1C1C20;
+  --bg-tertiary: #232328;
+  --bg-card: #1E1E23;
+  --bg-card-transparent: rgba(30, 30, 35, 0.85);
+  --bg-hover: #2D2D33;
+  --bg-active: #3A3A40;
   
   --border: #3F3F46;
   --border-subtle: #27272A;
@@ -54,42 +55,44 @@
   --text-secondary: #A1A1AA;
   --text-muted: #71717A;
   --text-disabled: #52525B;
-  --text-inverse: #0A0A0B;
+  --text-inverse: #151518;
 
   /* -------------------------------------------------------------------------
      SEMANTIC COLORS
+     More subdued, professional tones for finance portal
      ------------------------------------------------------------------------- */
-  --success: #10B981;
-  --success-hover: #34D399;
-  --success-muted: rgba(16, 185, 129, 0.15);
-  --success-glow: rgba(16, 185, 129, 0.25);
+  --success: #059669;
+  --success-hover: #10B981;
+  --success-muted: rgba(5, 150, 105, 0.15);
+  --success-glow: rgba(5, 150, 105, 0.25);
   
-  --warning: #F59E0B;
-  --warning-hover: #FBBF24;
-  --warning-muted: rgba(245, 158, 11, 0.15);
-  --warning-glow: rgba(245, 158, 11, 0.25);
+  --warning: #D97706;
+  --warning-hover: #F59E0B;
+  --warning-muted: rgba(217, 119, 6, 0.15);
+  --warning-glow: rgba(217, 119, 6, 0.25);
   
-  --error: #EF4444;
-  --error-hover: #F87171;
-  --error-muted: rgba(239, 68, 68, 0.15);
-  --error-glow: rgba(239, 68, 68, 0.25);
+  --error: #DC2626;
+  --error-hover: #EF4444;
+  --error-muted: rgba(220, 38, 38, 0.15);
+  --error-glow: rgba(220, 38, 38, 0.25);
   
-  --info: #3B82F6;
-  --info-hover: #60A5FA;
-  --info-muted: rgba(59, 130, 246, 0.15);
-  --info-glow: rgba(59, 130, 246, 0.25);
+  --info: #2563EB;
+  --info-hover: #3B82F6;
+  --info-muted: rgba(37, 99, 235, 0.15);
+  --info-glow: rgba(37, 99, 235, 0.25);
 
   /* -------------------------------------------------------------------------
      COMPLEMENTARY ACCENT COLORS
      For data visualization and special emphasis
+     Subdued tones to match professional palette
      ------------------------------------------------------------------------- */
-  --teal: #14B8A6;
-  --teal-muted: rgba(20, 184, 166, 0.15);
-  --gold: #F59E0B;
-  --gold-muted: rgba(245, 158, 11, 0.15);
-  --purple: #8B5CF6;
-  --purple-muted: rgba(139, 92, 246, 0.15);
-  --deep-blue: #3B82F6;
+  --teal: #0D9488;
+  --teal-muted: rgba(13, 148, 136, 0.15);
+  --gold: #D97706;
+  --gold-muted: rgba(217, 119, 6, 0.15);
+  --purple: #7C3AED;
+  --purple-muted: rgba(124, 58, 237, 0.15);
+  --deep-blue: #2563EB;
 
   /* -------------------------------------------------------------------------
      ELEVATION / SHADOWS - Dark Mode
