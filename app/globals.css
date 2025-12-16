@@ -60,24 +60,25 @@
   /* -------------------------------------------------------------------------
      SEMANTIC COLORS
      More subdued, professional tones for finance portal
+     Hover states go darker for consistent interactive feedback across themes
      ------------------------------------------------------------------------- */
   --success: #059669;
-  --success-hover: #10B981;
+  --success-hover: #047857;
   --success-muted: rgba(5, 150, 105, 0.15);
   --success-glow: rgba(5, 150, 105, 0.25);
   
   --warning: #D97706;
-  --warning-hover: #F59E0B;
+  --warning-hover: #B45309;
   --warning-muted: rgba(217, 119, 6, 0.15);
   --warning-glow: rgba(217, 119, 6, 0.25);
   
   --error: #DC2626;
-  --error-hover: #EF4444;
+  --error-hover: #B91C1C;
   --error-muted: rgba(220, 38, 38, 0.15);
   --error-glow: rgba(220, 38, 38, 0.25);
   
   --info: #2563EB;
-  --info-hover: #3B82F6;
+  --info-hover: #1D4ED8;
   --info-muted: rgba(37, 99, 235, 0.15);
   --info-glow: rgba(37, 99, 235, 0.25);
 
