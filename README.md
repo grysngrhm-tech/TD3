@@ -263,6 +263,11 @@ TD3 is currently in active development.
 - ✅ **Keyboard Navigation** — Press Q to toggle Quick Links, Escape to close
 - ✅ **Animated Transitions** — Smooth slide-up animation with backdrop blur for Quick Links popup
 - ✅ **Active Page Indicator** — Current route highlighted in Quick Links menu
+- ✅ **TD3 Design Language System** — Comprehensive design system combining Material Design depth with Polymorphic UI adaptability
+- ✅ **Dark Red/Maroon Accent Palette** — Brand colors optimized for both light and dark modes with AAA accessibility compliance
+- ✅ **Material Elevation System** — 5-level shadow hierarchy for consistent depth and visual hierarchy
+- ✅ **Polymorphic Behaviors** — Context-aware styling that adapts to status, mode, and content
+- ✅ **Design Token Architecture** — CSS variables and Tailwind config for consistent, maintainable styling
 - ✅ **Draw Request System** — Complete draw upload workflow with spreadsheet parsing and invoice management
 - ✅ **Fuzzy Category Matching** — Levenshtein distance + tokenized word matching for draw-to-budget matching (0.6 threshold)
 - ✅ **Draw Review Page** — Comprehensive table view with inline editing, flag display, and invoice management

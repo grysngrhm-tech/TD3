@@ -73,14 +73,19 @@ export function DrawStatsBar({
     return (
       <motion.a
         href={navButton.href}
-        className="flex items-center gap-3 px-6 py-3 rounded-ios font-semibold transition-all"
+        className="flex items-center gap-3 px-6 py-3 font-semibold transition-all touch-target"
         style={{ 
           background: 'var(--accent)',
           color: 'white',
-          boxShadow: '0 4px 14px rgba(59, 130, 246, 0.35)'
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--elevation-2), 0 0 20px var(--accent-glow)',
         }}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
+        whileHover={{ 
+          scale: 1.03,
+          boxShadow: 'var(--elevation-3), 0 0 30px var(--accent-glow)',
+        }}
+        whileTap={{ scale: 0.97 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       >
         {isLeft && (
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -104,10 +109,13 @@ export function DrawStatsBar({
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-ios p-4 mb-6"
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      className="p-5 mb-6"
       style={{ 
         background: 'var(--bg-card)',
-        border: '1px solid var(--border-subtle)'
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--elevation-2)',
       }}
     >
       <div className="flex items-center justify-between gap-6">
@@ -121,18 +129,21 @@ export function DrawStatsBar({
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <span 
-              className="w-2 h-2 rounded-full"
-              style={{ background: 'var(--accent)' }}
+              className="w-2 h-2"
+              style={{ 
+                background: 'var(--warning)', 
+                borderRadius: 'var(--radius-full)' 
+              }}
             />
             <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
               Pending Review
             </span>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            <span className="font-bold financial-value" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-2xl)' }}>
               {pendingReviewCount}
             </span>
-            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            <span className="text-sm financial-value" style={{ color: 'var(--text-secondary)' }}>
               {formatCurrency(pendingReviewAmount)}
             </span>
           </div>
@@ -145,15 +156,18 @@ export function DrawStatsBar({
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <span 
-              className="w-2 h-2 rounded-full"
-              style={{ background: 'var(--success)' }}
+              className="w-2 h-2"
+              style={{ 
+                background: 'var(--info)', 
+                borderRadius: 'var(--radius-full)' 
+              }}
             />
             <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
               Staged
             </span>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold" style={{ color: 'var(--success)' }}>
+            <span className="font-bold financial-value" style={{ color: 'var(--info)', fontSize: 'var(--text-2xl)' }}>
               {formatCurrency(stagedAmount)}
             </span>
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
@@ -169,15 +183,18 @@ export function DrawStatsBar({
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <span 
-              className="w-2 h-2 rounded-full"
-              style={{ background: 'var(--warning)' }}
+              className="w-2 h-2"
+              style={{ 
+                background: 'var(--purple)', 
+                borderRadius: 'var(--radius-full)' 
+              }}
             />
             <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
               Pending Wire
             </span>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold" style={{ color: 'var(--warning)' }}>
+            <span className="font-bold financial-value" style={{ color: 'var(--purple)', fontSize: 'var(--text-2xl)' }}>
               {formatCurrency(pendingWireAmount)}
             </span>
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
@@ -195,7 +212,7 @@ export function DrawStatsBar({
             Pipeline Total
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            <span className="font-bold financial-value" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-2xl)' }}>
               {formatCurrency(totalAmount)}
             </span>
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
@@ -203,14 +220,21 @@ export function DrawStatsBar({
             </span>
           </div>
           {/* Progress bar */}
-          <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
+          <div 
+            className="mt-2 h-1.5 overflow-hidden" 
+            style={{ 
+              background: 'var(--bg-hover)',
+              borderRadius: 'var(--radius-full)',
+            }}
+          >
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${fundedPercentage}%` }}
               transition={{ duration: 0.8, ease: 'easeOut' }}
-              className="h-full rounded-full"
+              className="h-full"
               style={{ 
-                background: `linear-gradient(90deg, var(--success) 0%, var(--warning) 100%)`
+                background: `linear-gradient(90deg, var(--info) 0%, var(--purple) 100%)`,
+                borderRadius: 'var(--radius-full)',
               }}
             />
           </div>

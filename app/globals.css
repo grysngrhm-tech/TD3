@@ -2,48 +2,286 @@
 @tailwind components;
 @tailwind utilities;
 
-/* iOS-inspired Dark Mode Theme System */
+/* =============================================================================
+   TD3 DESIGN LANGUAGE SYSTEM
+   Material Design + Polymorphic UI
+   
+   Documentation: /docs/DESIGN_LANGUAGE.md
+   ============================================================================= */
+
+/* =============================================================================
+   DESIGN TOKENS - DARK MODE (Default)
+   ============================================================================= */
 :root {
-  --bg-primary: #09090b;
-  --bg-secondary: #18181b;
-  --bg-card: #27272a;
-  --bg-hover: #3f3f46;
-  --border: #3f3f46;
-  --border-subtle: #27272a;
-  --text-primary: #fafafa;
-  --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
-  --accent-glow: rgba(59, 130, 246, 0.15);
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --error: #ef4444;
+  /* -------------------------------------------------------------------------
+     ACCENT COLORS - Dark Red/Maroon
+     Brand: #950606 (9.1:1 contrast on white)
+     Dark mode uses lighter tints for accessibility
+     ------------------------------------------------------------------------- */
+  --accent-50: #2D1212;
+  --accent-100: #3F1717;
+  --accent-200: #5C1F1F;
+  --accent-300: #7A2828;
+  --accent-400: #991B1B;
+  --accent-500: #DC2626;
+  --accent-600: #EF4444;
+  --accent-700: #F87171;
+  --accent-800: #FCA5A5;
+  --accent-900: #FEE2E2;
+  
+  /* Accent utilities */
+  --accent: var(--accent-500);
+  --accent-hover: var(--accent-600);
+  --accent-glow: rgba(220, 38, 38, 0.25);
+  --accent-muted: rgba(220, 38, 38, 0.15);
+
+  /* -------------------------------------------------------------------------
+     NEUTRAL COLORS - Dark Mode
+     ------------------------------------------------------------------------- */
+  --bg-primary: #0A0A0B;
+  --bg-secondary: #141416;
+  --bg-tertiary: #1C1C1F;
+  --bg-card: #1C1C1F;
+  --bg-card-transparent: rgba(28, 28, 31, 0.85);
+  --bg-hover: #2A2A2E;
+  --bg-active: #3A3A3E;
+  
+  --border: #3F3F46;
+  --border-subtle: #27272A;
+  --border-accent: var(--accent-400);
+  
+  --text-primary: #FAFAFA;
+  --text-secondary: #A1A1AA;
+  --text-muted: #71717A;
+  --text-disabled: #52525B;
+  --text-inverse: #0A0A0B;
+
+  /* -------------------------------------------------------------------------
+     SEMANTIC COLORS
+     ------------------------------------------------------------------------- */
+  --success: #10B981;
+  --success-hover: #34D399;
+  --success-muted: rgba(16, 185, 129, 0.15);
+  --success-glow: rgba(16, 185, 129, 0.25);
+  
+  --warning: #F59E0B;
+  --warning-hover: #FBBF24;
+  --warning-muted: rgba(245, 158, 11, 0.15);
+  --warning-glow: rgba(245, 158, 11, 0.25);
+  
+  --error: #EF4444;
+  --error-hover: #F87171;
+  --error-muted: rgba(239, 68, 68, 0.15);
+  --error-glow: rgba(239, 68, 68, 0.25);
+  
+  --info: #3B82F6;
+  --info-hover: #60A5FA;
+  --info-muted: rgba(59, 130, 246, 0.15);
+  --info-glow: rgba(59, 130, 246, 0.25);
+
+  /* -------------------------------------------------------------------------
+     COMPLEMENTARY ACCENT COLORS
+     For data visualization and special emphasis
+     ------------------------------------------------------------------------- */
+  --teal: #14B8A6;
+  --teal-muted: rgba(20, 184, 166, 0.15);
+  --gold: #F59E0B;
+  --gold-muted: rgba(245, 158, 11, 0.15);
+  --purple: #8B5CF6;
+  --purple-muted: rgba(139, 92, 246, 0.15);
+  --deep-blue: #3B82F6;
+
+  /* -------------------------------------------------------------------------
+     ELEVATION / SHADOWS - Dark Mode
+     Material Design inspired depth system
+     ------------------------------------------------------------------------- */
+  --elevation-0: none;
+  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --elevation-2: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --elevation-3: 0 4px 6px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --elevation-4: 0 10px 15px rgba(0, 0, 0, 0.6), 0 4px 6px rgba(0, 0, 0, 0.3);
+  --elevation-5: 0 20px 25px rgba(0, 0, 0, 0.7), 0 8px 10px rgba(0, 0, 0, 0.4);
+
+  /* -------------------------------------------------------------------------
+     TYPOGRAPHY
+     Using CSS custom properties from Next.js font loading
+     ------------------------------------------------------------------------- */
+  --font-primary: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), 'JetBrains Mono', 'SF Mono', 'Fira Code', Consolas, monospace;
+  
+  /* Type scale (1.25 ratio) */
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+  --text-4xl: 36px;
+
+  /* -------------------------------------------------------------------------
+     SPACING (4px base unit)
+     ------------------------------------------------------------------------- */
+  --space-0: 0px;
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* -------------------------------------------------------------------------
+     BORDER RADIUS (iOS-inspired)
+     ------------------------------------------------------------------------- */
+  --radius-none: 0px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
+
+  /* -------------------------------------------------------------------------
+     TIMING / MOTION
+     ------------------------------------------------------------------------- */
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  
+  --duration-instant: 50ms;
+  --duration-fast: 100ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --duration-slower: 400ms;
+  --duration-slowest: 500ms;
+
+  /* -------------------------------------------------------------------------
+     LAYOUT
+     ------------------------------------------------------------------------- */
+  --header-height: 56px;
+  --sidebar-width: 256px;
+  --container-sm: 640px;
+  --container-md: 768px;
+  --container-lg: 1024px;
+  --container-xl: 1280px;
+  --container-2xl: 1536px;
 }
 
-/* Light mode overrides */
+/* =============================================================================
+   DESIGN TOKENS - LIGHT MODE
+   ============================================================================= */
 .light {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f4f4f5;
-  --bg-card: #ffffff;
-  --bg-hover: #e4e4e7;
-  --border: #e4e4e7;
-  --border-subtle: #f4f4f5;
-  --text-primary: #09090b;
-  --text-secondary: #52525b;
-  --text-muted: #a1a1aa;
+  /* Accent Colors - Light Mode */
+  --accent-50: #FEF2F2;
+  --accent-100: #FEE2E2;
+  --accent-200: #FECACA;
+  --accent-300: #FCA5A5;
+  --accent-400: #F87171;
+  --accent-500: #950606;
+  --accent-600: #840505;
+  --accent-700: #740505;
+  --accent-800: #530303;
+  --accent-900: #320202;
+  
+  --accent: var(--accent-500);
+  --accent-hover: var(--accent-600);
+  --accent-glow: rgba(149, 6, 6, 0.2);
+  --accent-muted: rgba(149, 6, 6, 0.1);
+
+  /* Neutral Colors - Light Mode */
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F9FAFB;
+  --bg-tertiary: #F3F4F6;
+  --bg-card: #FFFFFF;
+  --bg-card-transparent: rgba(255, 255, 255, 0.85);
+  --bg-hover: #E5E7EB;
+  --bg-active: #D1D5DB;
+  
+  --border: #D1D5DB;
+  --border-subtle: #E5E7EB;
+  --border-accent: var(--accent-500);
+  
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-muted: #6B7280;
+  --text-disabled: #9CA3AF;
+  --text-inverse: #FFFFFF;
+
+  /* Semantic Colors - Light Mode */
+  --success: #059669;
+  --success-hover: #047857;
+  --success-muted: rgba(5, 150, 105, 0.1);
+  --success-glow: rgba(5, 150, 105, 0.2);
+  
+  --warning: #D97706;
+  --warning-hover: #B45309;
+  --warning-muted: rgba(217, 119, 6, 0.1);
+  --warning-glow: rgba(217, 119, 6, 0.2);
+  
+  --error: #DC2626;
+  --error-hover: #B91C1C;
+  --error-muted: rgba(220, 38, 38, 0.1);
+  --error-glow: rgba(220, 38, 38, 0.2);
+  
+  --info: #2563EB;
+  --info-hover: #1D4ED8;
+  --info-muted: rgba(37, 99, 235, 0.1);
+  --info-glow: rgba(37, 99, 235, 0.2);
+
+  /* Complementary Colors - Light Mode */
+  --teal: #0D9488;
+  --teal-muted: rgba(13, 148, 136, 0.1);
+  --gold: #D97706;
+  --gold-muted: rgba(217, 119, 6, 0.1);
+  --purple: #7C3AED;
+  --purple-muted: rgba(124, 58, 237, 0.1);
+  --deep-blue: #2563EB;
+
+  /* Elevation - Light Mode (softer shadows) */
+  --elevation-0: none;
+  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --elevation-2: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --elevation-3: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --elevation-4: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+  --elevation-5: 0 20px 25px rgba(0, 0, 0, 0.15), 0 8px 10px rgba(0, 0, 0, 0.08);
 }
 
-/* Base styles */
+/* =============================================================================
+   BASE STYLES
+   ============================================================================= */
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+  font-family: var(--font-primary);
+  font-size: var(--text-base);
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar - dark mode optimized */
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Selection */
+::selection {
+  background: var(--accent-muted);
+  color: var(--text-primary);
+}
+
+/* =============================================================================
+   CUSTOM SCROLLBAR
+   ============================================================================= */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -55,73 +293,195 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
 
-/* iOS-inspired component styles */
+/* =============================================================================
+   ANIMATIONS
+   ============================================================================= */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOut {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* =============================================================================
+   REDUCED MOTION
+   ============================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* =============================================================================
+   COMPONENT LAYER
+   ============================================================================= */
 @layer components {
-  /* Cards with subtle glow effect */
+  /* ---------------------------------------------------------------------------
+     CARDS
+     --------------------------------------------------------------------------- */
   .card-ios {
-    @apply rounded-ios p-6 transition-all duration-200;
+    @apply p-5 transition-all;
     background: var(--bg-card);
     border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--elevation-2);
+    transition-duration: var(--duration-normal);
+    transition-timing-function: var(--ease-out);
   }
   
   .card-ios:hover {
     border-color: var(--border);
-    box-shadow: 0 0 20px var(--accent-glow);
+    box-shadow: var(--elevation-3);
+    transform: translateY(-2px);
   }
 
-  /* Tile for projects */
+  .card-ios.interactive:hover {
+    border-color: var(--accent);
+    box-shadow: var(--elevation-3), 0 0 20px var(--accent-glow);
+  }
+
+  /* ---------------------------------------------------------------------------
+     PROJECT TILES
+     --------------------------------------------------------------------------- */
   .tile {
-    @apply rounded-ios p-5 cursor-pointer transition-all duration-200;
+    @apply p-5 cursor-pointer transition-all;
     background: var(--bg-card);
     border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--elevation-2);
+    transition-duration: var(--duration-normal);
+    transition-timing-function: var(--ease-out);
   }
   
   .tile:hover {
-    transform: scale(1.02);
+    transform: translateY(-2px) scale(1.01);
     border-color: var(--accent);
-    box-shadow: 0 0 30px var(--accent-glow);
+    box-shadow: var(--elevation-3), 0 0 30px var(--accent-glow);
   }
   
   .tile:active {
     transform: scale(0.98);
+    transition-duration: var(--duration-fast);
   }
 
-  /* Buttons */
+  /* ---------------------------------------------------------------------------
+     BUTTONS
+     --------------------------------------------------------------------------- */
   .btn-primary {
-    @apply font-medium px-5 py-2.5 rounded-ios-sm transition-all duration-200;
+    @apply font-semibold px-5 py-2.5 transition-all inline-flex items-center justify-center gap-2;
     background: var(--accent);
     color: white;
+    border-radius: var(--radius-sm);
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-default);
   }
   
   .btn-primary:hover {
     background: var(--accent-hover);
-    box-shadow: 0 0 20px var(--accent-glow);
+    transform: translateY(-1px);
+    box-shadow: var(--elevation-2), 0 0 20px var(--accent-glow);
   }
   
   .btn-primary:active {
     transform: scale(0.97);
   }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
   
   .btn-secondary {
-    @apply font-medium px-5 py-2.5 rounded-ios-sm transition-all duration-200;
+    @apply font-semibold px-5 py-2.5 transition-all inline-flex items-center justify-center gap-2;
     background: var(--bg-hover);
     color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition-duration: var(--duration-fast);
   }
   
   .btn-secondary:hover {
-    background: var(--border);
+    background: var(--bg-active);
+    border-color: var(--text-muted);
+  }
+
+  .btn-secondary:active {
+    transform: scale(0.97);
   }
 
   .btn-ghost {
-    @apply font-medium px-4 py-2 rounded-ios-sm transition-all duration-200;
+    @apply font-medium px-4 py-2 transition-all inline-flex items-center justify-center gap-2;
     color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    transition-duration: var(--duration-fast);
   }
   
   .btn-ghost:hover {
@@ -129,28 +489,141 @@ body {
     color: var(--text-primary);
   }
 
-  /* Inputs */
+  .btn-danger {
+    @apply font-semibold px-5 py-2.5 transition-all inline-flex items-center justify-center gap-2;
+    background: var(--error);
+    color: white;
+    border-radius: var(--radius-sm);
+    transition-duration: var(--duration-fast);
+  }
+
+  .btn-danger:hover {
+    background: var(--error-hover);
+    box-shadow: var(--elevation-2), 0 0 20px var(--error-glow);
+  }
+
+  .btn-success {
+    @apply font-semibold px-5 py-2.5 transition-all inline-flex items-center justify-center gap-2;
+    background: var(--success);
+    color: white;
+    border-radius: var(--radius-sm);
+    transition-duration: var(--duration-fast);
+  }
+
+  .btn-success:hover {
+    background: var(--success-hover);
+    box-shadow: var(--elevation-2), 0 0 20px var(--success-glow);
+  }
+
+  /* Button sizes */
+  .btn-sm {
+    @apply px-3 py-1.5 text-sm;
+    min-height: 32px;
+  }
+
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+    min-height: 48px;
+  }
+
+  /* ---------------------------------------------------------------------------
+     INPUTS
+     --------------------------------------------------------------------------- */
   .input-ios {
-    @apply w-full px-4 py-3 rounded-ios-sm transition-all duration-200 outline-none;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-subtle);
+    @apply w-full px-4 py-3 outline-none transition-all;
+    background: var(--bg-primary);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
     color: var(--text-primary);
+    transition-duration: var(--duration-fast);
   }
   
   .input-ios::placeholder {
     color: var(--text-muted);
   }
+
+  .input-ios:hover {
+    border-color: var(--text-muted);
+  }
   
   .input-ios:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-glow);
+    box-shadow: 0 0 0 3px var(--accent-muted);
   }
 
-  /* Filter pills */
+  .input-ios.error {
+    border-color: var(--error);
+    box-shadow: 0 0 0 3px var(--error-muted);
+  }
+
+  .input-ios.success {
+    border-color: var(--success);
+  }
+
+  /* ---------------------------------------------------------------------------
+     BADGES
+     --------------------------------------------------------------------------- */
+  .badge {
+    @apply px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1;
+    border-radius: var(--radius-full);
+  }
+  
+  .badge-draft {
+    background: var(--bg-hover);
+    color: var(--text-secondary);
+  }
+  
+  .badge-pending,
+  .badge-submitted {
+    background: var(--warning-muted);
+    color: var(--warning);
+  }
+  
+  .badge-approved,
+  .badge-success,
+  .badge-active {
+    background: var(--success-muted);
+    color: var(--success);
+  }
+  
+  .badge-rejected,
+  .badge-error {
+    background: var(--error-muted);
+    color: var(--error);
+  }
+  
+  .badge-info,
+  .badge-paid,
+  .badge-completed {
+    background: var(--info-muted);
+    color: var(--info);
+  }
+
+  .badge-accent {
+    background: var(--accent-muted);
+    color: var(--accent);
+  }
+
+  .badge-on_hold {
+    background: var(--warning-muted);
+    color: var(--warning);
+  }
+
+  .badge-wire,
+  .badge-pending_wire {
+    background: var(--purple-muted);
+    color: var(--purple);
+  }
+
+  /* ---------------------------------------------------------------------------
+     FILTER PILLS
+     --------------------------------------------------------------------------- */
   .filter-pill {
-    @apply px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer;
+    @apply px-4 py-2 text-sm font-medium cursor-pointer transition-all;
     background: var(--bg-secondary);
     color: var(--text-secondary);
+    border-radius: var(--radius-full);
+    transition-duration: var(--duration-fast);
   }
   
   .filter-pill:hover {
@@ -163,86 +636,54 @@ body {
     color: white;
   }
 
-  /* Status badges */
-  .badge {
-    @apply px-2.5 py-1 rounded-full text-xs font-semibold;
-  }
-  
-  .badge-draft {
-    background: var(--bg-hover);
-    color: var(--text-secondary);
-  }
-  
-  .badge-submitted {
-    background: rgba(245, 158, 11, 0.15);
-    color: #fbbf24;
-  }
-  
-  .badge-approved {
-    background: rgba(34, 197, 94, 0.15);
-    color: #4ade80;
-  }
-  
-  .badge-rejected {
-    background: rgba(239, 68, 68, 0.15);
-    color: #f87171;
-  }
-  
-  .badge-paid {
-    background: var(--accent-glow);
-    color: #60a5fa;
-  }
-  
-  .badge-active {
-    background: rgba(34, 197, 94, 0.15);
-    color: #4ade80;
-  }
-  
-  .badge-on_hold {
-    background: rgba(245, 158, 11, 0.15);
-    color: #fbbf24;
-  }
-  
-  .badge-completed {
-    background: var(--accent-glow);
-    color: #60a5fa;
-  }
-
-  /* Progress bar */
+  /* ---------------------------------------------------------------------------
+     PROGRESS
+     --------------------------------------------------------------------------- */
   .progress-bar {
-    @apply h-2 rounded-full overflow-hidden;
+    @apply h-2 overflow-hidden;
     background: var(--bg-hover);
+    border-radius: var(--radius-full);
   }
   
   .progress-bar-fill {
-    @apply h-full rounded-full transition-all duration-500;
-    background: var(--accent);
+    @apply h-full transition-all;
+    background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+    border-radius: var(--radius-full);
+    transition-duration: var(--duration-slow);
+    transition-timing-function: var(--ease-out);
   }
 
-  /* Accordion/Collapsible */
-  .accordion-trigger {
-    @apply flex items-center justify-between w-full py-3 px-4 rounded-ios-sm transition-all duration-200;
-    color: var(--text-primary);
-  }
-  
-  .accordion-trigger:hover {
-    background: var(--bg-hover);
-  }
-  
-  .accordion-content {
-    @apply pl-4 overflow-hidden;
-  }
-
-  /* Sidebar */
+  /* ---------------------------------------------------------------------------
+     SIDEBAR
+     --------------------------------------------------------------------------- */
   .sidebar {
     @apply h-full overflow-y-auto;
     background: var(--bg-secondary);
     border-right: 1px solid var(--border-subtle);
   }
 
-  /* Table styles */
+  .sidebar-item {
+    @apply flex items-center gap-3 px-4 py-3 transition-all;
+    color: var(--text-secondary);
+    border-radius: var(--radius-md);
+    transition-duration: var(--duration-fast);
+  }
+
+  .sidebar-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .sidebar-item.active {
+    background: var(--accent-muted);
+    color: var(--accent);
+  }
+
+  /* ---------------------------------------------------------------------------
+     TABLES
+     --------------------------------------------------------------------------- */
   .table-header {
-    @apply font-semibold text-left px-4 py-3;
+    @apply font-semibold text-left px-4 py-3 text-sm;
     background: var(--bg-secondary);
     color: var(--text-secondary);
     border-bottom: 1px solid var(--border);
@@ -254,29 +695,121 @@ body {
     color: var(--text-primary);
   }
   
-  .table-row:hover {
+  .table-row:hover .table-cell {
     background: var(--bg-hover);
   }
 
-  /* Modal/Sheet overlay */
+  .table-cell.numeric {
+    @apply text-right;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------------------------------------------------------------------------
+     ACCORDION
+     --------------------------------------------------------------------------- */
+  .accordion-trigger {
+    @apply flex items-center justify-between w-full py-3 px-4 transition-all;
+    color: var(--text-primary);
+    border-radius: var(--radius-md);
+    transition-duration: var(--duration-fast);
+  }
+  
+  .accordion-trigger:hover {
+    background: var(--bg-hover);
+  }
+  
+  .accordion-content {
+    @apply pl-4 overflow-hidden;
+  }
+
+  /* ---------------------------------------------------------------------------
+     OVERLAY / MODAL
+     --------------------------------------------------------------------------- */
   .overlay {
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(4px);
   }
 
-  /* Drop zone */
-  .drop-zone {
-    @apply rounded-ios p-12 text-center transition-all duration-200 cursor-pointer;
-    border: 2px dashed var(--border);
-    background: var(--bg-secondary);
-  }
-  
-  .drop-zone:hover, .drop-zone.dragging {
-    border-color: var(--accent);
-    background: var(--accent-glow);
+  .modal {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--elevation-5);
   }
 
-  /* Legacy compatibility - will be removed */
+  /* ---------------------------------------------------------------------------
+     DROP ZONE
+     --------------------------------------------------------------------------- */
+  .drop-zone {
+    @apply p-12 text-center cursor-pointer transition-all;
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-secondary);
+    transition-duration: var(--duration-fast);
+  }
+  
+  .drop-zone:hover, 
+  .drop-zone.dragging {
+    border-color: var(--accent);
+    background: var(--accent-muted);
+  }
+
+  /* ---------------------------------------------------------------------------
+     SKELETON LOADER
+     --------------------------------------------------------------------------- */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--bg-secondary) 25%,
+      var(--bg-hover) 50%,
+      var(--bg-secondary) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: var(--radius-sm);
+  }
+
+  /* ---------------------------------------------------------------------------
+     TOASTS
+     --------------------------------------------------------------------------- */
+  .toast {
+    @apply flex items-start gap-3 p-4;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--elevation-4);
+    max-width: 400px;
+  }
+
+  .toast-success {
+    border-left: 4px solid var(--success);
+  }
+
+  .toast-error {
+    border-left: 4px solid var(--error);
+  }
+
+  .toast-warning {
+    border-left: 4px solid var(--warning);
+  }
+
+  .toast-info {
+    border-left: 4px solid var(--accent);
+  }
+
+  /* ---------------------------------------------------------------------------
+     FINANCIAL VALUES
+     --------------------------------------------------------------------------- */
+  .financial-value {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' on;
+  }
+
+  /* ---------------------------------------------------------------------------
+     LEGACY COMPATIBILITY (will be deprecated)
+     --------------------------------------------------------------------------- */
   .card {
     @apply card-ios;
   }
@@ -286,8 +819,65 @@ body {
   }
   
   .status-draft { @apply badge badge-draft; }
-  .status-submitted { @apply badge badge-submitted; }
+  .status-submitted { @apply badge badge-pending; }
   .status-approved { @apply badge badge-approved; }
   .status-rejected { @apply badge badge-rejected; }
   .status-paid { @apply badge badge-paid; }
+}
+
+/* =============================================================================
+   UTILITY LAYER
+   ============================================================================= */
+@layer utilities {
+  /* Text utilities */
+  .text-accent { color: var(--accent); }
+  .text-success { color: var(--success); }
+  .text-warning { color: var(--warning); }
+  .text-error { color: var(--error); }
+  .text-info { color: var(--info); }
+
+  /* Background utilities */
+  .bg-accent { background: var(--accent); }
+  .bg-accent-muted { background: var(--accent-muted); }
+  .bg-success-muted { background: var(--success-muted); }
+  .bg-warning-muted { background: var(--warning-muted); }
+  .bg-error-muted { background: var(--error-muted); }
+
+  /* Border utilities */
+  .border-accent { border-color: var(--accent); }
+  .border-success { border-color: var(--success); }
+  .border-warning { border-color: var(--warning); }
+  .border-error { border-color: var(--error); }
+
+  /* Shadow utilities */
+  .shadow-elevation-1 { box-shadow: var(--elevation-1); }
+  .shadow-elevation-2 { box-shadow: var(--elevation-2); }
+  .shadow-elevation-3 { box-shadow: var(--elevation-3); }
+  .shadow-elevation-4 { box-shadow: var(--elevation-4); }
+  .shadow-elevation-5 { box-shadow: var(--elevation-5); }
+  .shadow-glow-accent { box-shadow: var(--glow-accent); }
+
+  /* Animation utilities */
+  .animate-fade-in { animation: fadeIn var(--duration-normal) var(--ease-out); }
+  .animate-scale-in { animation: scaleIn var(--duration-normal) var(--ease-out); }
+  .animate-slide-up { animation: slideUp var(--duration-normal) var(--ease-out); }
+  .animate-slide-in { animation: slideIn var(--duration-slow) var(--ease-out); }
+  .animate-shake { animation: shake var(--duration-slow) var(--ease-default); }
+  .animate-pulse { animation: pulse 2s infinite; }
+  .animate-spin { animation: spin 1s linear infinite; }
+  .animate-bounce { animation: bounce 1s infinite; }
+
+  /* Transition utilities */
+  .transition-fast { transition-duration: var(--duration-fast); }
+  .transition-normal { transition-duration: var(--duration-normal); }
+  .transition-slow { transition-duration: var(--duration-slow); }
+  .ease-default { transition-timing-function: var(--ease-default); }
+  .ease-spring { transition-timing-function: var(--ease-spring); }
+  .ease-bounce { transition-timing-function: var(--ease-bounce); }
+
+  /* Touch target */
+  .touch-target {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }

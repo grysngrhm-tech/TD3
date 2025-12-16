@@ -44,19 +44,22 @@ export default function ProjectsPage() {
     }).format(amount)
   }
 
-  const getStatusClass = (status: string) => {
-    const classes: Record<string, string> = {
-      active: 'bg-emerald-100 text-emerald-700',
-      completed: 'bg-primary-100 text-primary-700',
-      on_hold: 'bg-amber-100 text-amber-700',
+  const getStatusStyle = (status: string) => {
+    const styles: Record<string, { background: string; color: string }> = {
+      active: { background: 'var(--success-muted)', color: 'var(--success)' },
+      completed: { background: 'var(--accent-muted)', color: 'var(--accent)' },
+      on_hold: { background: 'var(--warning-muted)', color: 'var(--warning)' },
     }
-    return classes[status] || 'bg-slate-100 text-slate-700'
+    return styles[status] || { background: 'var(--bg-hover)', color: 'var(--text-secondary)' }
   }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <div 
+          className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent"
+          style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
+        />
       </div>
     )
   }
@@ -66,8 +69,8 @@ export default function ProjectsPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Projects</h1>
-          <p className="text-slate-600 mt-1">Manage construction projects</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Projects</h1>
+          <p className="mt-1" style={{ color: 'var(--text-muted)' }}>Manage construction projects</p>
         </div>
         <a href="/projects/new" className="btn-primary">
           + New Project
@@ -77,43 +80,50 @@ export default function ProjectsPage() {
       {/* Projects Grid */}
       {projects.length === 0 ? (
         <div className="card text-center py-12">
-          <p className="text-slate-500 mb-4">No projects yet</p>
+          <p className="mb-4" style={{ color: 'var(--text-muted)' }}>No projects yet</p>
           <a href="/projects/new" className="btn-primary">
             Create Your First Project
           </a>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
-            <div key={project.id} className="card hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-3">
-                <h3 className="font-semibold text-lg text-slate-900">{project.name}</h3>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(project.status)}`}>
-                  {project.status.replace('_', ' ')}
-                </span>
-              </div>
-              
-              {project.address && (
-                <p className="text-slate-600 text-sm mb-3">{project.address}</p>
-              )}
-              
-              <div className="pt-3 border-t border-slate-100">
-                <div className="text-sm text-slate-500">Loan Amount</div>
-                <div className="text-xl font-bold text-slate-900">
-                  {formatCurrency(project.loan_amount)}
+          {projects.map((project) => {
+            const statusStyle = getStatusStyle(project.status)
+            return (
+              <div key={project.id} className="card hover:shadow-elevation-3 transition-shadow">
+                <div className="flex justify-between items-start mb-3">
+                  <h3 className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>{project.name}</h3>
+                  <span 
+                    className="px-2 py-1 rounded-full text-xs font-medium"
+                    style={statusStyle}
+                  >
+                    {project.status.replace('_', ' ')}
+                  </span>
+                </div>
+                
+                {project.address && (
+                  <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>{project.address}</p>
+                )}
+                
+                <div className="pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                  <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Loan Amount</div>
+                  <div className="text-xl font-bold financial-value" style={{ color: 'var(--text-primary)' }}>
+                    {formatCurrency(project.loan_amount)}
+                  </div>
+                </div>
+                
+                <div className="mt-4 flex gap-2">
+                  <a
+                    href={`/budgets?project=${project.id}`}
+                    className="text-sm font-medium transition-colors"
+                    style={{ color: 'var(--accent)' }}
+                  >
+                    View Budget →
+                  </a>
                 </div>
               </div>
-              
-              <div className="mt-4 flex gap-2">
-                <a
-                  href={`/budgets?project=${project.id}`}
-                  className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-                >
-                  View Budget →
-                </a>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

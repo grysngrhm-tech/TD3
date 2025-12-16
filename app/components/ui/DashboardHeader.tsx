@@ -10,25 +10,37 @@ type DashboardHeaderProps = {
   actions: React.ReactNode
 }
 
+/**
+ * Unified dashboard header component
+ * Used for both Portfolio and Draw dashboards
+ */
 export function DashboardHeader({ title, subtitle, toggleElement, actions }: DashboardHeaderProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
       className="mb-6"
     >
       <div className="flex items-start justify-between gap-6">
         {/* Left: Title & Subtitle */}
         <div className="flex-shrink-0">
           <h1 
-            className="text-2xl font-bold"
-            style={{ color: 'var(--text-primary)' }}
+            className="font-bold"
+            style={{ 
+              color: 'var(--text-primary)',
+              fontSize: 'var(--text-2xl)',
+              lineHeight: 1.2,
+            }}
           >
             {title}
           </h1>
           <p 
-            className="text-sm mt-0.5"
-            style={{ color: 'var(--text-muted)' }}
+            className="mt-1"
+            style={{ 
+              color: 'var(--text-muted)',
+              fontSize: 'var(--text-sm)',
+            }}
           >
             {subtitle}
           </p>

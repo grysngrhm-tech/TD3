@@ -18,6 +18,10 @@ type DrawFilterSidebarProps = {
   onClearBuilders: () => void
 }
 
+/**
+ * Right-side filter sidebar for Draw Dashboard
+ * Mirrors the Portfolio Dashboard's FilterSidebar layout
+ */
 export function DrawFilterSidebar({
   builderFilters,
   selectedBuilders,
@@ -50,37 +54,53 @@ export function DrawFilterSidebar({
 
   return (
     <div 
-      className="w-64 flex-shrink-0 h-[calc(100vh-3.5rem)] sticky top-14 border-l flex flex-col"
+      className="flex-shrink-0 sticky flex flex-col"
       style={{ 
+        width: 'var(--sidebar-width)',
+        height: 'calc(100vh - var(--header-height))',
+        top: 'var(--header-height)',
         background: 'var(--bg-secondary)', 
-        borderColor: 'var(--border-subtle)' 
+        borderLeft: '1px solid var(--border-subtle)',
       }}
     >
       <div className="p-4 flex flex-col flex-1 min-h-0">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+          <h2 
+            className="text-xs font-semibold uppercase tracking-wider" 
+            style={{ color: 'var(--text-muted)' }}
+          >
             Filters
           </h2>
           {hasBuilderFilters && (
-            <button 
+            <motion.button 
               onClick={onClearBuilders}
-              className="text-xs font-medium transition-colors"
+              className="text-xs font-medium"
               style={{ color: 'var(--accent)' }}
+              whileHover={{ opacity: 0.8 }}
+              whileTap={{ scale: 0.95 }}
             >
               Clear
-            </button>
+            </motion.button>
           )}
         </div>
 
         {/* Builder Filter List */}
         <div className="flex-1 min-h-0">
-          <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
+          <div 
+            className="text-xs font-medium uppercase tracking-wider mb-2" 
+            style={{ color: 'var(--text-muted)' }}
+          >
             Builder
           </div>
           <div 
-            className="rounded-ios-sm overflow-hidden overflow-y-auto"
-            style={{ background: 'var(--bg-card)', maxHeight: 'calc(100% - 24px)' }}
+            className="overflow-hidden overflow-y-auto"
+            style={{ 
+              background: 'var(--bg-card)', 
+              maxHeight: 'calc(100% - 24px)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-subtle)',
+            }}
           >
             <AnimatePresence mode="wait">
               <motion.div
@@ -90,61 +110,97 @@ export function DrawFilterSidebar({
                 className="p-2 space-y-0.5"
               >
                 {sortedBuilders.length === 0 ? (
-                  <div className="py-4 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
+                  <div 
+                    className="py-6 text-center text-xs" 
+                    style={{ color: 'var(--text-muted)' }}
+                  >
                     No builders available
                   </div>
                 ) : (
                   <>
                     {enabledCount < sortedBuilders.length && (
-                      <div className="px-2 py-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+                      <div 
+                        className="px-2 py-1.5 text-xs" 
+                        style={{ color: 'var(--text-muted)' }}
+                      >
                         {enabledCount} of {sortedBuilders.length} with draws
                       </div>
                     )}
-                    {sortedBuilders.map((builder) => {
+                    {sortedBuilders.map((builder, index) => {
                       const isSelected = selectedBuilders.includes(builder.id)
                       const isDisabled = builder.disabled && !isSelected
                       return (
-                        <button
+                        <motion.button
                           key={builder.id}
+                          initial={{ opacity: 0, x: 10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.02, duration: 0.15 }}
                           onClick={() => !isDisabled && onBuilderFilterChange(builder.id)}
                           disabled={isDisabled}
-                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded-ios-xs text-xs transition-all ${
+                          className={`w-full flex items-center justify-between px-2.5 py-2 text-xs transition-all touch-target ${
                             isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'
                           }`}
                           style={{ 
-                            background: isSelected ? 'var(--accent-glow)' : 'transparent',
+                            background: isSelected ? 'var(--accent-muted)' : 'transparent',
                             color: isDisabled 
-                              ? 'var(--text-muted)' 
+                              ? 'var(--text-disabled)' 
                               : isSelected 
                                 ? 'var(--accent)' 
                                 : 'var(--text-secondary)',
                             opacity: isDisabled ? 0.5 : 1,
+                            borderRadius: 'var(--radius-sm)',
                           }}
+                          whileHover={!isDisabled ? { 
+                            backgroundColor: isSelected ? 'var(--accent-muted)' : 'var(--bg-hover)' 
+                          } : undefined}
+                          whileTap={!isDisabled ? { scale: 0.98 } : undefined}
                         >
-                          <div className="flex items-center gap-2 min-w-0">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {/* Checkbox */}
                             <div 
-                              className={`w-3 h-3 rounded-sm flex-shrink-0 flex items-center justify-center border transition-all ${
-                                isSelected ? 'border-[var(--accent)] bg-[var(--accent)]' : 'border-[var(--border)]'
-                              }`}
+                              className="w-4 h-4 flex-shrink-0 flex items-center justify-center transition-all"
+                              style={{ 
+                                borderRadius: 'var(--radius-xs)',
+                                border: isSelected 
+                                  ? '2px solid var(--accent)' 
+                                  : '2px solid var(--border)',
+                                background: isSelected ? 'var(--accent)' : 'transparent',
+                              }}
                             >
                               {isSelected && (
-                                <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
+                                <motion.svg 
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  className="w-2.5 h-2.5" 
+                                  fill="none" 
+                                  viewBox="0 0 24 24" 
+                                  stroke="white"
+                                  strokeWidth={3}
+                                >
+                                  <path 
+                                    strokeLinecap="round" 
+                                    strokeLinejoin="round" 
+                                    d="M5 13l4 4L19 7" 
+                                  />
+                                </motion.svg>
                               )}
                             </div>
                             <span className="truncate">{builder.label}</span>
                           </div>
+                          
+                          {/* Count badge */}
                           <span 
-                            className="text-xs px-1 py-0.5 rounded flex-shrink-0 ml-1"
+                            className="text-xs px-1.5 py-0.5 flex-shrink-0 ml-1 font-medium"
                             style={{ 
                               background: isDisabled ? 'transparent' : 'var(--bg-hover)',
                               color: 'var(--text-muted)',
+                              borderRadius: 'var(--radius-full)',
+                              border: isDisabled ? '1px solid var(--border-subtle)' : 'none',
                             }}
                           >
                             {builder.count}
                           </span>
-                        </button>
+                        </motion.button>
                       )
                     })}
                   </>

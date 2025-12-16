@@ -237,10 +237,13 @@ export function QuickLinksPopup({ variant }: QuickLinksPopupProps) {
               damping: 30,
               opacity: { duration: 0.15 }
             }}
-            className="absolute bottom-full left-0 right-0 z-50 overflow-hidden rounded-t-ios-sm mb-1"
+            className="absolute bottom-full left-0 right-0 z-50 overflow-hidden mb-1"
             style={{ 
               background: 'var(--bg-card)',
-              boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.2)',
+              borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
+              boxShadow: 'var(--elevation-4)',
+              border: '1px solid var(--border-subtle)',
+              borderBottom: 'none',
             }}
           >
             <div className="p-3 max-h-[60vh] overflow-y-auto">
@@ -313,29 +316,39 @@ export function QuickLinksPopup({ variant }: QuickLinksPopupProps) {
       {/* Tab - always visible at bottom */}
       <motion.button
         onClick={toggleQuickLinks}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 transition-all"
+        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 touch-target transition-all"
         style={{ 
-          background: quickLinksOpen ? 'var(--bg-card)' : 'var(--bg-hover)',
-          color: quickLinksOpen ? 'var(--text-primary)' : 'var(--text-secondary)',
-          borderTop: `1px solid var(--border-subtle)`,
+          background: quickLinksOpen ? 'var(--accent)' : 'var(--bg-card)',
+          color: quickLinksOpen ? 'white' : 'var(--text-secondary)',
+          borderTop: quickLinksOpen ? 'none' : '1px solid var(--border-subtle)',
+          borderRadius: quickLinksOpen ? 0 : 'var(--radius-lg)',
+          boxShadow: quickLinksOpen ? 'none' : 'var(--elevation-1)',
         }}
         whileHover={{ 
-          backgroundColor: 'var(--bg-card)',
+          backgroundColor: quickLinksOpen ? 'var(--accent-hover)' : 'var(--bg-hover)',
+          color: quickLinksOpen ? 'white' : 'var(--text-primary)',
         }}
         whileTap={{ scale: 0.98 }}
+        transition={{ duration: 0.1 }}
       >
-        <span style={{ color: 'var(--text-muted)' }}>{ICONS.menu}</span>
-        <span className="text-sm font-medium">Quick Links</span>
-        <span className="text-xs px-1.5 py-0.5 rounded" style={{ 
-          background: 'var(--bg-secondary)', 
-          color: 'var(--text-muted)' 
-        }}>
+        <span style={{ color: quickLinksOpen ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)' }}>
+          {ICONS.menu}
+        </span>
+        <span className="text-sm font-semibold">Quick Links</span>
+        <span 
+          className="text-xs px-1.5 py-0.5 font-mono font-bold" 
+          style={{ 
+            background: quickLinksOpen ? 'rgba(255,255,255,0.2)' : 'var(--bg-hover)', 
+            color: quickLinksOpen ? 'white' : 'var(--text-muted)',
+            borderRadius: 'var(--radius-xs)',
+          }}
+        >
           Q
         </span>
         <motion.span
           animate={{ rotate: quickLinksOpen ? 180 : 0 }}
           transition={{ duration: 0.2 }}
-          style={{ color: 'var(--text-muted)' }}
+          style={{ color: quickLinksOpen ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)' }}
         >
           {ICONS.chevronUp}
         </motion.span>

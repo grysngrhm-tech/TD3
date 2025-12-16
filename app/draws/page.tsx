@@ -80,7 +80,10 @@ export default function DrawsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <div 
+          className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent"
+          style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
+        />
       </div>
     )
   }
@@ -90,8 +93,8 @@ export default function DrawsPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Draw Requests</h1>
-          <p className="text-slate-600 mt-1">Manage construction draw requests</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Draw Requests</h1>
+          <p className="mt-1" style={{ color: 'var(--text-muted)' }}>Manage construction draw requests</p>
         </div>
         <a href="/draws/new" className="btn-primary">
           + New Draw Request
@@ -102,11 +105,12 @@ export default function DrawsPage() {
       <div className="flex gap-2 flex-wrap">
         <button
           onClick={() => setStatusFilter('all')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            statusFilter === 'all'
-              ? 'bg-primary-600 text-white'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-          }`}
+          className="px-4 py-2 text-sm font-medium transition-colors"
+          style={{ 
+            background: statusFilter === 'all' ? 'var(--accent)' : 'var(--bg-hover)',
+            color: statusFilter === 'all' ? 'white' : 'var(--text-secondary)',
+            borderRadius: 'var(--radius-md)',
+          }}
         >
           All ({draws.length})
         </button>
@@ -114,11 +118,12 @@ export default function DrawsPage() {
           <button
             key={status}
             onClick={() => setStatusFilter(status)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
-              statusFilter === status
-                ? 'bg-primary-600 text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
+            className="px-4 py-2 text-sm font-medium transition-colors capitalize"
+            style={{ 
+              background: statusFilter === status ? 'var(--accent)' : 'var(--bg-hover)',
+              color: statusFilter === status ? 'white' : 'var(--text-secondary)',
+              borderRadius: 'var(--radius-md)',
+            }}
           >
             {status} ({statusCounts[status] || 0})
           </button>
@@ -128,7 +133,7 @@ export default function DrawsPage() {
       {/* Draws Table */}
       <div className="card p-0 overflow-hidden">
         {filteredDraws.length === 0 ? (
-          <p className="text-slate-500 text-center py-12">No draw requests found</p>
+          <p className="text-center py-12" style={{ color: 'var(--text-muted)' }}>No draw requests found</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -145,25 +150,29 @@ export default function DrawsPage() {
               </thead>
               <tbody>
                 {filteredDraws.map((draw) => (
-                  <tr key={draw.id} className="hover:bg-slate-50">
+                  <tr 
+                    key={draw.id} 
+                    className="table-row"
+                  >
                     <td className="table-cell font-medium">{draw.project_name || 'Unknown'}</td>
                     <td className="table-cell">#{draw.draw_number}</td>
-                    <td className="table-cell text-slate-600">
+                    <td className="table-cell" style={{ color: 'var(--text-secondary)' }}>
                       {new Date(draw.request_date).toLocaleDateString()}
                     </td>
-                    <td className="table-cell text-right font-medium">
+                    <td className="table-cell text-right font-medium financial-value">
                       {formatCurrency(draw.total_amount)}
                     </td>
                     <td className="table-cell">
                       <span className={getStatusClass(draw.status)}>{draw.status}</span>
                     </td>
-                    <td className="table-cell text-slate-500 text-sm max-w-xs truncate">
+                    <td className="table-cell text-sm max-w-xs truncate" style={{ color: 'var(--text-muted)' }}>
                       {draw.notes || '-'}
                     </td>
                     <td className="table-cell">
                       <a
                         href={`/draws/${draw.id}`}
-                        className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+                        className="text-sm font-medium transition-colors"
+                        style={{ color: 'var(--accent)' }}
                       >
                         View →
                       </a>
