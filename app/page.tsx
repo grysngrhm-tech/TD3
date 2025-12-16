@@ -9,6 +9,7 @@ import { StageSelector } from '@/app/components/ui/StageSelector'
 import { StageStatsBar } from '@/app/components/ui/StageStatsBar'
 import { DashboardHeader } from '@/app/components/ui/DashboardHeader'
 import { useFilters } from '@/app/hooks/useFilters'
+import { useNavigation } from '@/app/context/NavigationContext'
 import { calculateLoanIncome, calculateIRR } from '@/lib/calculations'
 import type { LifecycleStage, Builder, Lender, DrawRequest } from '@/types/database'
 
@@ -44,12 +45,18 @@ type ProjectWithBudget = {
 
 export default function Dashboard() {
   const router = useRouter()
+  const { setLastDashboard } = useNavigation()
   const [projects, setProjects] = useState<ProjectWithBudget[]>([])
   const [builders, setBuilders] = useState<Builder[]>([])
   const [lenders, setLenders] = useState<Lender[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedStage, setSelectedStage] = useState<LifecycleStage>('active')
   const { filters, toggleFilter, clearAll, clearSection } = useFilters()
+
+  // Register this as the Portfolio dashboard
+  useEffect(() => {
+    setLastDashboard('portfolio')
+  }, [setLastDashboard])
 
   useEffect(() => {
     loadData()

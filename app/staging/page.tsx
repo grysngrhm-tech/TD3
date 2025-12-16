@@ -9,6 +9,7 @@ import { DashboardHeader } from '@/app/components/ui/DashboardHeader'
 import { DrawStatusSelector } from '@/app/components/ui/DrawStatusSelector'
 import { DrawFilterSidebar } from '@/app/components/ui/DrawFilterSidebar'
 import { DrawStatsBar } from '@/app/components/ui/DrawStatsBar'
+import { useNavigation } from '@/app/context/NavigationContext'
 
 type DrawStatus = 'all' | 'review' | 'staged' | 'pending_wire'
 
@@ -31,6 +32,7 @@ type BuilderWithDraws = Builder & {
 function StagingDashboardContent() {
   const searchParams = useSearchParams()
   const highlightedBatchId = searchParams.get('batch')
+  const { setLastDashboard } = useNavigation()
 
   const [loading, setLoading] = useState(true)
   const [pendingReview, setPendingReview] = useState<DrawWithProject[]>([])
@@ -47,6 +49,11 @@ function StagingDashboardContent() {
   const [fundingNotes, setFundingNotes] = useState('')
   const [isFunding, setIsFunding] = useState(false)
   const [fundingError, setFundingError] = useState('')
+
+  // Register this as the Draw dashboard
+  useEffect(() => {
+    setLastDashboard('draw')
+  }, [setLastDashboard])
 
   const loadData = useCallback(async () => {
     try {
@@ -598,7 +605,6 @@ function StagingDashboardContent() {
         selectedBuilders={selectedBuilders}
         onBuilderFilterChange={handleBuilderFilterChange}
         onClearBuilders={() => setSelectedBuilders([])}
-        summaryStats={summaryStats}
       />
 
       {/* Bookkeeper Confirmation Modal */}

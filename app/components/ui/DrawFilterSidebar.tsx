@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import Link from 'next/link'
 
 type FilterOption = {
   id: string
@@ -10,36 +11,56 @@ type FilterOption = {
   disabled?: boolean
 }
 
-type SummaryStats = {
-  pendingReview: number
-  stagedDraws: number
-  pendingWires: number
-  totalPendingAmount: number
-  stagedAmount: number
-  pendingWireAmount: number
-}
-
 type DrawFilterSidebarProps = {
   builderFilters: FilterOption[]
   selectedBuilders: string[]
   onBuilderFilterChange: (builderId: string) => void
   onClearBuilders: () => void
-  summaryStats: SummaryStats
 }
 
-function formatCurrency(amount: number): string {
-  if (amount >= 1000000) {
-    return `$${(amount / 1000000).toFixed(2)}M`
+// Quick Link component
+function QuickLink({ href, icon, label }: { href: string; icon: 'list' | 'dollar' | 'chart' | 'building'; label: string }) {
+  const icons = {
+    list: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+      </svg>
+    ),
+    dollar: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    chart: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+    building: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+    ),
   }
-  if (amount >= 1000) {
-    return `$${(amount / 1000).toFixed(0)}K`
-  }
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
+
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-3 px-3 py-2 rounded-ios-xs text-sm transition-colors"
+      style={{ color: 'var(--text-secondary)' }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = 'var(--bg-hover)'
+        e.currentTarget.style.color = 'var(--text-primary)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'transparent'
+        e.currentTarget.style.color = 'var(--text-secondary)'
+      }}
+    >
+      <span style={{ color: 'var(--text-muted)' }}>{icons[icon]}</span>
+      <span>{label}</span>
+    </Link>
+  )
 }
 
 export function DrawFilterSidebar({
@@ -47,7 +68,6 @@ export function DrawFilterSidebar({
   selectedBuilders,
   onBuilderFilterChange,
   onClearBuilders,
-  summaryStats,
 }: DrawFilterSidebarProps) {
   
   // Sort builders: selected first, then by count desc, then disabled
@@ -182,43 +202,23 @@ export function DrawFilterSidebar({
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Summary Card */}
+        {/* Quick Links Section */}
         <div 
-          className="rounded-ios-sm p-4"
-          style={{ background: 'var(--bg-card)' }}
+          className="rounded-ios-sm p-3 border-t pt-4"
+          style={{ borderColor: 'var(--border-subtle)' }}
         >
-          <h3 className="font-semibold text-sm mb-3" style={{ color: 'var(--text-primary)' }}>
-            Summary
+          <h3 
+            className="text-xs font-semibold uppercase tracking-wide mb-3 px-1" 
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Quick Links
           </h3>
-          <dl className="space-y-2 text-xs">
-            <div className="flex justify-between">
-              <dt style={{ color: 'var(--text-muted)' }}>Pending Review</dt>
-              <dd className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                {summaryStats.pendingReview}
-              </dd>
-            </div>
-            <div className="flex justify-between">
-              <dt style={{ color: 'var(--text-muted)' }}>Staged Draws</dt>
-              <dd className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                {summaryStats.stagedDraws}
-              </dd>
-            </div>
-            <div className="flex justify-between">
-              <dt style={{ color: 'var(--text-muted)' }}>Pending Wires</dt>
-              <dd className="font-medium" style={{ color: 'var(--warning)' }}>
-                {summaryStats.pendingWires}
-              </dd>
-            </div>
-            <div 
-              className="pt-2 mt-2 flex justify-between border-t"
-              style={{ borderColor: 'var(--border-subtle)' }}
-            >
-              <dt className="font-medium" style={{ color: 'var(--text-primary)' }}>Total Pending</dt>
-              <dd className="font-bold" style={{ color: 'var(--accent)' }}>
-                {formatCurrency(summaryStats.totalPendingAmount)}
-              </dd>
-            </div>
-          </dl>
+          <nav className="space-y-1">
+            <QuickLink href="/draws" icon="list" label="All Draws" />
+            <QuickLink href="/budgets" icon="dollar" label="Budgets" />
+            <QuickLink href="/reports" icon="chart" label="Reports" />
+            <QuickLink href="/projects" icon="building" label="All Projects" />
+          </nav>
         </div>
       </div>
     </div>
