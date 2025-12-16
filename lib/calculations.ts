@@ -443,92 +443,90 @@ export function projectInterestAtDate(
 
 /**
  * Simulate adding a new draw to the schedule
- * Returns complete schedule including trailing interest row to current date
  */
 export function simulateNextDraw(
   currentSchedule: AmortizationRow[],
   drawAmount: number,
   drawDate: Date,
-  project: AmortizationProjectFinancials,
-  projectionDate?: Date // Optional: project to a specific date (defaults to today)
+  project: AmortizationProjectFinancials
 ): AmortizationRow[] {
   if (currentSchedule.length === 0) {
     return calculateAmortizationSchedule(
       [{ amount: drawAmount, date: drawDate.toISOString() }],
       project,
-      projectionDate
+      undefined
     )
   }
   
+  // Get current state
+  const lastRow = currentSchedule[currentSchedule.length - 1]
   const annualRate = project.interest_rate_annual || 0
   const dailyRate = annualRate / 365
   const baseFeeRate = project.origination_fee_pct || 0
   const loanStartDate = project.loan_start_date ? new Date(project.loan_start_date) : new Date()
   
-  // Create new schedule - keep only draw rows from the original
-  const newSchedule = currentSchedule.filter(row => row.type === 'draw')
-  
-  // Get the last actual draw to calculate interest from
-  const lastDrawRow = newSchedule[newSchedule.length - 1]
-  const referenceDate = lastDrawRow ? lastDrawRow.date : loanStartDate
-  const referenceBalance = lastDrawRow ? lastDrawRow.balance : 0
-  const referenceCumulativeInterest = lastDrawRow ? lastDrawRow.cumulativeInterest : 0
-  
-  // Calculate days and interest from last draw to simulated draw
-  const daysToSimDraw = Math.max(0, Math.floor(
-    (drawDate.getTime() - referenceDate.getTime()) / (1000 * 60 * 60 * 24)
+  // Calculate days since last entry
+  const days = Math.max(0, Math.floor(
+    (drawDate.getTime() - lastRow.date.getTime()) / (1000 * 60 * 60 * 24)
   ))
-  const interestToSimDraw = referenceBalance * dailyRate * daysToSimDraw
-  const cumulativeAfterSimDraw = referenceCumulativeInterest + interestToSimDraw
-  const balanceAfterSimDraw = referenceBalance + drawAmount
   
-  // Get fee rate at simulated draw date
-  const { rate: simDrawFeeRate } = calculateCurrentFeeRate(
+  // Calculate interest for the period
+  const periodInterest = lastRow.balance * dailyRate * days
+  const newCumulativeInterest = lastRow.cumulativeInterest + periodInterest
+  const newBalance = lastRow.balance + drawAmount
+  
+  // Get current fee rate
+  const { rate: currentFeeRate } = calculateCurrentFeeRate(
     baseFeeRate,
     loanStartDate,
     drawDate
   )
   
-  // Add the simulated draw row
+  // Create new schedule with simulated draw
+  const newSchedule = [...currentSchedule]
+  
+  // Remove the last row if it's not a draw (e.g., "Current" row)
+  if (lastRow.type !== 'draw') {
+    newSchedule.pop()
+  }
+  
+  // Add the simulated draw
   newSchedule.push({
     date: drawDate,
     drawNumber: null, // Simulated
     type: 'draw',
     description: 'Simulated Draw',
     amount: drawAmount,
-    days: daysToSimDraw,
-    interest: interestToSimDraw,
-    feeRate: simDrawFeeRate,
-    balance: balanceAfterSimDraw,
-    cumulativeInterest: cumulativeAfterSimDraw,
+    days,
+    interest: periodInterest,
+    feeRate: currentFeeRate,
+    balance: newBalance,
+    cumulativeInterest: newCumulativeInterest,
   })
   
-  // Add trailing "Current" row with interest accrued to projection date
-  const endDate = projectionDate || new Date()
+  // Add trailing "Current" row with interest accrued from simulated draw to today
+  const today = new Date()
   const daysAfterSimDraw = Math.max(0, Math.floor(
-    (endDate.getTime() - drawDate.getTime()) / (1000 * 60 * 60 * 24)
+    (today.getTime() - drawDate.getTime()) / (1000 * 60 * 60 * 24)
   ))
-  const trailingInterest = balanceAfterSimDraw * dailyRate * daysAfterSimDraw
-  const finalCumulativeInterest = cumulativeAfterSimDraw + trailingInterest
-  
-  // Get fee rate at projection date
-  const { rate: finalFeeRate } = calculateCurrentFeeRate(
+  const trailingInterest = newBalance * dailyRate * daysAfterSimDraw
+  const { rate: trailingFeeRate } = calculateCurrentFeeRate(
     baseFeeRate,
     loanStartDate,
-    endDate
+    today
   )
   
   newSchedule.push({
-    date: endDate,
+    date: today,
     drawNumber: null,
-    type: projectionDate ? 'payoff' : 'interest',
-    description: projectionDate ? 'Projected Payoff' : 'Current (Simulated)',
+    type: 'interest',
+    description: 'Current (Simulated)',
     amount: 0,
     days: daysAfterSimDraw,
     interest: trailingInterest,
-    feeRate: finalFeeRate,
-    balance: balanceAfterSimDraw,
-    cumulativeInterest: finalCumulativeInterest,
+    feeRate: trailingFeeRate,
+    balance: newBalance,
+    cumulativeInterest: newCumulativeInterest + trailingInterest,
   })
   
   return newSchedule
