@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
 
 type Dashboard = 'portfolio' | 'draw'
 
@@ -35,21 +35,21 @@ export function NavigationProvider({ children }: NavigationProviderProps) {
     setIsHydrated(true)
   }, [])
 
-  // Persist changes to localStorage
-  const setLastDashboard = (d: Dashboard) => {
+  // Persist changes to localStorage - memoized to prevent useEffect loops
+  const setLastDashboard = useCallback((d: Dashboard) => {
     setLastDashboardState(d)
     localStorage.setItem('lastDashboard', d)
-  }
+  }, [])
 
-  // Get the href for the last dashboard
-  const getDashboardHref = () => {
+  // Get the href for the last dashboard - memoized for stable reference
+  const getDashboardHref = useCallback(() => {
     return lastDashboard === 'draw' ? '/staging' : '/'
-  }
+  }, [lastDashboard])
 
-  // Get a friendly label for the last dashboard
-  const getDashboardLabel = () => {
+  // Get a friendly label for the last dashboard - memoized for stable reference
+  const getDashboardLabel = useCallback(() => {
     return lastDashboard === 'draw' ? 'Draw Dashboard' : 'Portfolio'
-  }
+  }, [lastDashboard])
 
   return (
     <NavigationContext.Provider 
