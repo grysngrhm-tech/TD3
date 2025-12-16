@@ -141,17 +141,19 @@ export type DrawLineWithDate = {
   drawNumber?: number
 }
 
-// Amortization schedule row
+// Amortization schedule row (compound interest)
 export type AmortizationRow = {
   date: Date
-  type: 'draw' | 'interest' | 'payoff'
+  drawNumber: number | null      // null for month-end or payoff rows
+  type: 'draw' | 'month_end' | 'payoff' | 'current'
   description: string
-  amount: number
-  days: number
-  interest: number
-  feeRate: number
-  balance: number
-  drawNumber?: number
+  drawAmount: number             // Draw amount only (0 for non-draw rows)
+  days: number                   // Days since LAST ACCRUAL event
+  accruedInterest: number        // Interest accrued THIS period
+  totalInterest: number          // Cumulative compound interest
+  feeRate: number                // Current fee rate (with escalation)
+  principal: number              // Sum of all draws to date
+  totalBalance: number           // Principal + totalInterest (compound)
 }
 
 // Complete payoff breakdown
