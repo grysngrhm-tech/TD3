@@ -157,52 +157,90 @@ export default function Dashboard() {
     return projects.filter(p => p.lifecycle_stage === selectedStage)
   }, [projects, selectedStage])
 
-  // Build filter sections from data (within selected stage)
+  // Build filter sections with cross-filtering
+  // Each category's options are filtered by the OTHER categories' selections
   const filterSections = useMemo(() => {
-    const builderCounts = new Map<string, { name: string; count: number }>()
-    const subdivisions = new Map<string, number>()
-    const lenderCounts = new Map<string, { name: string; count: number }>()
+    // Helper to check if a project matches specific filters
+    const matchesFilters = (
+      p: ProjectWithBudget,
+      checkBuilder: boolean,
+      checkSubdiv: boolean,
+      checkLender: boolean
+    ) => {
+      if (checkBuilder && filters.builder?.length > 0) {
+        if (!p.builder_id || !filters.builder.includes(p.builder_id)) return false
+      }
+      if (checkSubdiv && filters.subdivision?.length > 0) {
+        if (!p.subdivision_name || !filters.subdivision.includes(p.subdivision_name)) return false
+      }
+      if (checkLender && filters.lender?.length > 0) {
+        if (!p.lender_id || !filters.lender.includes(p.lender_id)) return false
+      }
+      return true
+    }
+
+    // Get all unique options first (for showing disabled state)
+    const allBuilders = new Map<string, string>()
+    const allSubdivisions = new Set<string>()
+    const allLenders = new Map<string, string>()
 
     projectsInStage.forEach(p => {
       if (p.builder_id && p.builder) {
-        const existing = builderCounts.get(p.builder_id)
-        if (existing) {
-          existing.count++
-        } else {
-          builderCounts.set(p.builder_id, { name: p.builder.company_name, count: 1 })
-        }
+        allBuilders.set(p.builder_id, p.builder.company_name)
       }
       if (p.subdivision_name) {
-        subdivisions.set(p.subdivision_name, (subdivisions.get(p.subdivision_name) || 0) + 1)
+        allSubdivisions.add(p.subdivision_name)
       }
       if (p.lender_id && p.lender) {
-        const existing = lenderCounts.get(p.lender_id)
-        if (existing) {
-          existing.count++
-        } else {
-          lenderCounts.set(p.lender_id, { name: p.lender.name, count: 1 })
-        }
+        allLenders.set(p.lender_id, p.lender.name)
+      }
+    })
+
+    // Builder options: count from projects matching subdivision AND lender filters
+    const builderCounts = new Map<string, number>()
+    projectsInStage.forEach(p => {
+      if (p.builder_id && matchesFilters(p, false, true, true)) {
+        builderCounts.set(p.builder_id, (builderCounts.get(p.builder_id) || 0) + 1)
+      }
+    })
+
+    // Subdivision options: count from projects matching builder AND lender filters
+    const subdivisionCounts = new Map<string, number>()
+    projectsInStage.forEach(p => {
+      if (p.subdivision_name && matchesFilters(p, true, false, true)) {
+        subdivisionCounts.set(p.subdivision_name, (subdivisionCounts.get(p.subdivision_name) || 0) + 1)
+      }
+    })
+
+    // Lender options: count from projects matching builder AND subdivision filters
+    const lenderCounts = new Map<string, number>()
+    projectsInStage.forEach(p => {
+      if (p.lender_id && matchesFilters(p, true, true, false)) {
+        lenderCounts.set(p.lender_id, (lenderCounts.get(p.lender_id) || 0) + 1)
       }
     })
 
     return {
-      builder: Array.from(builderCounts.entries()).map(([id, { name, count }]) => ({
+      builder: Array.from(allBuilders.entries()).map(([id, name]) => ({
         id,
         label: name,
-        count,
+        count: builderCounts.get(id) || 0,
+        disabled: (builderCounts.get(id) || 0) === 0,
       })),
-      subdivision: Array.from(subdivisions.entries()).map(([name, count]) => ({
+      subdivision: Array.from(allSubdivisions).map(name => ({
         id: name,
         label: name,
-        count,
+        count: subdivisionCounts.get(name) || 0,
+        disabled: (subdivisionCounts.get(name) || 0) === 0,
       })),
-      lender: Array.from(lenderCounts.entries()).map(([id, { name, count }]) => ({
+      lender: Array.from(allLenders.entries()).map(([id, name]) => ({
         id,
         label: name,
-        count,
+        count: lenderCounts.get(id) || 0,
+        disabled: (lenderCounts.get(id) || 0) === 0,
       })),
     }
-  }, [projectsInStage])
+  }, [projectsInStage, filters])
 
   // Apply additional filters
   const filteredProjects = useMemo(() => {

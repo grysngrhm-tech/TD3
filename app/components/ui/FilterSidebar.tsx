@@ -7,6 +7,7 @@ type FilterOption = {
   id: string
   label: string
   count: number
+  disabled?: boolean
 }
 
 type FilterCategory = 'builder' | 'subdivision' | 'lender'
@@ -68,7 +69,40 @@ export function FilterSidebar({
     return (selectedFilters[category] || []).length > 0
   }
 
-  const currentOptions = sections[activeCategory] || []
+  // Sort options: selected first, then enabled by count (desc), then disabled (alphabetically)
+  const currentOptions = useMemo(() => {
+    const options = sections[activeCategory] || []
+    const selected = selectedFilters[activeCategory] || []
+    
+    return [...options].sort((a, b) => {
+      const aSelected = selected.includes(a.id)
+      const bSelected = selected.includes(b.id)
+      
+      // Selected items first
+      if (aSelected && !bSelected) return -1
+      if (!aSelected && bSelected) return 1
+      
+      // Then enabled items (by count descending)
+      if (!a.disabled && b.disabled) return -1
+      if (a.disabled && !b.disabled) return 1
+      
+      // Within enabled: sort by count descending
+      if (!a.disabled && !b.disabled) {
+        return b.count - a.count
+      }
+      
+      // Within disabled: sort alphabetically
+      if (a.disabled && b.disabled) {
+        return a.label.localeCompare(b.label)
+      }
+      
+      return 0
+    })
+  }, [sections, activeCategory, selectedFilters])
+
+  // Count enabled vs total options for context
+  const enabledCount = currentOptions.filter(o => !o.disabled).length
+  const totalCount = currentOptions.length
 
   return (
     <div className="sidebar w-64 flex-shrink-0 h-[calc(100vh-3.5rem)] sticky top-14">
@@ -174,25 +208,42 @@ export function FilterSidebar({
                 </div>
               ) : (
                 <div className="space-y-0.5">
+                  {/* Context: showing X of Y */}
+                  {enabledCount < totalCount && (
+                    <div className="px-3 py-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+                      {enabledCount} of {totalCount} with matches
+                    </div>
+                  )}
                   {currentOptions.map((option) => {
                     const isSelected = (selectedFilters[activeCategory] || []).includes(option.id)
+                    const isDisabled = option.disabled && !isSelected
                     return (
                       <button
                         key={option.id}
-                        onClick={() => onFilterChange(activeCategory, option.id)}
+                        onClick={() => !isDisabled && onFilterChange(activeCategory, option.id)}
+                        disabled={isDisabled}
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-ios-xs text-sm transition-all ${
                           isSelected ? 'font-medium' : ''
-                        }`}
+                        } ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                         style={{ 
                           background: isSelected ? 'var(--accent-glow)' : 'transparent',
-                          color: isSelected ? 'var(--accent)' : 'var(--text-secondary)'
+                          color: isDisabled 
+                            ? 'var(--text-muted)' 
+                            : isSelected 
+                              ? 'var(--accent)' 
+                              : 'var(--text-secondary)',
+                          opacity: isDisabled ? 0.5 : 1,
                         }}
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           {/* Checkbox indicator */}
                           <div 
                             className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border-2 transition-all ${
-                              isSelected ? 'border-[var(--accent)] bg-[var(--accent)]' : 'border-[var(--border)]'
+                              isSelected 
+                                ? 'border-[var(--accent)] bg-[var(--accent)]' 
+                                : isDisabled
+                                  ? 'border-[var(--border-subtle)]'
+                                  : 'border-[var(--border)]'
                             }`}
                           >
                             {isSelected && (
@@ -213,8 +264,9 @@ export function FilterSidebar({
                         <span 
                           className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ml-2"
                           style={{ 
-                            background: 'var(--bg-hover)',
-                            color: 'var(--text-muted)'
+                            background: isDisabled ? 'transparent' : 'var(--bg-hover)',
+                            color: 'var(--text-muted)',
+                            border: isDisabled ? '1px solid var(--border-subtle)' : 'none',
                           }}
                         >
                           {option.count}
