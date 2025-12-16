@@ -76,6 +76,20 @@ export function AmortizationTable({
   viewMode,
   payoffDate,
 }: AmortizationTableProps) {
+  // Auto-derive loan start date from first funded draw
+  // Fee clock starts when the first draw is funded
+  const effectiveFeeStartDate = useMemo(() => {
+    // Find the first funded draw (sorted by funded_at date)
+    const fundedDraws = draws
+      .filter(d => d.status === 'funded' && d.funded_at)
+      .sort((a, b) => new Date(a.funded_at!).getTime() - new Date(b.funded_at!).getTime())
+    
+    if (fundedDraws.length > 0 && fundedDraws[0].funded_at) {
+      return fundedDraws[0].funded_at
+    }
+    return null
+  }, [draws])
+  
   // Calculate amortization schedule
   const schedule = useMemo(() => {
     return calculateAmortizationSchedule(
@@ -83,12 +97,12 @@ export function AmortizationTable({
       {
         interest_rate_annual: project.interest_rate_annual,
         origination_fee_pct: project.origination_fee_pct,
-        loan_start_date: project.loan_start_date,
+        loan_start_date: effectiveFeeStartDate,
         loan_amount: project.loan_amount,
       },
       payoffDate || undefined
     )
-  }, [drawLines, project, payoffDate])
+  }, [drawLines, project, payoffDate, effectiveFeeStartDate])
 
   // Get summary statistics
   const summary = useMemo(() => getAmortizationSummary(schedule), [schedule])
@@ -146,8 +160,8 @@ export function AmortizationTable({
           </svg>
           <p style={{ color: 'var(--text-muted)' }}>No draw data available</p>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            {!project.loan_start_date 
-              ? 'Set loan start date to enable interest tracking'
+            {!effectiveFeeStartDate 
+              ? 'Fee clock starts when the first draw is funded'
               : 'Draw funds to see amortization schedule'
             }
           </p>
