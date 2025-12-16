@@ -161,6 +161,10 @@ Your team reviews AI recommendations instead of doing manual data entry. Tasks t
 
 | Feature | Description |
 |---------|-------------|
+| **Dual Dashboard Design** | Portfolio Dashboard (viewing/learning) and Draw Dashboard (actions/control center) as cohesive mirror-image home pages |
+| **Smart Navigation** | Context-aware back button with breadcrumb trail, Smart Logo returns to last-visited dashboard |
+| **Quick Links Popup** | Press Q to toggle expandable menu with Actions, Pages, and Recent sections in both sidebars |
+| **Cascading Filters** | Filter options dynamically update based on selections in other categories |
 | **Project Management** | Create and track construction projects with loan details, builder info, and milestones |
 | **Builder Portal** | Dedicated builder pages with company info, banking details, and aggregated loan portfolio |
 | **Multi-Lender Support** | Track loans by lending entity (TD2, TenBrook, Tennant) with database-level separation |
@@ -169,7 +173,6 @@ Your team reviews AI recommendations instead of doing manual data entry. Tasks t
 | **Invoice Processing** | Upload invoices and let AI extract and match data automatically |
 | **Smart Import** | Client-side spreadsheet parsing with intelligent column detection |
 | **Financial Analytics** | IRR and income calculations for historic loans, LTV risk distribution for pending |
-| **Toggle Filters** | 3-way filter sidebar with persistent selections across Builder/Subdivision/Lender |
 | **Validation Engine** | Automatic checks prevent errors before they happen |
 | **Progress Reports** | Generate printable reports showing budget status and draw history |
 | **Audit Trail** | Complete history of every action for compliance and accountability |
@@ -241,7 +244,7 @@ TD3 is currently in active development.
 - ✅ Standardized NAHB cost code taxonomy with "Other" catch-all subcategories
 - ✅ **Builder Page System** — Dedicated builder management with company info, banking details, and loan portfolio view
 - ✅ **Lender Support** — Multi-lender tracking (TD2, TenBrook, Tennant) with database-level separation for future RLS
-- ✅ **Toggle-Based Filter Sidebar** — 3-way toggle (Builder/Subdivision/Lender) with persistent multi-category filtering
+- ✅ **Toggle-Based Filter Sidebar** — 3-way toggle (Builder/Subdivision/Lender) with cascading filters that update based on other selections
 - ✅ **Stage-Specific Stats Bar** — Dynamic metrics per lifecycle stage with visual elements (LTV distribution, utilization progress, income breakdown)
 - ✅ **Historic Loan Metrics** — Total Income and IRR calculations displayed on historic loan tiles
 - ✅ **Enhanced LTV Color Coding** — Risk-based thresholds (≤65% green, 66-74% yellow, ≥75% red)
@@ -249,8 +252,17 @@ TD3 is currently in active development.
 - ✅ **Borrower Auto-Fill** — Automatically populates from selected builder profile
 - ✅ **Budget Amount Field** — Auto-calculated from uploaded budget categories in origination view
 - ✅ **Loan Lifecycle Transitions** — "Loan Documents Recorded" checkbox (Pending→Active), "Payoff Approved" checkbox (Active→Historic)
-- ✅ **Home/Dashboard Navigation** — Two-page model with Dashboard button on Home, Home button on Dashboard
-- ✅ **Staging Dashboard** — Central hub for new loans, builders, lenders, and draw staging by builder
+- ✅ **Dual Dashboard Design** — Portfolio Dashboard (viewing/learning) and Draw Dashboard (actions/control center) as cohesive mirror-image home pages
+- ✅ **Smart Navigation System** — Context-aware back button with breadcrumb trail, Smart Logo returns to last-visited dashboard
+- ✅ **Quick Links Popup** — Press Q to toggle expandable menu with Actions, Pages, and Recent sections in both sidebars
+- ✅ **Cascading Filters** — Filter options dynamically update based on selections in other categories, disabled options visible with zero counts
+- ✅ **Unified Dashboard Header** — Reusable DashboardHeader component with title, subtitle, toggle selector, and action buttons
+- ✅ **Draw Status Selector** — iOS-style toggle (All/Review/Staged/Wire) with animated indicator and live counts
+- ✅ **Embedded Nav Buttons** — Large navigation buttons embedded in stats bars for seamless dashboard switching
+- ✅ **Recent Pages Tracking** — Last 5 visited pages persisted to localStorage and displayed in Quick Links
+- ✅ **Keyboard Navigation** — Press Q to toggle Quick Links, Escape to close
+- ✅ **Animated Transitions** — Smooth slide-up animation with backdrop blur for Quick Links popup
+- ✅ **Active Page Indicator** — Current route highlighted in Quick Links menu
 - ✅ **Draw Request System** — Complete draw upload workflow with spreadsheet parsing and invoice management
 - ✅ **Fuzzy Category Matching** — Levenshtein distance + tokenized word matching for draw-to-budget matching (0.6 threshold)
 - ✅ **Draw Review Page** — Comprehensive table view with inline editing, flag display, and invoice management
