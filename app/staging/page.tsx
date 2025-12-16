@@ -32,7 +32,7 @@ type BuilderWithDraws = Builder & {
 function StagingDashboardContent() {
   const searchParams = useSearchParams()
   const highlightedBatchId = searchParams.get('batch')
-  const { setLastDashboard } = useNavigation()
+  const { setLastDashboard, setCurrentPageTitle } = useNavigation()
 
   const [loading, setLoading] = useState(true)
   const [pendingReview, setPendingReview] = useState<DrawWithProject[]>([])
@@ -53,7 +53,8 @@ function StagingDashboardContent() {
   // Register this as the Draw dashboard
   useEffect(() => {
     setLastDashboard('draw')
-  }, [setLastDashboard])
+    setCurrentPageTitle('Draw Dashboard')
+  }, [setLastDashboard, setCurrentPageTitle])
 
   const loadData = useCallback(async () => {
     try {

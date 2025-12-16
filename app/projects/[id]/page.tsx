@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { LoanPageTabs } from '@/app/components/projects/LoanPageTabs'
+import { useNavigation } from '@/app/context/NavigationContext'
 import type { Project, Budget, DrawRequest, LifecycleStage, Builder } from '@/types/database'
 
 type ProjectWithLifecycle = Project & {
@@ -13,6 +14,7 @@ type ProjectWithLifecycle = Project & {
 export default function ProjectDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const { setCurrentPageTitle } = useNavigation()
   const projectId = params.id as string
 
   const [project, setProject] = useState<ProjectWithLifecycle | null>(null)
@@ -24,6 +26,13 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     loadProject()
   }, [projectId])
+
+  // Update page title when project loads
+  useEffect(() => {
+    if (project) {
+      setCurrentPageTitle(project.project_code || project.name)
+    }
+  }, [project, setCurrentPageTitle])
 
   async function loadProject() {
     try {

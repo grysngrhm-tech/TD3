@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useNavigation } from '@/app/context/NavigationContext'
 import type { Project, Budget, DrawRequest } from '@/types/database'
 
 type CategorySummary = {
@@ -18,6 +19,7 @@ type CategorySummary = {
 
 export default function ProgressReportPage() {
   const params = useParams()
+  const { setCurrentPageTitle } = useNavigation()
   const projectId = params.projectId as string
 
   const [project, setProject] = useState<Project | null>(null)
@@ -35,6 +37,13 @@ export default function ProgressReportPage() {
   useEffect(() => {
     loadReport()
   }, [projectId])
+
+  // Update page title when project loads
+  useEffect(() => {
+    if (project) {
+      setCurrentPageTitle(`${project.name} Report`)
+    }
+  }, [project, setCurrentPageTitle])
 
   async function loadReport() {
     try {

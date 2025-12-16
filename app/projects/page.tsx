@@ -2,11 +2,18 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useNavigation } from '@/app/context/NavigationContext'
 import { Project } from '@/types/database'
 
 export default function ProjectsPage() {
+  const { setCurrentPageTitle } = useNavigation()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Register page title
+  useEffect(() => {
+    setCurrentPageTitle('All Projects')
+  }, [setCurrentPageTitle])
 
   useEffect(() => {
     loadProjects()

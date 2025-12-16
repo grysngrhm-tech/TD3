@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { QuickLinksPopup } from './QuickLinksPopup'
 
 type FilterOption = {
   id: string
@@ -105,8 +106,8 @@ export function FilterSidebar({
   const totalCount = currentOptions.length
 
   return (
-    <div className="sidebar w-64 flex-shrink-0 h-[calc(100vh-3.5rem)] sticky top-14">
-      <div className="p-4 flex flex-col h-full">
+    <div className="sidebar w-64 flex-shrink-0 h-[calc(100vh-3.5rem)] sticky top-14 flex flex-col">
+      <div className="p-4 flex flex-col flex-1 min-h-0">
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
@@ -296,6 +297,9 @@ export function FilterSidebar({
           </motion.button>
         )}
       </div>
+      
+      {/* Quick Links Popup */}
+      <QuickLinksPopup variant="portfolio" />
     </div>
   )
 }

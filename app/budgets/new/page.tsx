@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useNavigation } from '@/app/context/NavigationContext'
 import { Project, BudgetInsert } from '@/types/database'
 
 type BudgetLine = {
@@ -13,6 +14,7 @@ type BudgetLine = {
 
 export default function NewBudgetPage() {
   const router = useRouter()
+  const { setCurrentPageTitle } = useNavigation()
   const [projects, setProjects] = useState<Project[]>([])
   const [selectedProject, setSelectedProject] = useState('')
   const [budgetLines, setBudgetLines] = useState<BudgetLine[]>([
@@ -20,6 +22,11 @@ export default function NewBudgetPage() {
   ])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  // Register page title
+  useEffect(() => {
+    setCurrentPageTitle('New Budget')
+  }, [setCurrentPageTitle])
 
   useEffect(() => {
     loadProjects()

@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { validateDrawRequest } from '@/lib/validations'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useNavigation } from '@/app/context/NavigationContext'
 import type { DrawRequestWithDetails, ValidationResult, Budget, Invoice, Builder, Project, NahbCategory, NahbSubcategory } from '@/types/database'
 import { DRAW_STATUS_LABELS, DRAW_FLAG_LABELS, DrawStatus, DrawLineFlag } from '@/types/database'
 
@@ -33,6 +34,7 @@ type ProjectWithBuilder = Project & {
 export default function DrawDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const { setCurrentPageTitle } = useNavigation()
   const drawId = params.id as string
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -71,6 +73,13 @@ export default function DrawDetailPage() {
   useEffect(() => {
     loadDrawRequest()
   }, [drawId])
+
+  // Update page title when draw loads
+  useEffect(() => {
+    if (draw && project) {
+      setCurrentPageTitle(`Draw #${draw.draw_number} - ${project.project_code || project.name}`)
+    }
+  }, [draw, project, setCurrentPageTitle])
 
   async function loadDrawRequest() {
     try {

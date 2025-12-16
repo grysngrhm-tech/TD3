@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { logAuditEvent } from '@/lib/audit'
+import { useNavigation } from '@/app/context/NavigationContext'
 import type { Project } from '@/types/database'
 
 export default function EditProjectPage() {
   const params = useParams()
   const router = useRouter()
+  const { setCurrentPageTitle } = useNavigation()
   const projectId = params.id as string
 
   const [project, setProject] = useState<Project | null>(null)
@@ -32,6 +34,13 @@ export default function EditProjectPage() {
   useEffect(() => {
     loadProject()
   }, [projectId])
+
+  // Update page title when project loads
+  useEffect(() => {
+    if (project) {
+      setCurrentPageTitle(`Edit ${project.project_code || project.name}`)
+    }
+  }, [project, setCurrentPageTitle])
 
   async function loadProject() {
     try {

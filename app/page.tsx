@@ -45,7 +45,7 @@ type ProjectWithBudget = {
 
 export default function Dashboard() {
   const router = useRouter()
-  const { setLastDashboard } = useNavigation()
+  const { setLastDashboard, setCurrentPageTitle } = useNavigation()
   const [projects, setProjects] = useState<ProjectWithBudget[]>([])
   const [builders, setBuilders] = useState<Builder[]>([])
   const [lenders, setLenders] = useState<Lender[]>([])
@@ -56,7 +56,8 @@ export default function Dashboard() {
   // Register this as the Portfolio dashboard
   useEffect(() => {
     setLastDashboard('portfolio')
-  }, [setLastDashboard])
+    setCurrentPageTitle('Portfolio')
+  }, [setLastDashboard, setCurrentPageTitle])
 
   useEffect(() => {
     loadData()
@@ -333,12 +334,7 @@ export default function Dashboard() {
                 counts={stageCounts}
               />
             }
-            actions={
-              <>
-                <a href="/builders/new" className="btn-secondary">+ Builder</a>
-                <a href="/projects/new" className="btn-primary">+ New Loan</a>
-              </>
-            }
+            actions={null}
           />
 
           {/* Builder Navigation Banner - shown when exactly one builder is filtered */}

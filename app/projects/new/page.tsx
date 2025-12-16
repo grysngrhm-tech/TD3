@@ -1,10 +1,18 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { OriginationTab } from '@/app/components/projects/OriginationTab'
+import { useNavigation } from '@/app/context/NavigationContext'
 
 export default function NewLoanPage() {
   const router = useRouter()
+  const { setCurrentPageTitle } = useNavigation()
+
+  // Register page title
+  useEffect(() => {
+    setCurrentPageTitle('New Loan')
+  }, [setCurrentPageTitle])
 
   const handleSave = (projectId: string) => {
     // Navigate to the newly created project
