@@ -176,6 +176,12 @@ Your team reviews AI recommendations instead of doing manual data entry. Tasks t
 | **Validation Engine** | Automatic checks prevent errors before they happen |
 | **Progress Reports** | Generate printable reports showing budget status and draw history |
 | **Audit Trail** | Complete history of every action for compliance and accountability |
+| **Enhanced Payoff Report** | Three-view interactive payoff system with statement, calculator, and projection chart |
+| **Fee Escalation Tracking** | Accurate fee calculation with Excel-formula precision through extension periods |
+| **Amortization Schedule** | Draw-by-draw interest accrual with timeline visualization and fee rate badges |
+| **Progress Budget Report** | Multi-view budget analysis with Sankey diagram, sparklines, and NAHB category grouping |
+| **Anomaly Detection** | Automated flagging of spending spikes, over-budget categories, and large variances |
+| **What-If Calculator** | Interactive payoff scenarios with adjustable dates and real-time projections |
 
 ---
 
@@ -274,6 +280,20 @@ TD3 is currently in active development.
 - ✅ **Cascading Dropdowns for Unmatched Lines** — NAHB Category → Budget selectors with auto-filtering of assigned budgets
 - ✅ **Invoice Upload & Preview** — Drag-drop with thumbnail gallery and modal viewer with navigation
 - ✅ **N8N Draw Processing** — Enriched webhook payload for AI invoice matching after client-side draw creation
+- ✅ **Enhanced Financial Reports** — Three-way toggle between Budget, Amortization, and Payoff reports
+- ✅ **Progress Budget Report** — Table/Cards/Chart views with Sankey diagram, sparklines, and grouped rows by NAHB category
+- ✅ **Amortization Table** — Draw-by-draw interest accrual tracking with timeline visualization
+- ✅ **Enhanced Payoff Report** — Three-view interactive payoff system (Statement, Calculator, Chart)
+- ✅ **Standardized Loan Terms** — `lib/loanTerms.ts` with hierarchical term resolution (Project > Lender > Default)
+- ✅ **Accurate Fee Calculation** — Excel-formula-based fee escalation (2% base, +0.25%/mo M7-12, 5.9% at M13, +0.4%/mo M14+)
+- ✅ **Interactive Payoff Calculator** — What-If scenarios with adjustable payoff date and real-time projections
+- ✅ **Fee & Interest Projection Chart** — Nivo line chart showing fee rate, cumulative interest, and total payoff over 18 months
+- ✅ **Anomaly Detection** — Automated flagging of spending spikes, over-budget categories, and large variances
+- ✅ **Polymorphic Loan Details** — Context-aware stats tile that adapts to Budget, Amortization, or Payoff view
+- ✅ **Urgency Indicators** — Color-coded maturity warnings (critical/urgent/warning/caution/normal)
+- ✅ **Nivo Visualization Library** — Responsive, animated charts for Sankey diagrams, bar charts, and line charts
+- ✅ **View Mode Persistence** — User preferences saved to localStorage
+- ✅ **Report Detail Panel** — Slide-out panel for drill-down on budget lines, draws, and anomalies
 
 **In Progress:**
 - 🔄 Full invoice-to-budget-line AI matching via N8N
