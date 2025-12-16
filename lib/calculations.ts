@@ -804,20 +804,15 @@ export function generateProjectionData(
     // Add draws for this month
     const monthDraws = drawsByMonth.get(month) || 0
     
-    // Calculate interest since last point (simplified monthly calculation)
-    const daysInPeriod = month === 1 ? 30 : 30 // Approximate month length
-    const periodInterest = runningBalance * dailyRate * daysInPeriod
-    
-    // Update running totals
+    // Add draws for this month to running balance first
     runningBalance += monthDraws
-    cumulativeInterest += periodInterest
     
-    // For projected months, estimate interest growth
-    if (!isActual && month > currentMonthNum) {
-      // Assume constant principal (no new draws) for projection
-      const projectedInterest = runningBalance * dailyRate * 30
-      cumulativeInterest += projectedInterest
-    }
+    // Calculate interest for this month
+    // For actual months: use period interest based on actual draw dates
+    // For projected months: assume steady monthly interest on current balance
+    const daysInPeriod = 30 // Approximate month length
+    const monthInterest = runningBalance * dailyRate * daysInPeriod
+    cumulativeInterest += monthInterest
     
     // Calculate fee for this month
     const feeRate = calculateFeeRateAtMonth(month, terms)
