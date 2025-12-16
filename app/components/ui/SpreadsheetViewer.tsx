@@ -340,24 +340,14 @@ export function SpreadsheetViewer({
             <span style={{ color: 'var(--text-muted)' }}>Total</span>
           </div>
           <div className="flex items-center gap-1">
-            <span style={{ color: 'var(--accent)' }}>◆</span>
-            <span style={{ color: 'var(--text-muted)' }}>Selected</span>
+            <span className="text-[8px] px-1 rounded font-bold" style={{ background: 'rgb(249, 115, 22)', color: 'white' }}>C</span>
+            <span style={{ color: 'var(--text-muted)' }}>Closing</span>
           </div>
         </div>
 
-        {/* Row Range Controls with confidence */}
+        {/* Row Range Controls */}
         {rowRange && (
           <div className="flex items-center gap-2 text-xs">
-            {/* Confidence indicator */}
-            {rowRangeAnalysis && rowRangeAnalysis.confidence < 70 && (
-              <span 
-                className="px-1.5 py-0.5 rounded text-[10px] font-medium"
-                style={{ background: 'rgba(251, 191, 36, 0.2)', color: 'rgb(217, 119, 6)' }}
-                title={`Detection confidence: ${rowRangeAnalysis.confidence}%`}
-              >
-                ⚠ Low confidence
-              </span>
-            )}
             <span style={{ color: 'var(--text-muted)' }}>Rows:</span>
             <input
               type="number"
@@ -589,9 +579,6 @@ export function SpreadsheetViewer({
                         >
                           {badge.label}
                         </span>
-                      )}
-                      {inRange && !badge && (
-                        <span className="ml-auto" style={{ color: 'var(--accent)' }}>◆</span>
                       )}
                     </div>
                   </td>
