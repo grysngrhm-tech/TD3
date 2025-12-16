@@ -3,8 +3,6 @@
 import { useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-type DrawStatus = 'all' | 'review' | 'staged' | 'pending_wire'
-
 type FilterOption = {
   id: string
   label: string
@@ -22,21 +20,12 @@ type SummaryStats = {
 }
 
 type DrawFilterSidebarProps = {
-  selectedStatus: DrawStatus
-  onStatusChange: (status: DrawStatus) => void
   builderFilters: FilterOption[]
   selectedBuilders: string[]
   onBuilderFilterChange: (builderId: string) => void
   onClearBuilders: () => void
   summaryStats: SummaryStats
 }
-
-const STATUS_OPTIONS: { id: DrawStatus; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'review', label: 'Review' },
-  { id: 'staged', label: 'Staged' },
-  { id: 'pending_wire', label: 'Wire' },
-]
 
 function formatCurrency(amount: number): string {
   if (amount >= 1000000) {
@@ -54,8 +43,6 @@ function formatCurrency(amount: number): string {
 }
 
 export function DrawFilterSidebar({
-  selectedStatus,
-  onStatusChange,
   builderFilters,
   selectedBuilders,
   onBuilderFilterChange,
@@ -96,7 +83,7 @@ export function DrawFilterSidebar({
     >
       <div className="p-4 flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
             Filters
           </h2>
@@ -111,35 +98,13 @@ export function DrawFilterSidebar({
           )}
         </div>
 
-        {/* Status Toggle */}
-        <div 
-          className="flex rounded-ios-sm p-1 mb-3"
-          style={{ background: 'var(--bg-hover)' }}
-        >
-          {STATUS_OPTIONS.map((status) => (
-            <button
-              key={status.id}
-              onClick={() => onStatusChange(status.id)}
-              className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-ios-xs transition-all ${
-                selectedStatus === status.id ? 'shadow-sm' : ''
-              }`}
-              style={{
-                background: selectedStatus === status.id ? 'var(--bg-card)' : 'transparent',
-                color: selectedStatus === status.id ? 'var(--text-primary)' : 'var(--text-muted)',
-              }}
-            >
-              {status.label}
-            </button>
-          ))}
-        </div>
-
         {/* Builder Filter List */}
-        <div className="mb-3">
+        <div className="mb-4">
           <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
             Builder
           </div>
           <div 
-            className="rounded-ios-sm overflow-hidden max-h-48 overflow-y-auto"
+            className="rounded-ios-sm overflow-hidden max-h-64 overflow-y-auto"
             style={{ background: 'var(--bg-card)' }}
           >
             <AnimatePresence mode="wait">

@@ -7,6 +7,7 @@ import { FilterSidebar } from '@/app/components/ui/FilterSidebar'
 import { ProjectTile } from '@/app/components/ui/ProjectTile'
 import { StageSelector } from '@/app/components/ui/StageSelector'
 import { StageStatsBar } from '@/app/components/ui/StageStatsBar'
+import { DashboardHeader } from '@/app/components/ui/DashboardHeader'
 import { useFilters } from '@/app/hooks/useFilters'
 import { calculateLoanIncome, calculateIRR } from '@/lib/calculations'
 import type { LifecycleStage, Builder, Lender, DrawRequest } from '@/types/database'
@@ -314,14 +315,24 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="p-6">
-          {/* Stage Selector */}
-          <div className="flex items-center justify-center mb-6">
-            <StageSelector
-              value={selectedStage}
-              onChange={setSelectedStage}
-              counts={stageCounts}
-            />
-          </div>
+          {/* Dashboard Header */}
+          <DashboardHeader
+            title="Portfolio Dashboard"
+            subtitle="Manage construction loans and track performance"
+            toggleElement={
+              <StageSelector
+                value={selectedStage}
+                onChange={setSelectedStage}
+                counts={stageCounts}
+              />
+            }
+            actions={
+              <>
+                <a href="/builders/new" className="btn-secondary">+ Builder</a>
+                <a href="/projects/new" className="btn-primary">+ New Loan</a>
+              </>
+            }
+          />
 
           {/* Builder Navigation Banner - shown when exactly one builder is filtered */}
           {selectedBuilder && (
@@ -349,11 +360,17 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Stats Bar */}
+          {/* Stats Bar with Nav Button */}
           <div className="mb-6">
             <StageStatsBar
               stage={selectedStage}
               projects={statsData}
+              navButton={{
+                href: '/staging',
+                label: 'Draw Dashboard',
+                icon: 'chart',
+                position: 'right'
+              }}
             />
           </div>
 
