@@ -89,6 +89,20 @@ export function PolymorphicLoanDetails({
   // Resolve loan terms
   const terms = useMemo(() => resolveEffectiveTerms(project), [project])
 
+  // Auto-derive loan start date from first funded draw
+  // Fee clock starts when the first draw is funded
+  const effectiveFeeStartDate = useMemo(() => {
+    // Find the first funded draw (sorted by funded_at date)
+    const fundedDraws = draws
+      .filter(d => d.status === 'funded' && d.funded_at)
+      .sort((a, b) => new Date(a.funded_at!).getTime() - new Date(b.funded_at!).getTime())
+    
+    if (fundedDraws.length > 0 && fundedDraws[0].funded_at) {
+      return fundedDraws[0].funded_at
+    }
+    return null
+  }, [draws])
+
   // Calculate budget statistics
   const budgetStats = useMemo(() => {
     const totalBudget = budgets.reduce((sum, b) => sum + (b.current_amount || 0), 0)
@@ -118,7 +132,7 @@ export function PolymorphicLoanDetails({
       {
         interest_rate_annual: project.interest_rate_annual,
         origination_fee_pct: project.origination_fee_pct,
-        loan_start_date: project.loan_start_date,
+        loan_start_date: effectiveFeeStartDate,
         loan_amount: project.loan_amount,
       }
     )
@@ -130,8 +144,8 @@ export function PolymorphicLoanDetails({
     let currentFeeRate = terms.baseFee
     let monthNumber = 1
 
-    if (project.loan_start_date) {
-      monthNumber = getMonthNumber(new Date(project.loan_start_date), new Date())
+    if (effectiveFeeStartDate) {
+      monthNumber = getMonthNumber(new Date(effectiveFeeStartDate), new Date())
       currentFeeRate = calculateFeeRateAtMonth(monthNumber, terms)
     }
 
@@ -142,7 +156,7 @@ export function PolymorphicLoanDetails({
       monthNumber,
       schedule,
     }
-  }, [drawLines, project, terms])
+  }, [drawLines, project, terms, effectiveFeeStartDate])
 
   // Calculate payoff statistics
   const payoffStats = useMemo(() => {
@@ -151,7 +165,7 @@ export function PolymorphicLoanDetails({
         loan_amount: project.loan_amount,
         interest_rate_annual: project.interest_rate_annual,
         origination_fee_pct: project.origination_fee_pct,
-        loan_start_date: project.loan_start_date,
+        loan_start_date: effectiveFeeStartDate,
       },
       drawLines,
       new Date(),
@@ -162,8 +176,8 @@ export function PolymorphicLoanDetails({
     const urgencyLevel = daysToMaturity !== null ? getUrgencyLevel(daysToMaturity) : 'normal'
     const urgencyColor = getUrgencyColor(urgencyLevel)
 
-    const daysUntilFeeIncrease = project.loan_start_date
-      ? getDaysUntilNextFeeIncrease(new Date(project.loan_start_date), new Date(), terms)
+    const daysUntilFeeIncrease = effectiveFeeStartDate
+      ? getDaysUntilNextFeeIncrease(new Date(effectiveFeeStartDate), new Date(), terms)
       : null
 
     return {
@@ -173,7 +187,7 @@ export function PolymorphicLoanDetails({
       urgencyColor,
       daysUntilFeeIncrease,
     }
-  }, [project, drawLines, terms])
+  }, [project, drawLines, terms, effectiveFeeStartDate])
 
   return (
     <div className="card-ios">

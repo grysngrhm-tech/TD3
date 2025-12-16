@@ -91,6 +91,20 @@ export function PayoffReport({
   viewMode,
   onLoanCompleted,
 }: PayoffReportProps) {
+  // Auto-derive loan start date from first funded draw
+  // Fee clock starts when the first draw is funded
+  const autoLoanStartDate = useMemo(() => {
+    // Find the first funded draw (sorted by funded_at date)
+    const fundedDraws = draws
+      .filter(d => d.status === 'funded' && d.funded_at)
+      .sort((a, b) => new Date(a.funded_at!).getTime() - new Date(b.funded_at!).getTime())
+    
+    if (fundedDraws.length > 0 && fundedDraws[0].funded_at) {
+      return new Date(fundedDraws[0].funded_at).toISOString().split('T')[0]
+    }
+    return null
+  }, [draws])
+  
   // State for payoff calculations
   const [payoffDate, setPayoffDate] = useState<string>(
     new Date().toISOString().split('T')[0]
@@ -102,6 +116,18 @@ export function PayoffReport({
   // State for interactive calculator
   const [projectionDays, setProjectionDays] = useState(30)
   const [whatIfDate, setWhatIfDate] = useState<string>('')
+  
+  // State for user-adjustable fee clock start date (defaults to auto-derived)
+  const [customFeeStartDate, setCustomFeeStartDate] = useState<string | null>(null)
+  
+  // Effective fee start date: user override > auto-derived from first funded draw
+  const effectiveFeeStartDate = useMemo(() => {
+    if (customFeeStartDate) return customFeeStartDate
+    return autoLoanStartDate
+  }, [customFeeStartDate, autoLoanStartDate])
+  
+  // Flag to indicate if using auto-derived date
+  const isAutoFeeStartDate = !customFeeStartDate && autoLoanStartDate !== null
   
   // Resolve loan terms
   const terms = useMemo(() => {
@@ -116,13 +142,13 @@ export function PayoffReport({
         loan_amount: project.loan_amount,
         interest_rate_annual: project.interest_rate_annual,
         origination_fee_pct: project.origination_fee_pct,
-        loan_start_date: project.loan_start_date,
+        loan_start_date: effectiveFeeStartDate,
       },
       drawLines,
       date,
       terms
     )
-  }, [project, drawLines, payoffDate, terms])
+  }, [project, drawLines, payoffDate, terms, effectiveFeeStartDate])
   
   // Calculate projection data for chart
   const projectionData = useMemo(() => {
@@ -131,13 +157,13 @@ export function PayoffReport({
         loan_amount: project.loan_amount,
         interest_rate_annual: project.interest_rate_annual,
         origination_fee_pct: project.origination_fee_pct,
-        loan_start_date: project.loan_start_date,
+        loan_start_date: effectiveFeeStartDate,
       },
       drawLines,
       terms,
       18 // Show 18 months
     )
-  }, [project, drawLines, terms])
+  }, [project, drawLines, terms, effectiveFeeStartDate])
   
   // Calculate urgency
   const daysToMaturity = getDaysToMaturity(project.maturity_date)
@@ -146,43 +172,43 @@ export function PayoffReport({
   
   // Fee schedule
   const feeSchedule = useMemo(() => {
-    if (!project.loan_start_date) return []
-    return generateFeeSchedule(new Date(project.loan_start_date), 18, terms)
-  }, [project.loan_start_date, terms])
+    if (!effectiveFeeStartDate) return []
+    return generateFeeSchedule(new Date(effectiveFeeStartDate), 18, terms)
+  }, [effectiveFeeStartDate, terms])
   
   // Days until next fee increase
   const daysUntilFeeIncrease = useMemo(() => {
-    if (!project.loan_start_date) return null
+    if (!effectiveFeeStartDate) return null
     return getDaysUntilNextFeeIncrease(
-      new Date(project.loan_start_date),
+      new Date(effectiveFeeStartDate),
       new Date(),
       terms
     )
-  }, [project.loan_start_date, terms])
+  }, [effectiveFeeStartDate, terms])
   
   // What-If calculation
   const whatIfPayoff = useMemo(() => {
-    if (!whatIfDate || !project.loan_start_date) return null
+    if (!whatIfDate || !effectiveFeeStartDate) return null
     return projectPayoffAtDate(
       currentPayoff,
       new Date(whatIfDate),
-      new Date(project.loan_start_date),
+      new Date(effectiveFeeStartDate),
       terms
     )
-  }, [whatIfDate, currentPayoff, project.loan_start_date, terms])
+  }, [whatIfDate, currentPayoff, effectiveFeeStartDate, terms])
   
   // Projection slider calculation
   const projectedPayoff = useMemo(() => {
-    if (!project.loan_start_date) return null
+    if (!effectiveFeeStartDate) return null
     const futureDate = new Date()
     futureDate.setDate(futureDate.getDate() + projectionDays)
     return projectPayoffAtDate(
       currentPayoff,
       futureDate,
-      new Date(project.loan_start_date),
+      new Date(effectiveFeeStartDate),
       terms
     )
-  }, [projectionDays, currentPayoff, project.loan_start_date, terms])
+  }, [projectionDays, currentPayoff, effectiveFeeStartDate, terms])
   
   // Handle loan completion
   const handleCompleteLoan = async () => {
@@ -221,21 +247,21 @@ export function PayoffReport({
   }
   
   // Render based on view mode
-  // Missing loan_start_date warning
-  const missingLoanStartDate = !project.loan_start_date
+  // Check if we have an effective fee start date
+  const noFeeStartDate = !effectiveFeeStartDate
   
   return (
     <div className="space-y-6">
-      {/* Warning banner for missing loan start date */}
-      {missingLoanStartDate && (
+      {/* Info banner for fee clock start date */}
+      {noFeeStartDate && (
         <div className="card-ios flex items-start gap-3" style={{ borderLeft: '4px solid var(--warning)' }}>
           <svg className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           <div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>Loan Start Date Required</div>
+            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>No Funded Draws Yet</div>
             <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Set the loan start date in the Origination tab to enable accurate fee escalation and interest calculations.
+              The fee clock starts when the first draw is funded. Fee escalation and interest projections will become available after the first draw is funded.
             </div>
           </div>
         </div>
@@ -248,6 +274,10 @@ export function PayoffReport({
           payoffDate={payoffDate}
           setPayoffDate={setPayoffDate}
           terms={terms}
+          effectiveFeeStartDate={effectiveFeeStartDate}
+          customFeeStartDate={customFeeStartDate}
+          setCustomFeeStartDate={setCustomFeeStartDate}
+          isAutoFeeStartDate={isAutoFeeStartDate}
         />
       )}
       
@@ -275,7 +305,7 @@ export function PayoffReport({
           projectionData={projectionData}
           currentPayoff={currentPayoff}
           terms={terms}
-          project={project}
+          effectiveFeeStartDate={effectiveFeeStartDate}
         />
       )}
       
@@ -307,12 +337,20 @@ function PayoffStatementView({
   payoffDate,
   setPayoffDate,
   terms,
+  effectiveFeeStartDate,
+  customFeeStartDate,
+  setCustomFeeStartDate,
+  isAutoFeeStartDate,
 }: {
   project: Project
   payoff: PayoffBreakdown
   payoffDate: string
   setPayoffDate: (date: string) => void
   terms: LoanTerms
+  effectiveFeeStartDate: string | null
+  customFeeStartDate: string | null
+  setCustomFeeStartDate: (date: string | null) => void
+  isAutoFeeStartDate: boolean
 }) {
   return (
     <div className="card-ios">
@@ -370,6 +408,51 @@ function PayoffStatementView({
           </div>
           <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
             {formatDate(project.maturity_date)}
+          </div>
+        </div>
+      </div>
+      
+      {/* Fee Clock Start Date - Adjustable */}
+      <div className="mb-6 p-4 rounded-lg" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)' }}>
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                Fee Clock Start Date
+              </span>
+              {isAutoFeeStartDate && (
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--success-muted)', color: 'var(--success)' }}>
+                  Auto-detected
+                </span>
+              )}
+              {customFeeStartDate && (
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--warning-muted)', color: 'var(--warning)' }}>
+                  Custom
+                </span>
+              )}
+            </div>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+              The fee clock starts when the first draw is funded. Adjust if needed for fee escalation calculations.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={effectiveFeeStartDate || ''}
+              onChange={(e) => setCustomFeeStartDate(e.target.value || null)}
+              className="input text-sm"
+              style={{ background: 'var(--bg-secondary)', width: '150px' }}
+            />
+            {customFeeStartDate && (
+              <button
+                onClick={() => setCustomFeeStartDate(null)}
+                className="text-xs px-2 py-1 rounded"
+                style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}
+                title="Reset to auto-detected date"
+              >
+                Reset
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -787,12 +870,12 @@ function PayoffChartView({
   projectionData,
   currentPayoff,
   terms,
-  project,
+  effectiveFeeStartDate,
 }: {
   projectionData: ProjectionDataPoint[]
   currentPayoff: PayoffBreakdown
   terms: LoanTerms
-  project: Project
+  effectiveFeeStartDate: string | null
 }) {
   // Format data for Nivo
   const chartData = useMemo(() => {
@@ -838,7 +921,7 @@ function PayoffChartView({
   const currentMonthIndex = projectionData.findIndex(d => d.isCurrentMonth)
   
   // Empty state check
-  if (projectionData.length === 0 || !project.loan_start_date) {
+  if (projectionData.length === 0 || !effectiveFeeStartDate) {
     return (
       <div className="card-ios flex items-center justify-center" style={{ height: 400 }}>
         <div className="text-center">
@@ -846,7 +929,7 @@ function PayoffChartView({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
           <p style={{ color: 'var(--text-muted)' }}>No projection data available</p>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Set loan start date to generate projections</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Fee clock starts when first draw is funded</p>
         </div>
       </div>
     )
