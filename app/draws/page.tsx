@@ -2,14 +2,21 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useNavigation } from '@/app/context/NavigationContext'
 import { DrawRequest } from '@/types/database'
 
 type DrawWithProject = DrawRequest & { project_name?: string }
 
 export default function DrawsPage() {
+  const { setCurrentPageTitle } = useNavigation()
   const [draws, setDraws] = useState<DrawWithProject[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('all')
+
+  // Register page title
+  useEffect(() => {
+    setCurrentPageTitle('All Draws')
+  }, [setCurrentPageTitle])
 
   useEffect(() => {
     loadDraws()

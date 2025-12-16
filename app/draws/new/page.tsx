@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { Project, Builder } from '@/types/database'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ImportPreview } from '@/app/components/import/ImportPreview'
+import { useNavigation } from '@/app/context/NavigationContext'
 
 type ProjectWithBuilder = Project & {
   builder?: Builder | null
@@ -23,8 +24,14 @@ type UploadedInvoice = {
 function NewDrawPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { setCurrentPageTitle } = useNavigation()
   const preselectedBuilderId = searchParams.get('builder')
   const preselectedProjectId = searchParams.get('project')
+
+  // Register page title
+  useEffect(() => {
+    setCurrentPageTitle('New Draw Request')
+  }, [setCurrentPageTitle])
   
   // Builder and project state
   const [builders, setBuilders] = useState<Builder[]>([])

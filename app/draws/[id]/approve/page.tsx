@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { validateDrawRequest, canApprove } from '@/lib/validations'
 import { logStatusChange } from '@/lib/audit'
 import { ValidationAlerts } from '@/components/ValidationAlerts'
+import { useNavigation } from '@/app/context/NavigationContext'
 import type { DrawRequest, ValidationResult, Project } from '@/types/database'
 
 type DrawWithProject = DrawRequest & { project?: Project }
@@ -13,6 +14,7 @@ type DrawWithProject = DrawRequest & { project?: Project }
 export default function ApproveDrawPage() {
   const params = useParams()
   const router = useRouter()
+  const { setCurrentPageTitle } = useNavigation()
   const drawId = params.id as string
 
   const [draw, setDraw] = useState<DrawWithProject | null>(null)
@@ -25,6 +27,13 @@ export default function ApproveDrawPage() {
   useEffect(() => {
     loadDrawRequest()
   }, [drawId])
+
+  // Update page title when draw loads
+  useEffect(() => {
+    if (draw) {
+      setCurrentPageTitle(`Approve Draw #${draw.draw_number}`)
+    }
+  }, [draw, setCurrentPageTitle])
 
   async function loadDrawRequest() {
     try {

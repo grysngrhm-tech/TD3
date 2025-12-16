@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { BuilderInfoCard } from '@/app/components/builders/BuilderInfoCard'
 import { BuilderLoanGrid } from '@/app/components/builders/BuilderLoanGrid'
 import { StagedDrawsSection } from '@/app/components/builders/StagedDrawsSection'
+import { useNavigation } from '@/app/context/NavigationContext'
 import { calculateLoanIncome, calculateIRR } from '@/lib/calculations'
 import type { Builder, LifecycleStage, DrawRequest, Project } from '@/types/database'
 
@@ -35,6 +36,7 @@ type ProjectWithBudget = {
 export default function BuilderDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const { setCurrentPageTitle } = useNavigation()
   const builderId = params.id as string
 
   const [builder, setBuilder] = useState<Builder | null>(null)
@@ -45,6 +47,13 @@ export default function BuilderDetailPage() {
   useEffect(() => {
     loadBuilder()
   }, [builderId])
+
+  // Update page title when builder loads
+  useEffect(() => {
+    if (builder) {
+      setCurrentPageTitle(builder.company_name)
+    }
+  }, [builder, setCurrentPageTitle])
 
   async function loadBuilder() {
     try {

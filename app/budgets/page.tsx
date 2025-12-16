@@ -2,15 +2,22 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useNavigation } from '@/app/context/NavigationContext'
 import { Project, Budget } from '@/types/database'
 
 type BudgetWithProject = Budget & { project_name?: string }
 
 export default function BudgetsPage() {
+  const { setCurrentPageTitle } = useNavigation()
   const [budgets, setBudgets] = useState<BudgetWithProject[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedProject, setSelectedProject] = useState<string>('all')
+
+  // Register page title
+  useEffect(() => {
+    setCurrentPageTitle('Budgets')
+  }, [setCurrentPageTitle])
 
   useEffect(() => {
     loadData()
