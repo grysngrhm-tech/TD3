@@ -705,14 +705,48 @@ getLTVColor(ltv: number): string
 - **66-74%** → Yellow (moderate risk)
 - **≥75%** → Red (high risk)
 
-#### Amortization Schedule
+#### Amortization Schedule (Compound Interest)
+
 ```typescript
 calculateAmortizationSchedule(drawLines, project, payoffDate?): AmortizationRow[]
 ```
-- Calculates interest accrual per draw line
-- Tracks daily interest based on outstanding principal
-- Includes fee rate at each draw date
-- Returns comprehensive schedule with running balances
+
+Implements **compound interest** with accrual at two trigger points:
+1. **Month-End**: Interest accrues on the last day of each calendar month
+2. **Draw Funding**: Interest accrues when a new draw is funded
+
+**Key Behavior:**
+- Interest is calculated on **total balance** (principal + previously accrued interest)
+- When interest accrues, it is **added to the balance** (compound)
+- Days column shows days since last accrual event (not just previous row)
+- First draw has 1 day of interest (funding day counts)
+
+**AmortizationRow Fields:**
+```typescript
+type AmortizationRow = {
+  date: Date
+  drawNumber: number | null
+  type: 'draw' | 'month_end' | 'payoff' | 'current'
+  description: string
+  drawAmount: number        // Draw amount only (0 for non-draw rows)
+  days: number              // Days since LAST ACCRUAL event
+  accruedInterest: number   // Interest accrued THIS period
+  totalInterest: number     // Cumulative compound interest
+  feeRate: number           // Current fee rate (with escalation)
+  principal: number         // Sum of all draws to date
+  totalBalance: number      // Principal + totalInterest (compound)
+}
+```
+
+**Example Calculation (11% annual rate):**
+| Date | Event | Draw | Days | Accrued Int | Total Int | Principal | Total Balance |
+|------|-------|------|------|-------------|-----------|-----------|---------------|
+| 12/4/2024 | Draw 1 | $8,575 | 1 | $2.58 | $2.58 | $8,575 | $8,577.58 |
+| 12/31/2024 | Month End | — | 27 | $69.80 | $72.38 | $8,575 | $8,647.38 |
+| 1/31/2025 | Month End | — | 31 | $80.79 | $153.17 | $8,575 | $8,728.17 |
+| 2/10/2025 | Draw 2 | $40,327 | 10 | $38.46 | $191.63 | $48,902 | $49,094.08 |
+
+**Interest Formula:** `totalBalance × (annualRate / 365) × days`
 
 #### Payoff Breakdown
 ```typescript
@@ -915,25 +949,33 @@ Multi-view budget analysis with intelligent features:
 
 ### 2. Amortization Table
 
-Draw-by-draw interest accrual tracking:
+**Compound interest** tracking with monthly and draw-event accrual:
 
 **Table View:**
-- Chronological draw listing with:
-  - Draw date and number
-  - Draw amount
-  - Days since last draw
-  - Interest accrued
-  - Fee rate badge (shows escalation)
-  - Running balance
+- Chronological accrual event listing with:
+  - Date and description
+  - Draw amount (0 for month-end rows)
+  - Days since last accrual
+  - Accrued interest (this period)
+  - Total interest (cumulative compound)
+  - Principal (sum of draws)
+  - Total balance (principal + interest)
+- Row types distinguished visually:
+  - Draw rows: Numbered badge with draw icon
+  - Month-end rows: Calendar icon with subtle background
+  - Current row: Clock icon
+  - Payoff row: Checkmark with success highlight
 - Summary header with:
-  - Principal balance
-  - Total interest
-  - Per diem rate
-  - Total payoff
+  - Principal (sum of draws)
+  - Total Interest (compound)
+  - Total Balance
+  - Per Diem (on total balance)
+  - Total Payoff
 
 **Cards View:**
 - Summary metric cards for quick reference
-- Principal, interest, per diem, days outstanding
+- Principal, Total Interest, Total Balance, Per Diem
+- Draw count and max balance indicators
 
 **Chart View:**
 - Timeline bar chart showing draws and interest accrual
@@ -983,7 +1025,7 @@ The stats tile above reports adapts based on active report:
 | Report | Stats Displayed |
 |--------|-----------------|
 | **Budget** | Budget Total, Total Spent, Remaining, % Complete, Anomaly Count |
-| **Amortization** | Principal Balance, Total Interest, Per Diem, Days Outstanding, Current Fee Rate |
+| **Amortization** | Principal, Total Interest, Total Balance, Per Diem, Days Outstanding, Current Fee Rate |
 | **Payoff** | Estimated Payoff, Principal, Accrued Interest, Per Diem, Fee Rate, Days to Maturity |
 
 ### View Mode Persistence
