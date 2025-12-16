@@ -236,6 +236,30 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     }
   }, [selectedProjectId, importType])
   
+  // Auto-fetch next draw number when project is selected (for draw imports)
+  useEffect(() => {
+    if (selectedProjectId && importType === 'draw') {
+      fetchNextDrawNumber(selectedProjectId)
+    }
+  }, [selectedProjectId, importType])
+  
+  const fetchNextDrawNumber = async (projectId: string) => {
+    try {
+      const { data } = await supabase
+        .from('draw_requests')
+        .select('draw_number')
+        .eq('project_id', projectId)
+        .order('draw_number', { ascending: false })
+        .limit(1)
+        .single()
+      
+      setDrawNumber((data?.draw_number || 0) + 1)
+    } catch {
+      // No existing draws, start at 1
+      setDrawNumber(1)
+    }
+  }
+  
   const checkExistingBudget = async (projectId: string) => {
     try {
       const { count, error } = await supabase
@@ -755,56 +779,29 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                     exit={{ opacity: 0 }}
                     className="flex-1 flex flex-col min-h-0"
                   >
-                    {/* Builder & Project Selection Bar */}
+                    {/* Context Bar - read-only display */}
                     <div className="flex items-center gap-3 px-4 py-2 border-b text-xs" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
-                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Builder:</span>
-                      <select
-                        value={selectedBuilderId}
-                        onChange={(e) => setSelectedBuilderId(e.target.value)}
-                        className="px-2 py-1.5 rounded text-xs min-w-[150px]"
-                        style={{ 
-                          background: 'var(--bg-secondary)', 
-                          color: 'var(--text-primary)', 
-                          border: `1px solid ${!selectedBuilderId ? 'var(--warning)' : 'var(--border)'}`
-                        }}
-                        disabled={loadingProjects}
-                      >
-                        <option value="">Select builder...</option>
-                        {builders.map(b => (
-                          <option key={b.id} value={b.id}>
-                            {b.company_name}
-                          </option>
-                        ))}
-                      </select>
-                      
-                      {selectedBuilderId && (
-                        <>
-                          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Project:</span>
-                          <select
-                            value={selectedProjectId}
-                            onChange={(e) => setSelectedProjectId(e.target.value)}
-                            className="px-2 py-1.5 rounded text-xs min-w-[180px]"
-                            style={{ 
-                              background: 'var(--bg-secondary)', 
-                              color: 'var(--text-primary)', 
-                              border: `1px solid ${!hasProjectSelected ? 'var(--warning)' : 'var(--border)'}`
-                            }}
-                            disabled={loadingProjects || projects.length === 0}
-                          >
-                            <option value="">Select project...</option>
-                            {projects.map(p => (
-                              <option key={p.id} value={p.id}>
-                                {p.project_code || p.name}
-                              </option>
-                            ))}
-                          </select>
-                        </>
+                      <span style={{ color: 'var(--text-muted)' }}>
+                        {importType === 'budget' ? 'Importing budget for:' : 'Importing draw for:'}
+                      </span>
+                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                        {selectedProject?.builder?.company_name || builders.find(b => b.id === selectedBuilderId)?.company_name || '—'} 
+                        {' — '}
+                        {selectedProject?.project_code || selectedProject?.name || '—'}
+                      </span>
+                      {importType === 'draw' && (
+                        <span 
+                          className="px-2 py-0.5 rounded-full font-medium" 
+                          style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}
+                        >
+                          Draw #{drawNumber}
+                        </span>
                       )}
                       
                       {/* Replace existing budget checkbox - only for budget imports with existing items */}
                       {importType === 'budget' && existingBudgetCount > 0 && (
                         <>
-                          <div className="w-px h-4" style={{ background: 'var(--border)' }} />
+                          <div className="w-px h-4 ml-auto" style={{ background: 'var(--border)' }} />
                           <label className="flex items-center gap-2 text-xs cursor-pointer">
                             <input
                               type="checkbox"
@@ -819,89 +816,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                           </label>
                         </>
                       )}
-                      
-                      {importType === 'draw' && (
-                        <>
-                          <div className="w-px h-4" style={{ background: 'var(--border)' }} />
-                          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Draw #:</span>
-                          <input
-                            type="number"
-                            min={1}
-                            max={50}
-                            value={drawNumber}
-                            onChange={(e) => setDrawNumber(parseInt(e.target.value) || 1)}
-                            className="w-14 px-2 py-1.5 rounded text-xs text-center"
-                            style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-                          />
-                          <div className="w-px h-4" style={{ background: 'var(--border)' }} />
-                          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Invoices:</span>
-                          <label className="px-2 py-1.5 rounded text-xs cursor-pointer hover:opacity-80" style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}>
-                            <input
-                              type="file"
-                              accept=".pdf"
-                              multiple
-                              className="hidden"
-                              onChange={(e) => {
-                                const files = Array.from(e.target.files || [])
-                                // Limit: max 10 files, 5MB each
-                                const validFiles = files.filter(f => f.size <= 5 * 1024 * 1024).slice(0, 10 - invoiceFiles.length)
-                                setInvoiceFiles(prev => [...prev, ...validFiles].slice(0, 10))
-                                e.target.value = '' // Reset input
-                              }}
-                            />
-                            + Add PDFs
-                          </label>
-                          {invoiceFiles.length > 0 && (
-                            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                              {invoiceFiles.length} file{invoiceFiles.length !== 1 ? 's' : ''}
-                            </span>
-                          )}
-                        </>
-                      )}
-                      
-                      {selectedProject && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full ml-auto" style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}>
-                          {selectedProject.builder_name}
-                        </span>
-                      )}
                     </div>
-                    
-                    {/* Invoice Files List (for draw imports) */}
-                    {importType === 'draw' && invoiceFiles.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b text-xs" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
-                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        {invoiceFiles.map((invoiceFile, idx) => (
-                          <div 
-                            key={idx} 
-                            className="flex items-center gap-1 px-2 py-1 rounded"
-                            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
-                          >
-                            <span className="truncate max-w-[150px]" style={{ color: 'var(--text-secondary)' }}>
-                              {invoiceFile.name}
-                            </span>
-                            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                              ({(invoiceFile.size / 1024).toFixed(0)}KB)
-                            </span>
-                            <button
-                              onClick={() => setInvoiceFiles(prev => prev.filter((_, i) => i !== idx))}
-                              className="w-4 h-4 flex items-center justify-center rounded hover:bg-[var(--bg-hover)]"
-                              style={{ color: 'var(--text-muted)' }}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                        <button
-                          onClick={() => setInvoiceFiles([])}
-                          className="text-xs hover:underline"
-                          style={{ color: 'var(--error)' }}
-                        >
-                          Clear all
-                        </button>
-                      </div>
-                    )}
                     
                     {/* Compact Info Bar */}
                     <div className="flex items-center gap-2 px-4 py-2 border-b text-xs" style={{ borderColor: 'var(--border-subtle)' }}>
