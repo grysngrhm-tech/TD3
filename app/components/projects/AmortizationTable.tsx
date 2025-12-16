@@ -7,13 +7,11 @@ import type { Project, DrawRequest } from '@/types/database'
 import type { ViewMode } from '@/app/components/ui/ViewModeSelector'
 import { 
   calculateAmortizationSchedule,
-  calculateFeeEscalationSchedule,
   calculatePerDiem,
   calculateTotalPayoff,
   calculateOriginationFee,
   getAmortizationSummary,
   type AmortizationRow,
-  type FeeEscalationEntry,
 } from '@/lib/calculations'
 
 type DrawLineWithDate = {
@@ -92,18 +90,6 @@ export function AmortizationTable({
     )
   }, [drawLines, project, payoffDate])
 
-  // Calculate fee escalation schedule
-  const feeEscalation = useMemo(() => {
-    if (!project.loan_start_date) return []
-    const startDate = new Date(project.loan_start_date)
-    const endDate = payoffDate || new Date()
-    return calculateFeeEscalationSchedule(
-      project.origination_fee_pct || 0.02,
-      startDate,
-      endDate
-    )
-  }, [project.loan_start_date, project.origination_fee_pct, payoffDate])
-
   // Get summary statistics
   const summary = useMemo(() => getAmortizationSummary(schedule), [schedule])
 
@@ -134,7 +120,6 @@ export function AmortizationTable({
     return (
       <TimelineView 
         schedule={schedule} 
-        feeEscalation={feeEscalation}
         project={project}
       />
     )
@@ -146,7 +131,6 @@ export function AmortizationTable({
         summary={summary} 
         payoffTotals={payoffTotals}
         project={project}
-        feeEscalation={feeEscalation}
       />
     )
   }
@@ -280,39 +264,6 @@ export function AmortizationTable({
         </div>
       </div>
 
-      {/* Fee Escalation Schedule */}
-      {feeEscalation.length > 0 && (
-        <div className="card-ios p-0 overflow-hidden">
-          <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Fee Escalation Schedule</h3>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              +0.25% per month after month 6
-            </p>
-          </div>
-          <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-            {feeEscalation.map((entry, index) => (
-              <div key={index} className="px-4 py-3 flex items-center justify-between">
-                <div>
-                  <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                    Month {entry.monthNumber}
-                  </div>
-                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {formatDate(entry.date)}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span style={{ color: 'var(--text-muted)' }}>{formatRate(entry.previousRate)}</span>
-                  <svg className="w-4 h-4" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                  <span className="font-semibold" style={{ color: 'var(--warning)' }}>{formatRate(entry.newRate)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Payoff Summary */}
       <div className="card-ios" style={{ borderLeft: '4px solid var(--success)' }}>
         <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Payoff Summary</h3>
@@ -370,7 +321,6 @@ function CardsView({
   summary,
   payoffTotals,
   project,
-  feeEscalation,
 }: {
   summary: ReturnType<typeof getAmortizationSummary>
   payoffTotals: {
@@ -382,7 +332,6 @@ function CardsView({
     perDiem: number
   }
   project: Project
-  feeEscalation: FeeEscalationEntry[]
 }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -506,7 +455,7 @@ function CardsView({
         </div>
       </motion.div>
 
-      {/* Fee Rate Card */}
+      {/* Interest Rate Card */}
       <motion.div 
         className="card-ios"
         initial={{ opacity: 0, y: 20 }}
@@ -516,20 +465,20 @@ function CardsView({
         <div className="flex items-start justify-between">
           <div>
             <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-              Current Fee Rate
+              Interest Rate
             </div>
-            <div className="text-2xl font-bold mt-1" style={{ color: feeEscalation.length > 0 ? 'var(--warning)' : 'var(--text-primary)' }}>
-              {formatRate(feeEscalation.length > 0 ? feeEscalation[feeEscalation.length - 1].newRate : (project.origination_fee_pct || 0.02))}
+            <div className="text-2xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>
+              {formatRate(project.interest_rate_annual || 0)}
             </div>
             <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              {feeEscalation.length > 0 ? `+${feeEscalation.length} escalation${feeEscalation.length !== 1 ? 's' : ''}` : 'Base rate'}
+              Annual rate
             </div>
           </div>
           <div 
             className="w-10 h-10 rounded-full flex items-center justify-center"
-            style={{ background: feeEscalation.length > 0 ? 'var(--warning-muted)' : 'var(--bg-hover)' }}
+            style={{ background: 'var(--bg-hover)' }}
           >
-            <svg className="w-5 h-5" style={{ color: feeEscalation.length > 0 ? 'var(--warning)' : 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
             </svg>
           </div>
@@ -573,11 +522,9 @@ function CardsView({
 // Timeline View component
 function TimelineView({
   schedule,
-  feeEscalation,
   project,
 }: {
   schedule: AmortizationRow[]
-  feeEscalation: FeeEscalationEntry[]
   project: Project
 }) {
   // Prepare data for bar chart
@@ -706,53 +653,6 @@ function TimelineView({
         </div>
       </div>
 
-      {/* Fee Escalation Timeline */}
-      {feeEscalation.length > 0 && (
-        <div className="card-ios">
-          <h3 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Fee Escalation Points</h3>
-          <div className="relative">
-            {/* Timeline Line */}
-            <div 
-              className="absolute left-3 top-3 bottom-3 w-0.5"
-              style={{ background: 'var(--border)' }}
-            />
-            
-            {/* Timeline Points */}
-            <div className="space-y-4">
-              {feeEscalation.map((entry, index) => (
-                <div key={index} className="flex items-center gap-4 relative">
-                  <div 
-                    className="w-6 h-6 rounded-full flex items-center justify-center z-10"
-                    style={{ background: 'var(--warning)', color: 'white' }}
-                  >
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
-                        Month {entry.monthNumber}
-                      </div>
-                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {formatDate(entry.date)}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-semibold" style={{ color: 'var(--warning)' }}>
-                        {formatRate(entry.newRate)}
-                      </span>
-                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        +0.25%
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

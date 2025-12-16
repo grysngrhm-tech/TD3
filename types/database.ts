@@ -856,10 +856,23 @@ export const DOCUMENT_TYPES: { id: DocumentType; label: string }[] = [
 
 // Default Term Sheet Values
 export const DEFAULT_TERM_SHEET = {
-  interest_rate_annual: 11, // 11%
-  origination_fee_pct: 2, // 2%
-  fee_escalation_pct: 0.25, // +0.25% per month after 6 months
-  fee_escalation_after_months: 6,
+  // Interest
+  interest_rate_annual: 0.11, // 11%
+  
+  // Base Fee & Escalation (Months 1-12)
+  origination_fee_pct: 0.02, // 2% base fee
+  fee_escalation_pct: 0.0025, // +0.25% per month after escalation starts
+  fee_escalation_after_months: 6, // Escalation begins month 7
+  fee_rate_at_month_7: 0.0225, // 2.25% starting rate for escalation period
+  
+  // Extension Fee (Month 13+)
+  extension_fee_month: 13, // Month when extension fee kicks in
+  extension_fee_rate: 0.059, // 5.9% at month 13
+  post_extension_escalation: 0.004, // +0.4% per month after 13
+  
+  // Fixed Fees
   document_fee: 1000, // $1,000
-  loan_term_months: 12, // 12 months
+  
+  // Term
+  loan_term_months: 12, // 12 months standard term
 }
