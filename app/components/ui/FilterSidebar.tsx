@@ -106,21 +106,35 @@ export function FilterSidebar({
   const totalCount = currentOptions.length
 
   return (
-    <div className="sidebar w-64 flex-shrink-0 h-[calc(100vh-3.5rem)] sticky top-14 flex flex-col">
+    <div 
+      className="flex-shrink-0 sticky flex flex-col"
+      style={{ 
+        width: 'var(--sidebar-width)',
+        height: 'calc(100vh - var(--header-height))',
+        top: 'var(--header-height)',
+        background: 'var(--bg-secondary)',
+        borderRight: '1px solid var(--border-subtle)',
+      }}
+    >
       <div className="p-4 flex flex-col flex-1 min-h-0">
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+          <h2 
+            className="text-xs font-semibold uppercase tracking-wider" 
+            style={{ color: 'var(--text-muted)' }}
+          >
             Filters
           </h2>
           {hasActiveFilters && (
-            <button 
+            <motion.button 
               onClick={onClearAll}
-              className="text-xs font-medium transition-colors"
+              className="text-xs font-medium"
               style={{ color: 'var(--accent)' }}
+              whileHover={{ opacity: 0.8 }}
+              whileTap={{ scale: 0.95 }}
             >
               Clear All
-            </button>
+            </motion.button>
           )}
         </div>
 
@@ -160,37 +174,51 @@ export function FilterSidebar({
 
         {/* Category Toggle */}
         <div 
-          className="flex rounded-ios-sm p-1 mb-3"
-          style={{ background: 'var(--bg-hover)' }}
+          className="flex p-1 mb-3"
+          style={{ 
+            background: 'var(--bg-hover)',
+            borderRadius: 'var(--radius-md)',
+          }}
         >
           {CATEGORY_ORDER.map((category) => (
-            <button
+            <motion.button
               key={category}
               onClick={() => setActiveCategory(category)}
-              className={`flex-1 relative px-2 py-1.5 text-xs font-medium rounded-ios-xs transition-all ${
-                activeCategory === category ? 'shadow-sm' : ''
-              }`}
+              className="flex-1 relative px-2 py-1.5 text-xs font-medium transition-colors"
               style={{
                 background: activeCategory === category ? 'var(--bg-card)' : 'transparent',
                 color: activeCategory === category ? 'var(--text-primary)' : 'var(--text-muted)',
+                borderRadius: 'var(--radius-sm)',
+                boxShadow: activeCategory === category ? 'var(--elevation-1)' : 'none',
               }}
+              whileHover={{ color: 'var(--text-primary)' }}
+              whileTap={{ scale: 0.98 }}
             >
               {CATEGORY_LABELS[category]}
               {/* Active filter indicator dot */}
               {hasFiltersInCategory(category) && activeCategory !== category && (
-                <span 
-                  className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full"
-                  style={{ background: 'var(--accent)' }}
+                <motion.span 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute top-1 right-1 w-1.5 h-1.5"
+                  style={{ 
+                    background: 'var(--accent)',
+                    borderRadius: 'var(--radius-full)',
+                  }}
                 />
               )}
-            </button>
+            </motion.button>
           ))}
         </div>
 
         {/* Filter Options List */}
         <div 
-          className="flex-1 overflow-y-auto rounded-ios-sm"
-          style={{ background: 'var(--bg-card)' }}
+          className="flex-1 overflow-y-auto"
+          style={{ 
+            background: 'var(--bg-card)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border-subtle)',
+          }}
         >
           <AnimatePresence mode="wait">
             <motion.div
@@ -215,64 +243,77 @@ export function FilterSidebar({
                       {enabledCount} of {totalCount} with matches
                     </div>
                   )}
-                  {currentOptions.map((option) => {
+                  {currentOptions.map((option, index) => {
                     const isSelected = (selectedFilters[activeCategory] || []).includes(option.id)
                     const isDisabled = option.disabled && !isSelected
                     return (
-                      <button
+                      <motion.button
                         key={option.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.02, duration: 0.15 }}
                         onClick={() => !isDisabled && onFilterChange(activeCategory, option.id)}
                         disabled={isDisabled}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-ios-xs text-sm transition-all ${
+                        className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-all touch-target ${
                           isSelected ? 'font-medium' : ''
                         } ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                         style={{ 
-                          background: isSelected ? 'var(--accent-glow)' : 'transparent',
+                          background: isSelected ? 'var(--accent-muted)' : 'transparent',
                           color: isDisabled 
-                            ? 'var(--text-muted)' 
+                            ? 'var(--text-disabled)' 
                             : isSelected 
                               ? 'var(--accent)' 
                               : 'var(--text-secondary)',
                           opacity: isDisabled ? 0.5 : 1,
+                          borderRadius: 'var(--radius-sm)',
                         }}
+                        whileHover={!isDisabled ? { 
+                          backgroundColor: isSelected ? 'var(--accent-muted)' : 'var(--bg-hover)' 
+                        } : undefined}
+                        whileTap={!isDisabled ? { scale: 0.98 } : undefined}
                       >
-                        <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex items-center gap-2.5 min-w-0">
                           {/* Checkbox indicator */}
                           <div 
-                            className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border-2 transition-all ${
-                              isSelected 
-                                ? 'border-[var(--accent)] bg-[var(--accent)]' 
+                            className="w-4 h-4 flex-shrink-0 flex items-center justify-center transition-all"
+                            style={{ 
+                              borderRadius: 'var(--radius-xs)',
+                              border: isSelected 
+                                ? '2px solid var(--accent)' 
                                 : isDisabled
-                                  ? 'border-[var(--border-subtle)]'
-                                  : 'border-[var(--border)]'
-                            }`}
+                                  ? '2px solid var(--border-subtle)'
+                                  : '2px solid var(--border)',
+                              background: isSelected ? 'var(--accent)' : 'transparent',
+                            }}
                           >
                             {isSelected && (
                               <motion.svg
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
-                                className="w-2.5 h-2.5 text-white"
+                                className="w-2.5 h-2.5"
                                 fill="none"
                                 viewBox="0 0 24 24"
-                                stroke="currentColor"
+                                stroke="white"
+                                strokeWidth={3}
                               >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                               </motion.svg>
                             )}
                           </div>
                           <span className="truncate">{option.label}</span>
                         </div>
                         <span 
-                          className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ml-2"
+                          className="text-xs px-1.5 py-0.5 flex-shrink-0 ml-2 font-medium"
                           style={{ 
                             background: isDisabled ? 'transparent' : 'var(--bg-hover)',
                             color: 'var(--text-muted)',
+                            borderRadius: 'var(--radius-full)',
                             border: isDisabled ? '1px solid var(--border-subtle)' : 'none',
                           }}
                         >
                           {option.count}
                         </span>
-                      </button>
+                      </motion.button>
                     )
                   })}
                 </div>
@@ -287,11 +328,18 @@ export function FilterSidebar({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             onClick={() => onClearSection(activeCategory)}
-            className="mt-2 w-full py-2 text-xs font-medium rounded-ios-sm transition-colors"
+            className="mt-2 w-full py-2 text-xs font-medium transition-colors touch-target"
             style={{ 
               background: 'var(--bg-card)',
-              color: 'var(--text-muted)'
+              color: 'var(--text-muted)',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border-subtle)',
             }}
+            whileHover={{ 
+              backgroundColor: 'var(--bg-hover)',
+              color: 'var(--text-secondary)',
+            }}
+            whileTap={{ scale: 0.98 }}
           >
             Clear {CATEGORY_LABELS[activeCategory]} Filter
           </motion.button>

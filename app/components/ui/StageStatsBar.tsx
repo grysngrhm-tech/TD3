@@ -243,14 +243,19 @@ export function StageStatsBar({ stage, projects, navButton }: StageStatsBarProps
     return (
       <motion.a
         href={navButton.href}
-        className="flex items-center gap-3 px-6 py-3 rounded-ios font-semibold transition-all"
+        className="flex items-center gap-3 px-6 py-3 font-semibold transition-all touch-target"
         style={{ 
           background: 'var(--accent)',
           color: 'white',
-          boxShadow: '0 4px 14px rgba(59, 130, 246, 0.35)'
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--elevation-2), 0 0 20px var(--accent-glow)',
         }}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
+        whileHover={{ 
+          scale: 1.03,
+          boxShadow: 'var(--elevation-3), 0 0 30px var(--accent-glow)',
+        }}
+        whileTap={{ scale: 0.97 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       >
         {isLeft && (
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -274,8 +279,14 @@ export function StageStatsBar({ stage, projects, navButton }: StageStatsBarProps
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex items-center gap-6 p-4 rounded-ios-sm"
-      style={{ background: 'var(--bg-card)' }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      className="flex items-center gap-6 p-5"
+      style={{ 
+        background: 'var(--bg-card)',
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--border-subtle)',
+        boxShadow: 'var(--elevation-2)',
+      }}
     >
       {/* Nav button on left if configured */}
       {isLeftNav && renderNavButton()}
@@ -283,10 +294,10 @@ export function StageStatsBar({ stage, projects, navButton }: StageStatsBarProps
 
       {/* Count */}
       <div>
-        <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+        <div className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
           {stage === 'pending' ? 'In Pipeline' : stage === 'active' ? 'Active Loans' : 'Completed'}
         </div>
-        <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+        <div className="font-bold financial-value" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-2xl)' }}>
           {stats.count}
         </div>
       </div>
@@ -295,10 +306,10 @@ export function StageStatsBar({ stage, projects, navButton }: StageStatsBarProps
       
       {/* Stage-specific primary metric */}
       <div>
-        <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+        <div className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
           {stage === 'pending' ? 'Pipeline Value' : stage === 'active' ? 'Total Committed' : 'Total Funded'}
         </div>
-        <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+        <div className="font-bold financial-value" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-2xl)' }}>
           {formatCurrency(stage === 'pending' ? stats.totalLoanAmount : stats.totalBudget)}
         </div>
       </div>
@@ -307,10 +318,10 @@ export function StageStatsBar({ stage, projects, navButton }: StageStatsBarProps
       
       {/* Stage-specific secondary metric */}
       <div>
-        <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+        <div className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
           {stage === 'pending' ? 'Avg LTV' : stage === 'active' ? 'Total Drawn' : 'Total Income'}
         </div>
-        <div className="text-2xl font-bold" style={{ color: 'var(--accent)' }}>
+        <div className="font-bold financial-value" style={{ color: 'var(--accent)', fontSize: 'var(--text-2xl)' }}>
           {stage === 'pending' 
             ? (stats.avgLTV !== null ? `${stats.avgLTV.toFixed(1)}%` : '—')
             : stage === 'active'

@@ -3,6 +3,13 @@
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import type { LifecycleStage } from '@/types/database'
+import { 
+  getStatusTint, 
+  getLifecycleStyles, 
+  getLtvColor as getLtvRiskColor,
+  getIrrColor,
+} from '@/lib/polymorphic'
+import { useTheme } from '@/app/hooks/useTheme'
 
 type ProjectTileProps = {
   id: string
@@ -23,6 +30,10 @@ type ProjectTileProps = {
   hideBuilderLink?: boolean
 }
 
+/**
+ * ProjectTile - Interactive card for displaying project summary
+ * Uses polymorphic styling based on lifecycle stage
+ */
 export function ProjectTile({
   id,
   projectCode,
@@ -42,6 +53,7 @@ export function ProjectTile({
   hideBuilderLink = false,
 }: ProjectTileProps) {
   const router = useRouter()
+  const { resolvedTheme } = useTheme()
 
   const handleBuilderClick = (e: React.MouseEvent) => {
     if (builderId && !hideBuilderLink) {
@@ -53,6 +65,11 @@ export function ProjectTile({
   const ltvRatio = appraisedValue && loanAmount 
     ? (loanAmount / appraisedValue) * 100 
     : null
+  
+  // Get polymorphic styles based on lifecycle stage
+  const lifecycleStyles = getLifecycleStyles(lifecycleStage)
+  const themeMode = resolvedTheme === 'light' ? 'light' : 'dark'
+  const stageTint = getStatusTint(lifecycleStage, themeMode)
   
   const formatCurrency = (amount: number | null | undefined) => {
     if (amount === null || amount === undefined) return '—'
@@ -70,11 +87,11 @@ export function ProjectTile({
   const getStageBadgeStyle = () => {
     switch (lifecycleStage) {
       case 'pending':
-        return { background: 'rgba(251, 191, 36, 0.1)', color: 'var(--warning)' }
+        return { background: 'var(--warning-muted)', color: 'var(--warning)' }
       case 'active':
-        return { background: 'rgba(34, 197, 94, 0.1)', color: 'var(--success)' }
+        return { background: 'var(--success-muted)', color: 'var(--success)' }
       case 'historic':
-        return { background: 'rgba(148, 163, 184, 0.1)', color: 'var(--text-muted)' }
+        return { background: 'var(--bg-hover)', color: 'var(--text-muted)' }
       default:
         return { background: 'var(--bg-hover)', color: 'var(--text-muted)' }
     }
@@ -93,39 +110,51 @@ export function ProjectTile({
     }
   }
 
-  // LTV color coding: ≤65% green, 66-74% yellow, ≥75% red
-  const getLtvColor = (ltv: number) => {
-    if (ltv <= 65) return 'var(--success)'
-    if (ltv <= 74) return 'var(--warning)'
-    return 'var(--error)'
-  }
+  // LTV color coding using polymorphic utility
+  const getLtvColor = (ltv: number) => getLtvRiskColor(ltv)
 
   return (
     <motion.div
-      whileHover={{ scale: 1.02 }}
+      whileHover={{ 
+        scale: 1.02, 
+        y: -2,
+        boxShadow: 'var(--elevation-3), 0 0 30px var(--accent-glow)',
+      }}
       whileTap={{ scale: 0.98 }}
-      className="tile"
+      className="p-5 cursor-pointer transition-all touch-target"
       onClick={onClick}
       style={{
-        opacity: lifecycleStage === 'historic' ? 0.85 : 1,
+        background: `linear-gradient(${stageTint}, ${stageTint}), var(--bg-card)`,
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--elevation-2)',
+        opacity: lifecycleStyles.opacity,
+        filter: lifecycleStyles.saturation !== '100%' 
+          ? `saturate(${lifecycleStyles.saturation})` 
+          : undefined,
       }}
+      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h3 className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>
+          <h3 
+            className="font-semibold" 
+            style={{ color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}
+          >
             {projectCode}
           </h3>
           {builderName && (
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               {builderId && !hideBuilderLink ? (
-                <button
+                <motion.button
                   onClick={handleBuilderClick}
-                  className="hover:underline transition-colors"
+                  className="transition-colors"
                   style={{ color: 'var(--accent)' }}
+                  whileHover={{ textDecoration: 'underline' }}
                 >
                   {builderName}
-                </button>
+                </motion.button>
               ) : (
                 builderName
               )}
@@ -133,8 +162,11 @@ export function ProjectTile({
           )}
         </div>
         <span 
-          className="badge text-xs px-2 py-1 rounded-full font-medium"
-          style={getStageBadgeStyle()}
+          className="text-xs px-2.5 py-1 font-semibold"
+          style={{
+            ...getStageBadgeStyle(),
+            borderRadius: 'var(--radius-full)',
+          }}
         >
           {getStageLabel()}
         </span>
@@ -151,8 +183,12 @@ export function ProjectTile({
       {subdivisionName && (
         <div className="mb-4">
           <span 
-            className="text-xs px-2 py-1 rounded-full"
-            style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+            className="text-xs px-2.5 py-1 font-medium"
+            style={{ 
+              background: 'var(--bg-hover)', 
+              color: 'var(--text-muted)',
+              borderRadius: 'var(--radius-full)',
+            }}
           >
             {subdivisionName}
           </span>
@@ -168,16 +204,25 @@ export function ProjectTile({
               <div className="flex justify-between items-baseline">
                 <span className="text-sm" style={{ color: 'var(--text-muted)' }}>LTV Ratio</span>
                 <span 
-                  className="font-semibold text-lg" 
-                  style={{ color: getLtvColor(ltvRatio) }}
+                  className="font-semibold financial-value" 
+                  style={{ color: getLtvColor(ltvRatio), fontSize: 'var(--text-lg)' }}
                 >
                   {ltvRatio.toFixed(1)}%
                 </span>
               </div>
-              <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
+              <div 
+                className="relative h-2 overflow-hidden" 
+                style={{ 
+                  background: 'var(--bg-hover)',
+                  borderRadius: 'var(--radius-full)',
+                }}
+              >
                 <motion.div
-                  className="absolute inset-y-0 left-0 rounded-full"
-                  style={{ background: getLtvColor(ltvRatio) }}
+                  className="absolute inset-y-0 left-0"
+                  style={{ 
+                    background: getLtvColor(ltvRatio),
+                    borderRadius: 'var(--radius-full)',
+                  }}
                   initial={{ width: 0 }}
                   animate={{ width: `${Math.min(ltvRatio, 100)}%` }}
                   transition={{ duration: 0.8, ease: 'easeOut' }}
@@ -192,17 +237,23 @@ export function ProjectTile({
           ) : (
             <div className="flex justify-between items-baseline">
               <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Loan Amount</span>
-              <span className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>
+              <span 
+                className="font-semibold financial-value" 
+                style={{ color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}
+              >
                 {formatCurrency(loanAmount)}
               </span>
             </div>
           )}
 
           {/* Budget status */}
-          <div className="flex justify-between items-baseline pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+          <div 
+            className="flex justify-between items-baseline pt-2" 
+            style={{ borderTop: '1px solid var(--border-subtle)' }}
+          >
             <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Budget</span>
             <span 
-              className="font-medium"
+              className="font-medium financial-value"
               style={{ color: totalBudget > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}
             >
               {totalBudget > 0 ? formatCurrency(totalBudget) : 'Not uploaded'}
@@ -216,15 +267,28 @@ export function ProjectTile({
           {/* Budget Info */}
           <div className="flex justify-between items-baseline">
             <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Budget</span>
-            <span className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>
+            <span 
+              className="font-semibold financial-value" 
+              style={{ color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}
+            >
               {formatCurrency(totalBudget)}
             </span>
           </div>
 
           {/* Progress Bar */}
-          <div className="progress-bar">
+          <div 
+            className="h-2 overflow-hidden"
+            style={{ 
+              background: 'var(--bg-hover)',
+              borderRadius: 'var(--radius-full)',
+            }}
+          >
             <motion.div
-              className="progress-bar-fill"
+              className="h-full"
+              style={{ 
+                background: 'linear-gradient(90deg, var(--accent), var(--accent-hover))',
+                borderRadius: 'var(--radius-full)',
+              }}
               initial={{ width: 0 }}
               animate={{ width: `${Math.min(percentSpent, 100)}%` }}
               transition={{ duration: 0.8, ease: 'easeOut' }}
@@ -236,7 +300,7 @@ export function ProjectTile({
             <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
               {percentSpent.toFixed(1)}% drawn
             </span>
-            <span className="font-medium" style={{ color: 'var(--accent)' }}>
+            <span className="font-medium financial-value" style={{ color: 'var(--accent)' }}>
               {formatCurrency(totalSpent)}
             </span>
           </div>
@@ -251,8 +315,8 @@ export function ProjectTile({
               Total Income
             </span>
             <span 
-              className="font-semibold text-lg"
-              style={{ color: 'var(--success)' }}
+              className="font-semibold financial-value"
+              style={{ color: 'var(--success)', fontSize: 'var(--text-lg)' }}
             >
               {formatCurrency(totalIncome)}
             </span>
@@ -264,13 +328,10 @@ export function ProjectTile({
               IRR
             </span>
             <span 
-              className="font-semibold text-lg"
+              className="font-semibold financial-value"
               style={{ 
-                color: irr !== null && irr !== undefined
-                  ? irr >= 0.15 ? 'var(--success)' 
-                    : irr >= 0.10 ? 'var(--warning)' 
-                    : 'var(--error)'
-                  : 'var(--text-muted)'
+                color: getIrrColor(irr),
+                fontSize: 'var(--text-lg)',
               }}
             >
               {irr !== null && irr !== undefined ? `${(irr * 100).toFixed(1)}%` : '—'}
@@ -278,11 +339,23 @@ export function ProjectTile({
           </div>
 
           {/* Completed indicator */}
-          <div className="flex items-center justify-center py-1.5 rounded-md" style={{ background: 'var(--bg-hover)' }}>
-            <svg className="w-3.5 h-3.5 mr-1.5" style={{ color: 'var(--success)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div 
+            className="flex items-center justify-center py-2" 
+            style={{ 
+              background: 'var(--success-muted)',
+              borderRadius: 'var(--radius-md)',
+            }}
+          >
+            <svg 
+              className="w-3.5 h-3.5 mr-1.5" 
+              style={{ color: 'var(--success)' }} 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+            <span className="text-xs font-semibold" style={{ color: 'var(--success)' }}>
               Complete
             </span>
           </div>
