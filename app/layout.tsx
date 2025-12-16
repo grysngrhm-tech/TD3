@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { ToastContainer } from '@/app/components/ui/Toast'
-import { DevNav } from '@/app/components/ui/DevNav'
 import { Providers } from '@/app/components/Providers'
 import { Header } from '@/app/components/ui/Header'
 
@@ -33,9 +32,6 @@ export default function RootLayout({
             
             {/* Toast Notifications */}
             <ToastContainer />
-            
-            {/* Dev Navigation */}
-            <DevNav />
           </div>
         </Providers>
       </body>
