@@ -38,7 +38,7 @@ export function StagedDrawCell({ draws, projectId }: StagedDrawCellProps) {
     <div className="relative">
       <motion.button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="relative flex items-center justify-center px-2 py-1 rounded-full text-xs font-semibold"
+        className="relative flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
         style={{
           background: 'rgba(245, 158, 11, 0.15)',
           color: 'var(--warning)',

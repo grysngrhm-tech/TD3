@@ -16,13 +16,53 @@ type LenderTimelineSectionProps = {
   animationDelay?: number
 }
 
+// Generate month columns from date range
+function generateMonthColumns(allFundDates: string[]): { key: string; label: string; startDate: Date; endDate: Date }[] {
+  if (allFundDates.length === 0) return []
+  
+  const minDate = new Date(allFundDates[0])
+  const maxDate = new Date(allFundDates[allFundDates.length - 1])
+  
+  // Extend range to include full months
+  const startMonth = new Date(minDate.getFullYear(), minDate.getMonth(), 1)
+  const endMonth = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0)
+  
+  const months: { key: string; label: string; startDate: Date; endDate: Date }[] = []
+  const current = new Date(startMonth)
+  
+  while (current <= endMonth) {
+    const year = current.getFullYear()
+    const month = current.getMonth()
+    const startDate = new Date(year, month, 1)
+    const endDate = new Date(year, month + 1, 0) // Last day of month
+    
+    months.push({
+      key: `${year}-${String(month + 1).padStart(2, '0')}`,
+      label: current.toLocaleDateString('en-US', { month: 'short', day: undefined }),
+      startDate,
+      endDate
+    })
+    
+    current.setMonth(current.getMonth() + 1)
+  }
+  
+  return months
+}
+
+// Calculate bar position within a month (0-100%)
+function getPositionInMonth(date: Date, monthStart: Date, monthEnd: Date): number {
+  const monthDays = monthEnd.getDate()
+  const dayOfMonth = Math.min(date.getDate(), monthDays)
+  return (dayOfMonth / monthDays) * 100
+}
+
 /**
  * LenderTimelineSection - Timeline section for a single lender
  * 
  * Features:
  * - Collapsible header
  * - Fixed left column with project names and staged draws
- * - Scrollable right section with Gantt bars
+ * - Scrollable right section with month-based Gantt bars
  * - Crosshair highlighting on hover
  */
 export function LenderTimelineSection({
@@ -34,73 +74,96 @@ export function LenderTimelineSection({
   animationDelay = 0
 }: LenderTimelineSectionProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => {
+    // Auto-expand projects with draws or staged draws
+    const expanded = new Set<string>()
+    projects.forEach(project => {
+      const hasFundedDraws = project.draws.some(d => d.status === 'funded')
+      const hasStagedDraws = (stagedDrawsByProject.get(project.id) || []).length > 0
+      if (hasFundedDraws || hasStagedDraws) {
+        expanded.add(project.id)
+      }
+    })
+    return expanded
+  })
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
-  const [hoveredColumn, setHoveredColumn] = useState<string | null>(null)
+  const [hoveredMonth, setHoveredMonth] = useState<string | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
-  // Calculate column width based on content
-  const columnWidth = 100 // pixels per date column
-  const fixedColumnWidth = 280 // pixels for project column + staged
+  // Calculate column dimensions
+  const monthColumnWidth = 100 // pixels per month column
+  const fixedColumnWidth = 200 // pixels for project column + staged
+  const rowHeight = 36 // Compact row height
 
-  // Format date for column header
-  const formatColumnDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  }
+  // Generate month columns
+  const monthColumns = useMemo(() => generateMonthColumns(allFundDates), [allFundDates])
 
   // Calculate totals for this lender section
   const sectionTotals = useMemo(() => {
     let totalDrawn = 0
     let totalBudget = 0
+    let totalStaged = 0
     
     projects.forEach(project => {
       totalBudget += project.loan_amount || 0
       totalDrawn += project.total_spent || 0
+      const staged = stagedDrawsByProject.get(project.id) || []
+      staged.forEach(d => totalStaged += d.total_amount || 0)
     })
 
-    return { totalDrawn, totalBudget }
-  }, [projects])
+    return { totalDrawn, totalBudget, totalStaged }
+  }, [projects, stagedDrawsByProject])
 
-  // Get draws for a specific date and project
-  const getDrawsForDateAndProject = useCallback((projectId: string, dateStr: string) => {
-    const project = projects.find(p => p.id === projectId)
-    if (!project) return []
+  // Get draws grouped by month for a project
+  const getDrawsByMonth = useCallback((project: ProjectWithDraws) => {
+    const byMonth = new Map<string, { draw: DrawRequest; positionPercent: number; prevDate: Date | null }[]>()
     
-    return project.draws.filter(draw => {
-      if (draw.status !== 'funded' || !draw.funded_at) return false
-      const fundDate = new Date(draw.funded_at).toISOString().split('T')[0]
-      return fundDate === dateStr
-    })
-  }, [projects])
-
-  // Get previous draw date for a project (for Gantt bar start)
-  const getPreviousDrawDate = useCallback((project: ProjectWithDraws, currentDateStr: string) => {
     const fundedDraws = project.draws
       .filter(d => d.status === 'funded' && d.funded_at)
       .sort((a, b) => new Date(a.funded_at!).getTime() - new Date(b.funded_at!).getTime())
     
-    const currentDate = new Date(currentDateStr)
-    let prevDate = project.loan_start_date ? new Date(project.loan_start_date) : null
+    let prevDate: Date | null = project.loan_start_date ? new Date(project.loan_start_date) : null
     
-    for (const draw of fundedDraws) {
-      const drawDate = new Date(draw.funded_at!)
-      if (drawDate.toISOString().split('T')[0] === currentDateStr) {
-        return prevDate
+    fundedDraws.forEach(draw => {
+      const fundDate = new Date(draw.funded_at!)
+      const monthKey = `${fundDate.getFullYear()}-${String(fundDate.getMonth() + 1).padStart(2, '0')}`
+      const monthCol = monthColumns.find(m => m.key === monthKey)
+      
+      if (monthCol) {
+        const positionPercent = getPositionInMonth(fundDate, monthCol.startDate, monthCol.endDate)
+        
+        if (!byMonth.has(monthKey)) {
+          byMonth.set(monthKey, [])
+        }
+        byMonth.get(monthKey)!.push({ draw, positionPercent, prevDate })
       }
-      prevDate = drawDate
-    }
+      
+      prevDate = fundDate
+    })
     
-    return prevDate
+    return byMonth
+  }, [monthColumns])
+
+  const toggleProjectExpanded = useCallback((projectId: string) => {
+    setExpandedProjects(prev => {
+      const next = new Set(prev)
+      if (next.has(projectId)) {
+        next.delete(projectId)
+      } else {
+        next.add(projectId)
+      }
+      return next
+    })
   }, [])
 
-  const handleMouseEnterCell = useCallback((projectId: string, dateStr: string) => {
+  const handleMouseEnterCell = useCallback((projectId: string, monthKey: string) => {
     setHoveredRow(projectId)
-    setHoveredColumn(dateStr)
+    setHoveredMonth(monthKey)
   }, [])
 
   const handleMouseLeaveCell = useCallback(() => {
     setHoveredRow(null)
-    setHoveredColumn(null)
+    setHoveredMonth(null)
   }, [])
 
   return (
@@ -113,17 +176,17 @@ export function LenderTimelineSection({
       {/* Lender Header - Collapsible */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="w-full px-4 py-3 flex items-center justify-between border-b transition-colors"
+        className="w-full px-3 py-2 flex items-center justify-between border-b transition-colors"
         style={{ 
           borderColor: 'var(--border-subtle)',
           background: 'var(--bg-secondary)'
         }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <motion.svg
             animate={{ rotate: isCollapsed ? -90 : 0 }}
             transition={{ duration: 0.2 }}
-            className="w-4 h-4"
+            className="w-3.5 h-3.5"
             style={{ color: 'var(--text-muted)' }}
             fill="none"
             viewBox="0 0 24 24"
@@ -131,18 +194,18 @@ export function LenderTimelineSection({
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </motion.svg>
-          <h4 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <h4 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
             {lender?.name || 'No Lender Assigned'}
           </h4>
           <span 
-            className="text-xs px-2 py-0.5 rounded-full"
+            className="text-xs px-1.5 py-0.5 rounded-full"
             style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
           >
             {projects.length} loan{projects.length !== 1 ? 's' : ''}
           </span>
         </div>
 
-        <div className="flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-3 text-xs">
           <span style={{ color: 'var(--text-muted)' }}>
             Drawn: <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
               {formatCurrency(sectionTotals.totalDrawn)}
@@ -175,41 +238,55 @@ export function LenderTimelineSection({
               >
                 {/* Header Row */}
                 <div 
-                  className="h-10 px-4 flex items-center border-b text-xs font-medium"
+                  className="px-3 flex items-center border-b text-xs font-medium"
                   style={{ 
+                    height: 28,
                     borderColor: 'var(--border-subtle)',
                     background: 'var(--bg-secondary)',
                     color: 'var(--text-muted)'
                   }}
                 >
                   <div className="flex-1">Project</div>
-                  <div className="w-16 text-center">Staged</div>
+                  <div className="w-14 text-center">Staged</div>
                 </div>
 
                 {/* Project Rows */}
-                {projects.map((project, index) => (
-                  <TimelineProjectRow
-                    key={project.id}
-                    project={project}
-                    stagedDraws={stagedDrawsByProject.get(project.id) || []}
-                    isHovered={hoveredRow === project.id}
-                    animationDelay={animationDelay + (index * 0.05)}
-                  />
-                ))}
+                {projects.map((project, index) => {
+                  const isExpanded = expandedProjects.has(project.id)
+                  const hasFundedDraws = project.draws.some(d => d.status === 'funded')
+                  const staged = stagedDrawsByProject.get(project.id) || []
+                  
+                  return (
+                    <TimelineProjectRow
+                      key={project.id}
+                      project={project}
+                      stagedDraws={staged}
+                      isHovered={hoveredRow === project.id}
+                      isExpanded={isExpanded}
+                      hasDraws={hasFundedDraws || staged.length > 0}
+                      onToggleExpand={() => toggleProjectExpanded(project.id)}
+                      animationDelay={animationDelay + (index * 0.02)}
+                      rowHeight={rowHeight}
+                    />
+                  )
+                })}
 
                 {/* Totals Row */}
                 <div 
-                  className="h-12 px-4 flex items-center justify-between border-t font-semibold text-sm"
+                  className="px-3 flex items-center justify-between border-t font-semibold text-xs"
                   style={{ 
+                    height: rowHeight,
                     borderColor: 'var(--border-subtle)',
                     background: 'var(--bg-secondary)',
                     color: 'var(--text-primary)'
                   }}
                 >
                   <span>TOTALS</span>
-                  <span style={{ color: 'var(--accent)' }}>
-                    {formatCurrency(sectionTotals.totalDrawn)}
-                  </span>
+                  {sectionTotals.totalStaged > 0 && (
+                    <span style={{ color: 'var(--warning)' }}>
+                      {formatCurrency(sectionTotals.totalStaged)}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -219,30 +296,30 @@ export function LenderTimelineSection({
                 className="flex-1 overflow-x-auto"
                 style={{ scrollbarWidth: 'thin' }}
               >
-                <div style={{ minWidth: allFundDates.length * columnWidth }}>
-                  {/* Date Headers */}
+                <div style={{ minWidth: monthColumns.length * monthColumnWidth + 80 }}>
+                  {/* Month Headers */}
                   <div 
-                    className="h-10 flex border-b"
-                    style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-secondary)' }}
+                    className="flex border-b"
+                    style={{ height: 28, borderColor: 'var(--border-subtle)', background: 'var(--bg-secondary)' }}
                   >
-                    {allFundDates.map(dateStr => (
+                    {monthColumns.map(month => (
                       <div
-                        key={dateStr}
+                        key={month.key}
                         className="flex items-center justify-center text-xs font-medium transition-colors"
                         style={{ 
-                          width: columnWidth,
-                          color: hoveredColumn === dateStr ? 'var(--accent)' : 'var(--text-muted)',
-                          background: hoveredColumn === dateStr ? 'rgba(var(--accent-rgb), 0.1)' : 'transparent'
+                          width: monthColumnWidth,
+                          color: hoveredMonth === month.key ? 'var(--accent)' : 'var(--text-muted)',
+                          background: hoveredMonth === month.key ? 'rgba(var(--accent-rgb), 0.05)' : 'transparent'
                         }}
                       >
-                        {formatColumnDate(dateStr)}
+                        {month.label}
                       </div>
                     ))}
                     {/* Totals column */}
                     <div
-                      className="flex items-center justify-center text-xs font-medium px-4"
+                      className="flex items-center justify-center text-xs font-medium px-2"
                       style={{ 
-                        minWidth: 100,
+                        minWidth: 80,
                         color: 'var(--text-muted)',
                         borderLeft: '1px solid var(--border-subtle)'
                       }}
@@ -252,94 +329,107 @@ export function LenderTimelineSection({
                   </div>
 
                   {/* Gantt Rows */}
-                  {projects.map((project, index) => (
-                    <div 
-                      key={project.id}
-                      className="h-14 flex items-center relative transition-colors"
-                      style={{ 
-                        background: hoveredRow === project.id ? 'rgba(var(--accent-rgb), 0.05)' : 'transparent',
-                        borderBottom: '1px solid var(--border-subtle)'
-                      }}
-                    >
-                      {/* Gantt bars for each date */}
-                      {allFundDates.map(dateStr => {
-                        const draws = getDrawsForDateAndProject(project.id, dateStr)
-                        const prevDate = draws.length > 0 ? getPreviousDrawDate(project, dateStr) : null
-                        
-                        return (
-                          <div
-                            key={dateStr}
-                            className="relative flex items-center justify-center"
-                            style={{ 
-                              width: columnWidth,
-                              background: hoveredColumn === dateStr ? 'rgba(var(--accent-rgb), 0.05)' : 'transparent'
-                            }}
-                            onMouseEnter={() => handleMouseEnterCell(project.id, dateStr)}
-                            onMouseLeave={handleMouseLeaveCell}
-                          >
-                            {draws.map(draw => (
-                              <GanttDrawBar
-                                key={draw.id}
-                                draw={draw}
-                                project={project}
-                                previousDate={prevDate}
-                                currentDate={new Date(dateStr)}
-                                columnWidth={columnWidth}
-                                onClick={() => onDrawClick(draw, project)}
-                                isHighlighted={hoveredRow === project.id || hoveredColumn === dateStr}
-                              />
-                            ))}
-                          </div>
-                        )
-                      })}
-
-                      {/* Row Total */}
-                      <div
-                        className="flex items-center justify-center px-4 font-medium text-sm"
+                  {projects.map((project) => {
+                    const isExpanded = expandedProjects.has(project.id)
+                    const drawsByMonth = getDrawsByMonth(project)
+                    
+                    return (
+                      <div 
+                        key={project.id}
+                        className="flex items-center relative transition-colors"
                         style={{ 
-                          minWidth: 100,
-                          color: 'var(--text-primary)',
-                          borderLeft: '1px solid var(--border-subtle)'
+                          height: rowHeight,
+                          background: hoveredRow === project.id ? 'rgba(var(--accent-rgb), 0.03)' : 'transparent',
+                          borderBottom: '1px solid var(--border-subtle)'
                         }}
                       >
-                        {formatCurrency(project.total_spent || 0)}
+                        {/* Gantt bars for each month */}
+                        {monthColumns.map(month => {
+                          const drawsInMonth = drawsByMonth.get(month.key) || []
+                          
+                          return (
+                            <div
+                              key={month.key}
+                              className="relative flex items-center"
+                              style={{ 
+                                width: monthColumnWidth,
+                                height: '100%',
+                                background: hoveredMonth === month.key ? 'rgba(var(--accent-rgb), 0.03)' : 'transparent'
+                              }}
+                              onMouseEnter={() => handleMouseEnterCell(project.id, month.key)}
+                              onMouseLeave={handleMouseLeaveCell}
+                            >
+                              {isExpanded && drawsInMonth.map(({ draw, positionPercent, prevDate }) => (
+                                <GanttDrawBar
+                                  key={draw.id}
+                                  draw={draw}
+                                  project={project}
+                                  previousDate={prevDate}
+                                  currentDate={new Date(draw.funded_at!)}
+                                  positionPercent={positionPercent}
+                                  columnWidth={monthColumnWidth}
+                                  onClick={() => onDrawClick(draw, project)}
+                                  isHighlighted={hoveredRow === project.id || hoveredMonth === month.key}
+                                />
+                              ))}
+                            </div>
+                          )
+                        })}
+
+                        {/* Row Total */}
+                        <div
+                          className="flex items-center justify-center px-2 font-medium text-xs"
+                          style={{ 
+                            minWidth: 80,
+                            color: 'var(--text-primary)',
+                            borderLeft: '1px solid var(--border-subtle)'
+                          }}
+                        >
+                          {formatCurrency(project.total_spent || 0)}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
 
                   {/* Totals Row */}
                   <div 
-                    className="h-12 flex items-center border-t"
+                    className="flex items-center border-t"
                     style={{ 
+                      height: rowHeight,
                       borderColor: 'var(--border-subtle)',
                       background: 'var(--bg-secondary)'
                     }}
                   >
-                    {allFundDates.map(dateStr => {
-                      // Sum all draws for this date
-                      const dateTotal = projects.reduce((sum, project) => {
-                        const draws = getDrawsForDateAndProject(project.id, dateStr)
-                        return sum + draws.reduce((s, d) => s + d.total_amount, 0)
+                    {monthColumns.map(month => {
+                      // Sum all draws for this month
+                      const monthTotal = projects.reduce((sum, project) => {
+                        const drawsInMonth = project.draws.filter(d => {
+                          if (d.status !== 'funded' || !d.funded_at) return false
+                          const fundDate = new Date(d.funded_at)
+                          const monthKey = `${fundDate.getFullYear()}-${String(fundDate.getMonth() + 1).padStart(2, '0')}`
+                          return monthKey === month.key
+                        })
+                        return sum + drawsInMonth.reduce((s, d) => s + d.total_amount, 0)
                       }, 0)
                       
                       return (
                         <div
-                          key={dateStr}
+                          key={month.key}
                           className="flex items-center justify-center text-xs font-semibold"
                           style={{ 
-                            width: columnWidth,
-                            color: dateTotal > 0 ? 'var(--accent)' : 'var(--text-muted)'
+                            width: monthColumnWidth,
+                            color: monthTotal > 0 ? 'var(--accent)' : 'var(--text-muted)'
                           }}
                         >
-                          {dateTotal > 0 ? formatCurrency(dateTotal) : '—'}
+                          {monthTotal > 0 ? formatCurrency(monthTotal) : '—'}
                         </div>
                       )
                     })}
                     {/* Grand Total */}
                     <div
-                      className="flex items-center justify-center px-4 font-bold text-sm"
+                      className="flex items-center justify-center px-2 font-bold text-xs"
                       style={{ 
-                        minWidth: 100,
+                        minWidth: 80,
                         color: 'var(--accent)',
                         borderLeft: '1px solid var(--border-subtle)'
                       }}
@@ -359,6 +449,12 @@ export function LenderTimelineSection({
 
 // Helper function
 function formatCurrency(amount: number): string {
+  if (amount >= 1000000) {
+    return `$${(amount / 1000000).toFixed(1)}M`
+  }
+  if (amount >= 1000) {
+    return `$${Math.round(amount / 1000)}k`
+  }
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -366,4 +462,3 @@ function formatCurrency(amount: number): string {
     maximumFractionDigits: 0,
   }).format(amount)
 }
-
