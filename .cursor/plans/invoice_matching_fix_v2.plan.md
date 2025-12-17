@@ -1,5 +1,23 @@
 # Invoice Matching Fix - Deep Analysis & Comprehensive Plan
 
+## Implementation Status
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Root cause analysis | ✅ Complete | Identified 4 key issues |
+| n8n workflow rewrite | ✅ Complete | `n8n-workflows/td3-invoice-process.json` |
+| Upload API update | ✅ Complete | Signed URLs + context passing |
+| Callback endpoint | ✅ Complete | `app/api/invoices/process-callback/route.ts` |
+| n8n trigger function | ✅ Complete | `lib/n8n.ts` |
+| Documentation | ✅ Complete | `n8n-workflows/README.md` |
+| GitHub push | ✅ Complete | All changes on main branch |
+| **Import workflow to n8n Cloud** | ⏳ Pending | Requires MCP access or manual import |
+| **Configure n8n credentials** | ⏳ Pending | OpenAI credentials on 3 nodes |
+| **Set TD3_API_URL env var** | ⏳ Pending | In n8n Cloud settings |
+| **End-to-end testing** | ⏳ Pending | After workflow is deployed |
+
+---
+
 ## Root Cause Analysis
 
 ### Issue 1: n8n Workflow Configuration Errors
@@ -428,9 +446,46 @@ SUPABASE_SERVICE_ROLE_KEY=...
 
 ## Todos
 
-- [ ] Update n8n workflow with corrected configuration
-- [ ] Add signed URL generation in upload API  
-- [ ] Add retry endpoint for failed invoices
-- [ ] Set TD3_API_URL in n8n Cloud environment
+- [x] Update n8n workflow with corrected configuration (v3 with two-stage AI)
+- [x] Add signed URL generation in upload API (`app/api/invoices/upload/route.ts`)
+- [x] Create callback endpoint (`app/api/invoices/process-callback/route.ts`)
+- [x] Update n8n trigger function (`lib/n8n.ts`)
+- [x] Push all changes to GitHub main branch
+- [ ] **Import workflow to n8n Cloud** (use MCP or manual import)
+- [ ] **Configure OpenAI credentials** on 3 nodes in n8n
+- [ ] **Set TD3_API_URL** environment variable in n8n Cloud
 - [ ] Test end-to-end with real invoice
-- [ ] Add processing status indicator improvements
+- [ ] Add retry endpoint for failed invoices (future enhancement)
+- [ ] Add processing status indicator improvements (future enhancement)
+
+---
+
+## Files Modified/Created
+
+### Modified Files
+- `app/api/invoices/upload/route.ts` - Added signed URL generation, budget context passing, n8n webhook trigger
+- `lib/n8n.ts` - Added `InvoiceProcessPayload` type and `triggerInvoiceProcess` function
+
+### New Files
+- `app/api/invoices/process-callback/route.ts` - Callback endpoint for n8n results
+- `n8n-workflows/td3-invoice-process.json` - Complete n8n workflow (v3)
+- `n8n-workflows/README.md` - Setup documentation
+
+---
+
+## Next Steps for New Agent
+
+The new agent with MCP access should:
+
+1. **Import the workflow** using `mcp_MCP_DOCKER_n8n_create_workflow` or `mcp_MCP_DOCKER_n8n_update_full_workflow`
+   - Workflow JSON: `n8n-workflows/td3-invoice-process.json`
+   - Existing workflow ID: `qp7rLsshBYNpgk3V`
+
+2. **Verify configuration** in n8n Cloud:
+   - OpenAI credentials linked to nodes
+   - `TD3_API_URL` environment variable set
+
+3. **Test the complete flow**:
+   - Upload invoice via TD3 UI
+   - Monitor n8n execution
+   - Verify callback updates invoice record
