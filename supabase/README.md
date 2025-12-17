@@ -15,16 +15,18 @@ projects
 ├── id (UUID, PK)
 ├── name (TEXT)
 ├── project_code (TEXT)         -- Auto-generated: "DW-244"
-├── builder_name (TEXT)
-├── borrower_name (TEXT)
+├── builder_id (UUID, FK → builders)  -- Links to builder entity
+├── lender_id (UUID, FK → lenders)    -- Required for activation (Pending→Active)
+├── borrower_name (TEXT)              -- Auto-filled from builder.borrower_name
 ├── subdivision_name (TEXT)     -- e.g., "Discovery West"
 ├── subdivision_abbrev (TEXT)   -- e.g., "DW"
 ├── lot_number (TEXT)           -- e.g., "244"
+├── address (TEXT)              -- Property address
 ├── loan_amount (DECIMAL)
 ├── lifecycle_stage (TEXT)      -- pending, active, historic
 ├── stage_changed_at (TIMESTAMP)
 ├── square_footage (DECIMAL)
-├── appraised_value (DECIMAL)
+├── appraised_value (DECIMAL)   -- Estimated value for LTV calculation
 ├── -- Term Sheet Fields --
 ├── interest_rate_annual (DECIMAL) -- Default: 11% (stored as 0.11)
 ├── origination_fee_pct (DECIMAL)  -- Default: 2% (stored as 0.02)
@@ -33,6 +35,8 @@ projects
 ├── loan_term_months (INTEGER)     -- Default: 12
 ├── loan_start_date (DATE)         -- Used for fee escalation calculations
 ├── maturity_date (DATE)           -- Calculated: loan_start_date + loan_term_months
+├── loan_docs_recorded (BOOLEAN)   -- True when loan docs executed
+├── loan_docs_recorded_at (TIMESTAMP)
 ├── status (TEXT)               -- active, closed, default
 └── created_at, updated_at
 
@@ -130,6 +134,30 @@ nahb_subcategories (NEW - Hierarchical)
 ├── sort_order (INTEGER)
 └── created_at
 
+builders
+├── id (UUID, PK)
+├── company_name (TEXT)         -- Builder company name
+├── borrower_name (TEXT)        -- Auto-fills to project.borrower_name
+├── phone (TEXT)                -- Contact phone
+├── email (TEXT)                -- Contact email
+├── address (TEXT)
+├── city (TEXT)
+├── state (TEXT)
+├── zip (TEXT)
+├── bank_name (TEXT)            -- For wire transfers, shown in project origination
+├── bank_routing_number (TEXT)
+├── bank_account_number (TEXT)
+├── is_active (BOOLEAN)
+├── notes (TEXT)                -- Internal notes
+└── created_at, updated_at
+
+lenders
+├── id (UUID, PK)
+├── name (TEXT)                 -- Display name (e.g., "TD2", "TenBrook")
+├── code (TEXT)                 -- Short code (TD2, TENBROOK, TENNANT)
+├── is_active (BOOLEAN)
+└── created_at
+
 audit_events
 ├── id (UUID, PK)
 ├── entity_type (TEXT)          -- project, budget, draw_request, etc.
@@ -170,11 +198,15 @@ documents
 ```
 projects ─┬─< budgets
           │
-          └─< draw_requests ─┬─< draw_request_lines ─── budgets
-                             │
-                             └─< invoices
-                             │
-                             └─< approvals
+          ├─< draw_requests ─┬─< draw_request_lines ─── budgets
+          │                  │
+          │                  ├─< invoices
+          │                  │
+          │                  └─< approvals
+          │
+          ├──── builders (FK: builder_id)
+          │
+          └──── lenders (FK: lender_id)
 ```
 
 ---

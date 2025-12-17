@@ -182,6 +182,9 @@ Your team reviews AI recommendations instead of doing manual data entry. Tasks t
 | **Progress Budget Report** | Multi-view budget analysis with Sankey diagram, sparklines, and NAHB category grouping |
 | **Anomaly Detection** | Automated flagging of spending spikes, over-budget categories, and large variances |
 | **What-If Calculator** | Interactive payoff scenarios with adjustable dates and real-time projections |
+| **Builder Timeline** | Interactive Gantt/spreadsheet view showing all draws grouped by lender with keyboard navigation |
+| **Lender Integration** | Lender selection on loans with auto-populated builder info and lender grouping in timelines |
+| **Adaptive Dashboard** | Polymorphic tiles that minimize when empty and dynamically adjust widths based on content |
 
 ---
 
@@ -294,9 +297,30 @@ TD3 is currently in active development.
 - ✅ **Nivo Visualization Library** — Responsive, animated charts for Sankey diagrams, bar charts, and line charts
 - ✅ **View Mode Persistence** — User preferences saved to localStorage
 - ✅ **Report Detail Panel** — Slide-out panel for drill-down on budget lines, draws, and anomalies
+- ✅ **Two-Stage Invoice AI Processing** — GPT-4o-mini extraction + GPT-4o agent matching with confidence scoring
+- ✅ **Invoice Preview Modal** — Split-view PDF preview alongside match details
+- ✅ **Compound Interest Amortization** — Draw-by-draw interest accrual with monthly compounding
+- ✅ **Auto Fee Clock Start** — Fee calculation begins automatically from first funded draw
+- ✅ **Loan Activation Enhancement** — Lender selection required for activation, rate lock upon signing
+- ✅ **Builder Timeline Overhaul** — Interactive Gantt/spreadsheet views grouped by lender with:
+  - Calendar-based Gantt columns with pill-shaped draw bars
+  - Two-panel CSS Grid spreadsheet view with sticky columns
+  - "Show only funded" filter (excludes pending/historic loans)
+  - Click-to-open detail panel with draw information
+  - Keyboard navigation (arrow keys + Enter)
+  - Auto-collapse inactive projects option
+- ✅ **Lender Selection Dropdown** — Searchable lender picker in origination tab with activation validation
+- ✅ **Builder Auto-Fill Fields** — Borrower name, bank name, and contact auto-populated from builder profile
+- ✅ **Lender Display in Header** — Project page header shows lender alongside builder and address
+- ✅ **Draw Dashboard Reorganization** — Polymorphic adaptive layout with:
+  - Wire Confirmation at top (collapses when empty)
+  - Pending Review and Staged by Builder side-by-side
+  - Dynamic flex widths based on content population
+  - Framer Motion layout animations
+- ✅ **Light Mode Default** — Application defaults to light theme with dark mode available
 
 **In Progress:**
-- 🔄 Full invoice-to-budget-line AI matching via N8N
+- 🔄 Full invoice-to-budget-line AI matching reliability improvements
 - 🔄 Wire batch processing and bookkeeper notification workflow
 - 🔄 Approval workflow and validation engine
 
@@ -317,4 +341,4 @@ For demos, licensing inquiries, or more information, please reach out directly.
 
 ---
 
-*© 2024 Grayson Graham / GRYSNGRHM. All rights reserved.*
+*© 2024-2025 Grayson Graham / GRYSNGRHM. All rights reserved.*
