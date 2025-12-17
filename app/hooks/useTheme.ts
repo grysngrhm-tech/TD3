@@ -11,8 +11,8 @@ const STORAGE_KEY = 'td3-theme'
  * Get the system color scheme preference
  */
 function getSystemTheme(): ResolvedTheme {
-  if (typeof window === 'undefined') return 'dark'
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+  if (typeof window === 'undefined') return 'light'
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
 /**
@@ -23,8 +23,8 @@ function getSystemTheme(): ResolvedTheme {
  * - Provides resolved theme for actual styling
  */
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>('dark')
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('dark')
+  const [theme, setThemeState] = useState<Theme>('light')
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('light')
   const [mounted, setMounted] = useState(false)
 
   // Initialize theme from localStorage or system preference
@@ -36,9 +36,9 @@ export function useTheme() {
       setThemeState(stored)
       setResolvedTheme(stored === 'system' ? getSystemTheme() : stored)
     } else {
-      // Default to dark mode
-      setThemeState('dark')
-      setResolvedTheme('dark')
+      // Default to light mode
+      setThemeState('light')
+      setResolvedTheme('light')
     }
   }, [])
 
