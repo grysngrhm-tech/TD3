@@ -935,9 +935,11 @@ export function OriginationTab({
                   <div style={{ color: 'var(--text-secondary)' }}>
                     <p>When activated:</p>
                     <ul className="list-disc ml-4 mt-1">
-                      <li>Loan start date will be set to today</li>
-                      <li>Maturity date calculated from term ({formData.loan_term_months || 12} months)</li>
-                      <li>Loan status changes to Active</li>
+                      <li>Loan Agreement goes into effect (rate lock begins)</li>
+                      <li>Loan status changes to Active, enabling draw requests</li>
+                      <li className="mt-1" style={{ color: 'var(--text-muted)' }}>
+                        Note: Fee clock and {formData.loan_term_months || 12}-month term begin upon first draw funding
+                      </li>
                     </ul>
                   </div>
                 </div>
