@@ -41,6 +41,7 @@ export function InvoiceMatchPanel({
   const [selectedLineId, setSelectedLineId] = useState<string | null>(invoice.draw_request_line_id)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pdfError, setPdfError] = useState(false)
 
   // Group draw lines by NAHB category for easier selection
   const groupedLines = useMemo(() => {
@@ -65,7 +66,7 @@ export function InvoiceMatchPanel({
         .from('invoices')
         .update({
           draw_request_line_id: selectedLineId,
-          status: selectedLineId ? 'matched' : 'unmatched',
+          status: selectedLineId ? 'matched' : 'pending',
           confidence_score: selectedLineId ? 1.0 : null, // Manual match = 100% confidence
           matched_to_category: selectedLineId 
             ? drawLines.find(l => l.id === selectedLineId)?.budget?.category || null
@@ -119,28 +120,33 @@ export function InvoiceMatchPanel({
     }
   }
 
+  // Get file URL - prefer file_url, fall back to constructing from file_path
+  const fileUrl = invoice.file_url || (invoice.file_path 
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${invoice.file_path}`
+    : null)
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.5)' }}
+      style={{ background: 'rgba(0,0,0,0.7)' }}
       onClick={onClose}
     >
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className="card w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col"
+        className="card w-full max-w-6xl h-[90vh] overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--border-primary)' }}>
           <div>
-            <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Match Invoice to Category</h3>
+            <h3 className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>Match Invoice to Category</h3>
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Select which draw line this invoice supports
+              Review the invoice and select which draw line it supports
             </p>
           </div>
           <button
@@ -154,125 +160,200 @@ export function InvoiceMatchPanel({
           </button>
         </div>
 
-        {/* Invoice Info */}
-        <div className="p-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-secondary)' }}>
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: 'var(--accent-glow)' }}>
-              <svg className="w-5 h-5" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+        {/* Main Content - Split View */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* PDF Preview - Left Side */}
+          <div className="w-1/2 border-r flex flex-col" style={{ borderColor: 'var(--border-primary)', background: 'var(--bg-tertiary)' }}>
+            <div className="p-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
+              <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                Invoice Preview
+              </span>
+              {fileUrl && (
+                <a
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs flex items-center gap-1 px-2 py-1 rounded hover:opacity-70"
+                  style={{ color: 'var(--accent)', background: 'var(--accent-glow)' }}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  Open in New Tab
+                </a>
+              )}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-                {invoice.vendor_name}
-              </p>
-              <div className="flex items-center gap-3 text-sm" style={{ color: 'var(--text-muted)' }}>
-                {invoice.invoice_number && <span>#{invoice.invoice_number}</span>}
-                {invoice.invoice_date && <span>{new Date(invoice.invoice_date).toLocaleDateString()}</span>}
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-lg font-bold" style={{ color: 'var(--accent)' }}>
-                {formatCurrency(invoice.amount)}
-              </p>
-              {invoice.matched_to_category && (
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  AI suggested: {invoice.matched_to_category}
-                </p>
+            
+            <div className="flex-1 p-2 overflow-hidden">
+              {fileUrl && !pdfError ? (
+                <iframe
+                  src={`${fileUrl}#toolbar=1&navpanes=0&scrollbar=1`}
+                  className="w-full h-full rounded-lg border"
+                  style={{ 
+                    borderColor: 'var(--border-subtle)',
+                    background: '#525659' // PDF.js default background
+                  }}
+                  title="Invoice Preview"
+                  onError={() => setPdfError(true)}
+                />
+              ) : (
+                <div 
+                  className="w-full h-full rounded-lg border flex flex-col items-center justify-center gap-4"
+                  style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-secondary)' }}
+                >
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'var(--bg-tertiary)' }}>
+                    <svg className="w-8 h-8" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div className="text-center">
+                    <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      {pdfError ? 'Unable to load preview' : 'No preview available'}
+                    </p>
+                    <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                      {fileUrl ? (
+                        <a 
+                          href={fileUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="underline hover:no-underline"
+                          style={{ color: 'var(--accent)' }}
+                        >
+                          Click to open file directly
+                        </a>
+                      ) : (
+                        'Invoice file not found'
+                      )}
+                    </p>
+                  </div>
+                </div>
               )}
             </div>
           </div>
-        </div>
 
-        {/* Draw Lines Selection */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-4">
-            {/* Unmatched option */}
-            <button
-              onClick={() => setSelectedLineId(null)}
-              className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
-                selectedLineId === null 
-                  ? 'border-[var(--warning)]' 
-                  : 'border-transparent hover:border-[var(--border-primary)]'
-              }`}
-              style={{ background: 'var(--bg-secondary)' }}
-            >
-              <div className="flex items-center gap-3">
-                <div 
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                    selectedLineId === null ? 'border-[var(--warning)]' : 'border-[var(--border-primary)]'
-                  }`}
-                >
-                  {selectedLineId === null && (
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--warning)' }} />
+          {/* Category Selection - Right Side */}
+          <div className="w-1/2 flex flex-col">
+            {/* Invoice Summary */}
+            <div className="p-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-secondary)' }}>
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--accent-glow)' }}>
+                  <svg className="w-5 h-5" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                    {invoice.vendor_name}
+                  </p>
+                  <div className="flex items-center gap-3 text-sm" style={{ color: 'var(--text-muted)' }}>
+                    {invoice.invoice_number && <span>#{invoice.invoice_number}</span>}
+                    {invoice.invoice_date && <span>{new Date(invoice.invoice_date).toLocaleDateString()}</span>}
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-lg font-bold" style={{ color: 'var(--accent)' }}>
+                    {formatCurrency(invoice.amount)}
+                  </p>
+                  {invoice.matched_to_category && (
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      AI suggested: {invoice.matched_to_category}
+                    </p>
                   )}
                 </div>
-                <div>
-                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>Leave Unmatched</p>
-                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>This invoice doesn't match any draw line</p>
-                </div>
               </div>
-            </button>
+            </div>
 
-            {/* Grouped draw lines */}
-            {Object.entries(groupedLines).map(([category, lines]) => (
-              <div key={category}>
-                <p className="text-xs font-semibold uppercase tracking-wider mb-2 px-1" style={{ color: 'var(--text-muted)' }}>
-                  {category}
-                </p>
-                <div className="space-y-2">
-                  {lines.map(line => {
-                    const isSelected = selectedLineId === line.id
-                    const budget = line.budget
-                    
-                    return (
-                      <button
-                        key={line.id}
-                        onClick={() => setSelectedLineId(line.id)}
-                        className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
-                          isSelected 
-                            ? 'border-[var(--accent)]' 
-                            : 'border-transparent hover:border-[var(--border-primary)]'
-                        }`}
-                        style={{ background: 'var(--bg-secondary)' }}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div 
-                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                              isSelected ? 'border-[var(--accent)]' : 'border-[var(--border-primary)]'
+            {/* Draw Lines Selection */}
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="space-y-4">
+                {/* Unmatched option */}
+                <button
+                  onClick={() => setSelectedLineId(null)}
+                  className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
+                    selectedLineId === null 
+                      ? 'border-[var(--warning)]' 
+                      : 'border-transparent hover:border-[var(--border-primary)]'
+                  }`}
+                  style={{ background: 'var(--bg-secondary)' }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        selectedLineId === null ? 'border-[var(--warning)]' : 'border-[var(--border-primary)]'
+                      }`}
+                    >
+                      {selectedLineId === null && (
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--warning)' }} />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium" style={{ color: 'var(--text-primary)' }}>Leave Unmatched</p>
+                      <p className="text-sm" style={{ color: 'var(--text-muted)' }}>This invoice doesn't match any draw line</p>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Grouped draw lines */}
+                {Object.entries(groupedLines).map(([category, lines]) => (
+                  <div key={category}>
+                    <p className="text-xs font-semibold uppercase tracking-wider mb-2 px-1" style={{ color: 'var(--text-muted)' }}>
+                      {category}
+                    </p>
+                    <div className="space-y-2">
+                      {lines.map(line => {
+                        const isSelected = selectedLineId === line.id
+                        const budget = line.budget
+                        
+                        return (
+                          <button
+                            key={line.id}
+                            onClick={() => setSelectedLineId(line.id)}
+                            className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
+                              isSelected 
+                                ? 'border-[var(--accent)]' 
+                                : 'border-transparent hover:border-[var(--border-primary)]'
                             }`}
+                            style={{ background: 'var(--bg-secondary)' }}
                           >
-                            {isSelected && (
-                              <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--accent)' }} />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>
-                              {budget?.category || 'Unknown Category'}
-                            </p>
-                            {budget?.cost_code && (
-                              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                                Code: {budget.cost_code}
-                              </p>
-                            )}
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                              {formatCurrency(line.amount_requested)}
-                            </p>
-                            {budget && (
-                              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                                Budget: {formatCurrency(budget.budget_amount)}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
+                            <div className="flex items-center gap-3">
+                              <div 
+                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                  isSelected ? 'border-[var(--accent)]' : 'border-[var(--border-primary)]'
+                                }`}
+                              >
+                                {isSelected && (
+                                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--accent)' }} />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                                  {budget?.category || 'Unknown Category'}
+                                </p>
+                                {budget?.cost_code && (
+                                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                    Code: {budget.cost_code}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                  {formatCurrency(line.amount_requested)}
+                                </p>
+                                {budget && (
+                                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                    Budget: {formatCurrency(budget.current_amount)}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         </div>
 
@@ -317,4 +398,3 @@ export function InvoiceMatchPanel({
     </motion.div>
   )
 }
-
