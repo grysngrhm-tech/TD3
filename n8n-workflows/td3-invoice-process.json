@@ -1,11 +1,11 @@
 {
-  "name": "TD3 Invoice Process",
+  "name": "TD3 Invoice Process v3",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "td3-invoice-process",
-        "responseMode": "responseNode",
+        "responseMode": "lastNode",
         "options": {}
       },
       "id": "webhook-trigger",
@@ -31,43 +31,180 @@
       "name": "Download Invoice File",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [440, 300]
+      "position": [440, 300],
+      "continueOnFail": true
     },
     {
       "parameters": {
-        "operation": "analyze",
-        "modelId": {
+        "resource": "file",
+        "binaryPropertyName": "data",
+        "options": {
+          "purpose": "user_data"
+        }
+      },
+      "id": "upload-to-openai",
+      "name": "Upload to OpenAI Files",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [660, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAi account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "id": "wait-for-processing",
+      "name": "Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [880, 300],
+      "webhookId": "td3-invoice-wait"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build request body for OpenAI Responses API\nconst fileId = $input.first().json.id;\nconst webhookData = $('Webhook').first().json;\n\n// Check if file upload succeeded\nif (!fileId) {\n  return [{\n    json: {\n      error: true,\n      invoiceId: webhookData.invoiceId,\n      message: 'Failed to upload file to OpenAI'\n    }\n  }];\n}\n\nconst prompt = `Extract invoice data from this construction invoice. Return ONLY a JSON object with this exact structure (no extra text, no markdown):\n\n{\n  \"vendor_name\": \"The company name that issued the invoice\",\n  \"invoice_number\": \"Invoice number or ID, or null if not found\",\n  \"invoice_date\": \"Date in YYYY-MM-DD format, or null if not found\",\n  \"total_amount\": 0.00,\n  \"line_items\": [\n    {\n      \"description\": \"Line item description\",\n      \"amount\": 0.00\n    }\n  ],\n  \"construction_category\": \"Best guess of construction category (e.g., Electrical, Plumbing, HVAC, Framing, Roofing, Flooring, Interior Finishes, Excavation, Foundation, Landscaping, Design, Permits, etc.)\",\n  \"project_reference\": \"Any project code or lot number mentioned, or null\"\n}\n\nIf you cannot find a value, use null. For amounts, extract the numeric value only.`;\n\nconst body = {\n  model: \"gpt-4o-mini\",\n  input: [\n    {\n      role: \"user\",\n      content: [\n        {\n          type: \"input_text\",\n          text: prompt\n        },\n        {\n          type: \"input_file\",\n          file_id: fileId\n        }\n      ]\n    }\n  ],\n  text: {\n    format: {\n      type: \"json_object\"\n    }\n  }\n};\n\nreturn [{\n  json: {\n    body,\n    invoiceId: webhookData.invoiceId,\n    fileName: webhookData.fileName,\n    budgetCategories: webhookData.budgetCategories || [],\n    drawLines: webhookData.drawLines || [],\n    projectCode: webhookData.projectCode\n  }\n}];"
+      },
+      "id": "build-responses-body",
+      "name": "Build Responses Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "call-openai-responses",
+      "name": "Call OpenAI Responses",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAi account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse OpenAI Responses API output and extract invoice data\nconst input = $input.first().json;\nconst prevData = $('Build Responses Body').first().json;\n\n// Check for errors\nif (input.error || !input.output) {\n  return [{\n    json: {\n      error: true,\n      invoiceId: prevData.invoiceId,\n      message: input.error?.message || 'OpenAI API call failed'\n    }\n  }];\n}\n\n// Parse the response\nlet extractedInvoice = {};\ntry {\n  const content = input.output?.[0]?.content?.[0]?.text || '';\n  if (typeof content === 'string') {\n    // Remove any markdown code blocks if present\n    const jsonStr = content.replace(/```json\\n?|```\\n?/g, '').trim();\n    extractedInvoice = JSON.parse(jsonStr);\n  }\n} catch (e) {\n  return [{\n    json: {\n      error: true,\n      invoiceId: prevData.invoiceId,\n      message: 'Failed to parse OpenAI response: ' + e.message\n    }\n  }];\n}\n\n// Return extracted data with context for matching\nreturn [{\n  json: {\n    invoiceId: prevData.invoiceId,\n    fileName: prevData.fileName,\n    projectCode: prevData.projectCode,\n    extractedInvoice,\n    budgetCategories: prevData.budgetCategories,\n    drawLines: prevData.drawLines\n  }\n}];"
+      },
+      "id": "parse-openai-response",
+      "name": "Parse OpenAI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-error",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-extraction-error",
+      "name": "Check Extraction Error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1760, 300]
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are an expert construction draw-review analyst specializing in matching invoices to budget categories.\n\nINPUT:\nYou will receive:\n1. \"extractedInvoice\": Parsed invoice data with vendor_name, total_amount, line_items, and construction_category guess\n2. \"budgetCategories\": Array of budget lines for this project, each containing:\n   - id: unique identifier\n   - category: builder's category name\n   - nahbCategory: NAHB standard category (if mapped)\n   - budgetAmount: total budget for this category\n   - drawnToDate: amount already drawn\n   - remaining: budget remaining\n3. \"drawLines\": Array of current draw request lines, each containing:\n   - id: unique identifier\n   - budgetId: reference to budget category\n   - budgetCategory: category name\n   - amountRequested: amount requested in this draw\n\nTASK:\nMatch the invoice to the most appropriate budget category and draw line using:\n1. Category name similarity (vendor_name or construction_category vs category/nahbCategory)\n2. Amount comparison (invoice total_amount vs draw line amountRequested)\n3. Line item description keywords matching category names\n4. NAHB category semantic matching\n\nOUTPUT (ONLY valid JSON, no markdown, no extra text):\n{\n  \"matched_category\": \"string - the budget category name, or null if no confident match\",\n  \"matched_nahb_code\": \"string - the NAHB category if available, or null\",\n  \"matched_draw_line_id\": \"string - the draw line id if matched, or null\",\n  \"matched_budget_id\": \"string - the budget id if matched, or null\",\n  \"confidence_score\": 0.0 to 1.0,\n  \"match_reasoning\": \"brief explanation of why this match was chosen\",\n  \"flags\": [\"array of any concerns, e.g., 'AMOUNT_MISMATCH', 'LOW_CONFIDENCE', 'MULTIPLE_POSSIBLE_MATCHES'\"]\n}\n\nCONFIDENCE SCORING:\n- 0.9-1.0: Exact or near-exact category match with matching amounts\n- 0.7-0.89: Strong category match, amounts close\n- 0.5-0.69: Reasonable match based on keywords or NAHB category\n- Below 0.5: Weak or no match, return null for matched fields\n\nIf confidence is below 0.5, set matched fields to null and explain in flags."
+        }
+      },
+      "id": "invoice-matching-agent",
+      "name": "Invoice Matching Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [1980, 200]
+    },
+    {
+      "parameters": {
+        "model": {
           "__rl": true,
           "value": "gpt-4o",
           "mode": "list",
           "cachedResultName": "gpt-4o"
         },
-        "text": "You are an expert at extracting data from construction invoices. Analyze this invoice and extract the following information in JSON format:\n\n{\n  \"vendorName\": \"The company name that issued the invoice\",\n  \"invoiceNumber\": \"Invoice number or ID\",\n  \"invoiceDate\": \"Date in YYYY-MM-DD format\",\n  \"totalAmount\": 0.00,\n  \"lineItems\": [\n    {\n      \"description\": \"Line item description\",\n      \"amount\": 0.00\n    }\n  ],\n  \"constructionCategory\": \"Best guess of construction category (e.g., Electrical, Plumbing, HVAC, Framing, Roofing, Flooring, Interior Finishes, etc.)\"\n}\n\nIf you cannot find a value, use null. For amounts, extract the numeric value only.\n\nIMPORTANT: Return ONLY valid JSON, no other text.",
         "options": {
-          "maxTokens": 1000,
-          "temperature": 0.1
+          "temperature": 0.1,
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
         }
       },
-      "id": "openai-extract",
-      "name": "Extract Invoice Data",
-      "type": "@n8n/n8n-nodes-langchain.openAi",
-      "typeVersion": 1.8,
-      "position": [660, 300]
+      "id": "openai-chat-model",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [1980, 400],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAi account"
+        }
+      }
     },
     {
       "parameters": {
-        "jsCode": "// Parse the OpenAI response and match to budget categories\nconst input = $input.first().json;\nconst webhookData = $('Webhook').first().json;\n\n// Parse OpenAI response (handle both string and object)\nlet extracted;\ntry {\n  if (typeof input.text === 'string') {\n    // Remove markdown code blocks if present\n    let jsonStr = input.text.replace(/```json\\n?|```\\n?/g, '').trim();\n    extracted = JSON.parse(jsonStr);\n  } else {\n    extracted = input.text;\n  }\n} catch (e) {\n  return [{\n    json: {\n      success: false,\n      error: 'Failed to parse OpenAI response: ' + e.message,\n      invoiceId: webhookData.invoiceId\n    }\n  }];\n}\n\n// Get budget categories from webhook payload\nconst budgetCategories = webhookData.budgetCategories || [];\nconst drawLines = webhookData.drawLines || [];\n\n// Normalize string for matching\nfunction normalize(str) {\n  return (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');\n}\n\n// Calculate similarity score between two strings\nfunction similarity(s1, s2) {\n  s1 = normalize(s1);\n  s2 = normalize(s2);\n  if (s1 === s2) return 1;\n  if (s1.includes(s2) || s2.includes(s1)) return 0.85;\n  \n  // Simple word matching\n  const words1 = s1.split(/\\s+/);\n  const words2 = s2.split(/\\s+/);\n  let matches = 0;\n  for (const w1 of words1) {\n    if (w1.length > 2 && words2.some(w2 => w2.includes(w1) || w1.includes(w2))) {\n      matches++;\n    }\n  }\n  return matches / Math.max(words1.length, 1);\n}\n\n// Find best matching category\nlet bestMatch = null;\nlet bestScore = 0;\nlet matchedLineId = null;\n\nconst categoryGuess = extracted.constructionCategory || '';\nconst vendorName = extracted.vendorName || '';\n\n// Try to match by category name and line item descriptions\nfor (const budget of budgetCategories) {\n  const catScore = similarity(categoryGuess, budget.category);\n  const nahbScore = budget.nahbCategory ? similarity(categoryGuess, budget.nahbCategory) * 0.8 : 0;\n  const vendorScore = similarity(vendorName, budget.category) * 0.5;\n  \n  const score = Math.max(catScore, nahbScore, vendorScore);\n  \n  if (score > bestScore) {\n    bestScore = score;\n    bestMatch = budget;\n  }\n}\n\n// Try to match to draw lines\nif (bestMatch) {\n  const matchingLine = drawLines.find(line => \n    line.budgetId === bestMatch.id ||\n    normalize(line.budgetCategory || '') === normalize(bestMatch.category)\n  );\n  if (matchingLine) {\n    matchedLineId = matchingLine.id;\n  }\n}\n\n// Generate flags\nconst flags = [];\nif (bestScore < 0.7) flags.push('LOW_CONFIDENCE');\nif (!extracted.vendorName) flags.push('MISSING_VENDOR');\nif (!extracted.totalAmount || extracted.totalAmount === 0) flags.push('MISSING_AMOUNT');\nif (!matchedLineId) flags.push('NO_DRAW_LINE');\n\n// Calculate final confidence (adjust based on data quality)\nlet confidence = bestScore;\nif (!extracted.vendorName) confidence *= 0.8;\nif (!extracted.totalAmount) confidence *= 0.7;\n\nreturn [{\n  json: {\n    invoiceId: webhookData.invoiceId,\n    success: true,\n    extractedData: {\n      vendorName: extracted.vendorName || 'Unknown Vendor',\n      invoiceNumber: extracted.invoiceNumber,\n      invoiceDate: extracted.invoiceDate,\n      amount: extracted.totalAmount || 0,\n      lineItems: extracted.lineItems\n    },\n    matching: {\n      matchedCategory: bestMatch?.category || null,\n      matchedNahbCode: bestMatch?.nahbCategory || null,\n      matchedDrawLineId: matchedLineId,\n      confidenceScore: Math.round(confidence * 100) / 100,\n      flags: flags\n    }\n  }\n}];"
+        "jsCode": "// Build final result from matching agent output\nconst agentOutput = $input.first().json.output || $input.first().json.text || '{}';\nconst prevData = $('Parse OpenAI Response').first().json;\n\nlet matchResult = {};\ntry {\n  if (typeof agentOutput === 'string') {\n    const jsonStr = agentOutput.replace(/```json\\n?|```\\n?/g, '').trim();\n    matchResult = JSON.parse(jsonStr);\n  } else {\n    matchResult = agentOutput;\n  }\n} catch (e) {\n  matchResult = {\n    matched_category: null,\n    matched_nahb_code: null,\n    matched_draw_line_id: null,\n    matched_budget_id: null,\n    confidence_score: 0,\n    flags: ['PARSE_ERROR']\n  };\n}\n\nconst extracted = prevData.extractedInvoice || {};\n\n// Build callback payload\nreturn [{\n  json: {\n    invoiceId: prevData.invoiceId,\n    success: true,\n    extractedData: {\n      vendorName: extracted.vendor_name || 'Unknown Vendor',\n      invoiceNumber: extracted.invoice_number,\n      invoiceDate: extracted.invoice_date,\n      amount: extracted.total_amount || 0,\n      lineItems: extracted.line_items,\n      constructionCategory: extracted.construction_category,\n      projectReference: extracted.project_reference\n    },\n    matching: {\n      matchedCategory: matchResult.matched_category,\n      matchedNahbCode: matchResult.matched_nahb_code,\n      matchedDrawLineId: matchResult.matched_draw_line_id,\n      matchedBudgetId: matchResult.matched_budget_id,\n      confidenceScore: matchResult.confidence_score || 0,\n      matchReasoning: matchResult.match_reasoning,\n      flags: matchResult.flags || []\n    }\n  }\n}];"
       },
-      "id": "match-categories",
-      "name": "Match to Categories",
+      "id": "build-callback-payload",
+      "name": "Build Callback Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [880, 300]
+      "position": [2200, 200]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.TD3_API_URL || 'http://localhost:3000' }}/api/invoices/process-callback",
+        "url": "={{ $env.TD3_API_URL }}/api/invoices/process-callback",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -79,47 +216,55 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}"
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 10000
+        }
       },
-      "id": "callback-success",
-      "name": "Send Result to TD3",
+      "id": "success-callback",
+      "name": "Success Callback",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1100, 300]
+      "position": [2420, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TD3_API_URL }}/api/invoices/process-callback",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ invoiceId: $json.invoiceId, success: false, error: $json.message || 'Processing failed' }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "error-callback",
+      "name": "Error Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1980, 480],
+      "continueOnFail": true
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ received: true, invoiceId: $('Webhook').first().json.invoiceId }) }}"
+        "responseBody": "={{ JSON.stringify({ received: true, invoiceId: $('Webhook').first().json.invoiceId, status: 'processing' }) }}"
       },
       "id": "respond-webhook",
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1320, 300]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.TD3_API_URL || 'http://localhost:3000' }}/api/invoices/process-callback",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ invoiceId: $('Webhook').first().json.invoiceId, success: false, error: $json.message || 'Processing failed' }) }}"
-      },
-      "id": "callback-error",
-      "name": "Send Error to TD3",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [880, 500]
+      "position": [2640, 300]
     }
   ],
   "connections": {
@@ -138,36 +283,131 @@
       "main": [
         [
           {
-            "node": "Extract Invoice Data",
+            "node": "Upload to OpenAI Files",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Extract Invoice Data": {
+    "Upload to OpenAI Files": {
       "main": [
         [
           {
-            "node": "Match to Categories",
+            "node": "Wait",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Match to Categories": {
+    "Wait": {
       "main": [
         [
           {
-            "node": "Send Result to TD3",
+            "node": "Build Responses Body",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Send Result to TD3": {
+    "Build Responses Body": {
+      "main": [
+        [
+          {
+            "node": "Call OpenAI Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call OpenAI Responses": {
+      "main": [
+        [
+          {
+            "node": "Parse OpenAI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse OpenAI Response": {
+      "main": [
+        [
+          {
+            "node": "Check Extraction Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Extraction Error": {
+      "main": [
+        [
+          {
+            "node": "Error Callback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invoice Matching Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Invoice Matching Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invoice Matching Agent": {
+      "main": [
+        [
+          {
+            "node": "Build Callback Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Callback Payload": {
+      "main": [
+        [
+          {
+            "node": "Success Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success Callback": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Callback": {
       "main": [
         [
           {
@@ -189,9 +429,5 @@
       "createdAt": "2024-01-01T00:00:00.000Z",
       "updatedAt": "2024-01-01T00:00:00.000Z"
     }
-  ],
-  "triggerCount": 0,
-  "updatedAt": "2024-01-01T00:00:00.000Z",
-  "versionId": "1"
+  ]
 }
-

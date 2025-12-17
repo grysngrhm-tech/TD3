@@ -90,10 +90,20 @@ export async function POST(request: NextRequest) {
           continue
         }
         
-        // Get public URL
-        const { data: urlData } = supabaseAdmin.storage
+        // Generate signed URL for secure access (valid for 1 hour)
+        // This ensures n8n can download the file even if the bucket isn't public
+        const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
+          .from('documents')
+          .createSignedUrl(filePath, 3600) // 1 hour expiry
+        
+        // Also get public URL for long-term storage reference
+        const { data: publicUrlData } = supabaseAdmin.storage
           .from('documents')
           .getPublicUrl(filePath)
+        
+        // Use signed URL for n8n processing, public URL for database storage
+        const fileUrlForProcessing = signedUrlError ? publicUrlData.publicUrl : signedUrlData.signedUrl
+        const fileUrlForStorage = publicUrlData.publicUrl
         
         // Create invoice record in database with 'processing' status
         const { data: invoice, error: insertError } = await supabaseAdmin
@@ -104,7 +114,7 @@ export async function POST(request: NextRequest) {
             vendor_name: 'Processing...',
             amount: 0,
             file_path: filePath,
-            file_url: urlData.publicUrl,
+            file_url: fileUrlForStorage,
             status: 'processing'
           })
           .select()
@@ -121,9 +131,10 @@ export async function POST(request: NextRequest) {
         uploadedInvoices.push(invoice)
         
         // Trigger n8n workflow for AI processing (non-blocking)
+        // Use signed URL for secure file access from n8n
         const payload: InvoiceProcessPayload = {
           invoiceId: invoice.id,
-          fileUrl: urlData.publicUrl,
+          fileUrl: fileUrlForProcessing,
           fileName: file.name,
           drawRequestId,
           projectId,
