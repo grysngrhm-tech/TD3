@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
+import { triggerInvoiceProcess, InvoiceProcessPayload } from '@/lib/n8n'
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +23,45 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+    
+    // Fetch context data for AI matching (budgets, draw lines, project info)
+    const [projectResult, budgetsResult, drawLinesResult] = await Promise.all([
+      supabaseAdmin
+        .from('projects')
+        .select('project_code')
+        .eq('id', projectId)
+        .single(),
+      supabaseAdmin
+        .from('budgets')
+        .select('id, category, nahb_category, budget_amount, drawn_to_date')
+        .eq('project_id', projectId),
+      supabaseAdmin
+        .from('draw_request_lines')
+        .select('id, budget_id, amount_requested, budgets(category)')
+        .eq('draw_request_id', drawRequestId)
+    ])
+    
+    const projectCode = projectResult.data?.project_code || null
+    const budgets = budgetsResult.data || []
+    const drawLines = drawLinesResult.data || []
+    
+    // Format budget categories for n8n
+    const budgetCategories = budgets.map(b => ({
+      id: b.id,
+      category: b.category,
+      nahbCategory: b.nahb_category,
+      budgetAmount: b.budget_amount || 0,
+      drawnToDate: b.drawn_to_date || 0,
+      remaining: (b.budget_amount || 0) - (b.drawn_to_date || 0)
+    }))
+    
+    // Format draw lines for n8n
+    const formattedDrawLines = drawLines.map((line: any) => ({
+      id: line.id,
+      budgetId: line.budget_id,
+      budgetCategory: line.budgets?.category || null,
+      amountRequested: line.amount_requested || 0
+    }))
     
     const uploadedInvoices = []
     const errors = []
@@ -55,17 +95,17 @@ export async function POST(request: NextRequest) {
           .from('documents')
           .getPublicUrl(filePath)
         
-        // Create invoice record in database
+        // Create invoice record in database with 'processing' status
         const { data: invoice, error: insertError } = await supabaseAdmin
           .from('invoices')
           .insert({
             project_id: projectId,
             draw_request_id: drawRequestId,
-            vendor_name: 'Pending Review',
+            vendor_name: 'Processing...',
             amount: 0,
             file_path: filePath,
             file_url: urlData.publicUrl,
-            status: 'pending'
+            status: 'processing'
           })
           .select()
           .single()
@@ -79,6 +119,31 @@ export async function POST(request: NextRequest) {
         }
         
         uploadedInvoices.push(invoice)
+        
+        // Trigger n8n workflow for AI processing (non-blocking)
+        const payload: InvoiceProcessPayload = {
+          invoiceId: invoice.id,
+          fileUrl: urlData.publicUrl,
+          fileName: file.name,
+          drawRequestId,
+          projectId,
+          projectCode,
+          budgetCategories,
+          drawLines: formattedDrawLines
+        }
+        
+        // Fire and forget - don't wait for processing to complete
+        triggerInvoiceProcess(payload).then(result => {
+          if (!result.success) {
+            console.warn(`Invoice ${invoice.id} processing trigger failed:`, result.message)
+            // Update status to pending if trigger failed
+            supabaseAdmin
+              .from('invoices')
+              .update({ status: 'pending', vendor_name: 'Pending Review' })
+              .eq('id', invoice.id)
+              .then(() => {})
+          }
+        })
         
       } catch (fileError: any) {
         console.error('File processing error:', fileError)

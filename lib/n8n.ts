@@ -47,6 +47,29 @@ export type DrawProcessPayload = {
   invoiceCount: number
 }
 
+export type InvoiceProcessPayload = {
+  invoiceId: string
+  fileUrl: string
+  fileName: string
+  drawRequestId: string
+  projectId: string
+  projectCode: string | null
+  budgetCategories: Array<{
+    id: string
+    category: string
+    nahbCategory: string | null
+    budgetAmount: number
+    drawnToDate: number
+    remaining: number
+  }>
+  drawLines: Array<{
+    id: string
+    budgetId: string | null
+    budgetCategory: string | null
+    amountRequested: number
+  }>
+}
+
 export async function triggerBudgetImport(payload: BudgetImportPayload): Promise<{ success: boolean; message: string; projectId?: string }> {
   try {
     const response = await fetch(`${N8N_BASE_URL}/td3-budget-import`, {
@@ -88,6 +111,36 @@ export async function triggerDrawImport(payload: DrawImportPayload): Promise<{ s
     return await response.json()
   } catch (error) {
     console.error('Draw import webhook error:', error)
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+export async function triggerInvoiceProcess(payload: InvoiceProcessPayload): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await fetch(`${N8N_BASE_URL}/td3-invoice-process`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+
+    if (!response.ok) {
+      // Don't fail the upload if n8n is unavailable - just log it
+      console.warn(`Invoice processing webhook returned ${response.status}`)
+      return {
+        success: false,
+        message: `Webhook returned ${response.status}`,
+      }
+    }
+
+    return { success: true, message: 'Processing started' }
+  } catch (error) {
+    // Don't fail the upload if n8n is unavailable
+    console.warn('Invoice processing webhook error:', error)
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Unknown error',
