@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { LoanPageTabs } from '@/app/components/projects/LoanPageTabs'
 import { useNavigation } from '@/app/context/NavigationContext'
-import type { Project, Budget, DrawRequest, DrawRequestLine, LifecycleStage, Builder } from '@/types/database'
+import type { Project, Budget, DrawRequest, DrawRequestLine, LifecycleStage, Builder, Lender } from '@/types/database'
 
 type ProjectWithLifecycle = Project & {
   lifecycle_stage: LifecycleStage
@@ -24,6 +24,7 @@ export default function ProjectDetailPage() {
 
   const [project, setProject] = useState<ProjectWithLifecycle | null>(null)
   const [builder, setBuilder] = useState<Builder | null>(null)
+  const [lender, setLender] = useState<Lender | null>(null)
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [draws, setDraws] = useState<DrawRequest[]>([])
   const [drawLines, setDrawLines] = useState<DrawLineWithBudget[]>([])
@@ -69,6 +70,19 @@ export default function ProjectDetailPage() {
         setBuilder(builderData || null)
       } else {
         setBuilder(null)
+      }
+
+      // Fetch lender if project has lender_id
+      if (projectData.lender_id) {
+        const { data: lenderData } = await supabase
+          .from('lenders')
+          .select('*')
+          .eq('id', projectData.lender_id)
+          .single()
+
+        setLender(lenderData || null)
+      } else {
+        setLender(null)
       }
 
       // Fetch budgets
@@ -199,7 +213,7 @@ export default function ProjectDetailPage() {
                   {getStageLabel(project.lifecycle_stage)}
                 </span>
               </div>
-              {/* Builder link and address */}
+              {/* Builder link, lender, and address */}
               <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
                 {builder && (
                   <>
@@ -210,6 +224,12 @@ export default function ProjectDetailPage() {
                     >
                       {builder.company_name}
                     </button>
+                    {(lender || project.address) && <span>·</span>}
+                  </>
+                )}
+                {lender && (
+                  <>
+                    <span>{lender.name}</span>
                     {project.address && <span>·</span>}
                   </>
                 )}

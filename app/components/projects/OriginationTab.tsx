@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Project, Budget, LifecycleStage, Builder } from '@/types/database'
+import type { Project, Budget, LifecycleStage, Builder, Lender } from '@/types/database'
 import { ImportPreview } from '@/app/components/import/ImportPreview'
 import { DocumentUploadSection } from './DocumentUploadSection'
 import { BudgetEditor } from './BudgetEditor'
@@ -24,6 +24,7 @@ type FormData = {
   subdivision_name: string
   lot_number: string
   builder_id: string
+  lender_id: string
   borrower_name: string
   address: string
   loan_amount: string
@@ -67,6 +68,11 @@ export function OriginationTab({
   const [builderSearchOpen, setBuilderSearchOpen] = useState(false)
   const [builderSearchTerm, setBuilderSearchTerm] = useState('')
   
+  // Lender state
+  const [lenders, setLenders] = useState<Lender[]>([])
+  const [lenderSearchOpen, setLenderSearchOpen] = useState(false)
+  const [lenderSearchTerm, setLenderSearchTerm] = useState('')
+  
   // Loan activation state
   const [loanDocsRecorded, setLoanDocsRecorded] = useState(project?.loan_docs_recorded ?? false)
   const [activating, setActivating] = useState(false)
@@ -77,6 +83,7 @@ export function OriginationTab({
     subdivision_name: '',
     lot_number: '',
     builder_id: '',
+    lender_id: '',
     borrower_name: '',
     address: '',
     loan_amount: '',
@@ -90,9 +97,10 @@ export function OriginationTab({
   // Validation errors
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
 
-  // Load all builders for dropdown
+  // Load all builders and lenders for dropdowns
   useEffect(() => {
     loadBuilders()
+    loadLenders()
   }, [])
 
   async function loadBuilders() {
@@ -104,6 +112,16 @@ export function OriginationTab({
     setBuilders(data || [])
   }
 
+  async function loadLenders() {
+    const { data } = await supabase
+      .from('lenders')
+      .select('*')
+      .eq('is_active', true)
+      .order('name', { ascending: true })
+    
+    setLenders(data || [])
+  }
+
   // Initialize form data from project when not new
   useEffect(() => {
     if (project && !isNew) {
@@ -112,6 +130,7 @@ export function OriginationTab({
         subdivision_name: project.subdivision_name || '',
         lot_number: project.lot_number || '',
         builder_id: project.builder_id || '',
+        lender_id: project.lender_id || '',
         borrower_name: project.borrower_name || '',
         address: project.address || '',
         loan_amount: project.loan_amount?.toString() || '',
@@ -145,6 +164,24 @@ export function OriginationTab({
       (b.borrower_name && b.borrower_name.toLowerCase().includes(term))
     )
   }, [builders, builderSearchTerm])
+
+  // Get the currently selected lender
+  const selectedLender = useMemo(() => {
+    if (formData.lender_id) {
+      return lenders.find(l => l.id === formData.lender_id) || null
+    }
+    return null
+  }, [formData.lender_id, lenders])
+
+  // Filter lenders for search dropdown
+  const filteredLenders = useMemo(() => {
+    if (!lenderSearchTerm) return lenders
+    const term = lenderSearchTerm.toLowerCase()
+    return lenders.filter(l => 
+      l.name.toLowerCase().includes(term) ||
+      l.code.toLowerCase().includes(term)
+    )
+  }, [lenders, lenderSearchTerm])
 
   // Auto-generate project code
   const projectCode = useMemo(() => {
@@ -235,6 +272,7 @@ export function OriginationTab({
         subdivision_name: formData.subdivision_name.trim() || null,
         lot_number: formData.lot_number.trim() || null,
         builder_id: formData.builder_id || null,
+        lender_id: formData.lender_id || null,
         borrower_name: formData.borrower_name.trim() || null,
         address: formData.address.trim() || null,
         loan_amount: formData.loan_amount ? parseFloat(formData.loan_amount) : null,
@@ -301,6 +339,7 @@ export function OriginationTab({
           subdivision_name: project.subdivision_name || '',
           lot_number: project.lot_number || '',
           builder_id: project.builder_id || '',
+          lender_id: project.lender_id || '',
           borrower_name: project.borrower_name || '',
           address: project.address || '',
           loan_amount: project.loan_amount?.toString() || '',
@@ -323,6 +362,16 @@ export function OriginationTab({
   // Handle loan activation (Pending -> Active)
   const handleActivateLoan = async () => {
     if (!project || !loanDocsRecorded) return
+    
+    // Lender is required to activate
+    if (!formData.lender_id && !project.lender_id) {
+      toast({ 
+        type: 'error', 
+        title: 'Lender Required', 
+        message: 'Please select a lender before activating the loan.' 
+      })
+      return
+    }
     
     setActivating(true)
     try {
@@ -590,6 +639,134 @@ export function OriginationTab({
     )
   }
 
+  // Render lender field with searchable dropdown
+  const renderLenderField = () => {
+    if (!isEditing) {
+      // View mode - show lender name
+      return (
+        <div>
+          <div style={{ color: 'var(--text-muted)' }}>Lender</div>
+          <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+            {selectedLender ? selectedLender.name : '—'}
+          </div>
+        </div>
+      )
+    }
+
+    // Edit mode - searchable dropdown
+    return (
+      <div className="relative">
+        <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
+          Lender
+        </label>
+        <button
+          type="button"
+          onClick={() => setLenderSearchOpen(!lenderSearchOpen)}
+          className="input w-full text-left flex items-center justify-between"
+        >
+          <span style={{ color: selectedLender ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+            {selectedLender?.name || 'Select lender...'}
+          </span>
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {lenderSearchOpen && (
+          <div 
+            className="absolute top-full left-0 right-0 mt-1 rounded-ios-sm shadow-lg z-50 max-h-64 overflow-hidden"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
+          >
+            {/* Search input */}
+            <div className="p-2 border-b" style={{ borderColor: 'var(--border)' }}>
+              <input
+                type="text"
+                value={lenderSearchTerm}
+                onChange={(e) => setLenderSearchTerm(e.target.value)}
+                placeholder="Search lenders..."
+                className="input w-full"
+                autoFocus
+              />
+            </div>
+
+            {/* Lender list */}
+            <div className="max-h-48 overflow-y-auto">
+              {filteredLenders.length === 0 ? (
+                <div className="p-3 text-sm text-center" style={{ color: 'var(--text-muted)' }}>
+                  No lenders found
+                </div>
+              ) : (
+                filteredLenders.map((lender) => (
+                  <button
+                    key={lender.id}
+                    type="button"
+                    onClick={() => {
+                      handleInputChange('lender_id', lender.id)
+                      setLenderSearchOpen(false)
+                      setLenderSearchTerm('')
+                    }}
+                    className="w-full p-3 text-left hover:bg-opacity-50 transition-colors flex items-center justify-between"
+                    style={{ 
+                      background: lender.id === formData.lender_id ? 'var(--bg-hover)' : undefined 
+                    }}
+                  >
+                    <div>
+                      <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                        {lender.name}
+                      </div>
+                      <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                        {lender.code}
+                      </div>
+                    </div>
+                    {lender.id === formData.lender_id && (
+                      <svg className="w-4 h-4" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+
+            {/* Clear selection option */}
+            {formData.lender_id && (
+              <div className="border-t p-2" style={{ borderColor: 'var(--border)' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleInputChange('lender_id', '')
+                    setLenderSearchOpen(false)
+                  }}
+                  className="w-full text-sm p-2 rounded transition-colors"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  Clear selection
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Render a read-only auto-filled field
+  const renderAutoFilledField = (label: string, value: string | null | undefined) => {
+    return (
+      <div>
+        <div style={{ color: 'var(--text-muted)' }}>{label}</div>
+        <div className="font-medium" style={{ color: value ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+          {value || '—'}
+        </div>
+        {isEditing && (
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            Auto-filled from builder
+          </p>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header with Edit/Save buttons */}
@@ -721,14 +898,16 @@ export function OriginationTab({
           </div>
         </div>
 
-        {/* Section 2: Builder & Borrower */}
+        {/* Section 2: Builder */}
         <div className="mb-6 pt-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
           <h4 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>
-            Builder & Borrower
+            Builder
           </h4>
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             {renderBuilderField()}
-            {renderField('Borrower', 'borrower_name', 'text', 'Auto-filled from builder')}
+            {renderAutoFilledField('Borrower', selectedBuilder?.borrower_name)}
+            {renderAutoFilledField('Bank', selectedBuilder?.bank_name)}
+            {renderAutoFilledField('Contact', selectedBuilder?.phone || selectedBuilder?.email)}
           </div>
         </div>
 
@@ -738,6 +917,7 @@ export function OriginationTab({
             Financial Terms
           </h4>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            {renderLenderField()}
             {renderField('Loan Amount', 'loan_amount', 'currency', '0')}
             {renderField('Estimated Value', 'appraised_value', 'currency', '0', { 
               helperText: 'Expected sales price for LTV qualification'
