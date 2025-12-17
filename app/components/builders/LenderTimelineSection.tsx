@@ -38,7 +38,7 @@ function generateMonthColumns(allFundDates: string[]): { key: string; label: str
     
     months.push({
       key: `${year}-${String(month + 1).padStart(2, '0')}`,
-      label: current.toLocaleDateString('en-US', { month: 'short', day: undefined }),
+      label: current.toLocaleDateString('en-US', { month: 'short' }),
       startDate,
       endDate
     })
@@ -60,10 +60,10 @@ function getPositionInMonth(date: Date, monthStart: Date, monthEnd: Date): numbe
  * LenderTimelineSection - Timeline section for a single lender
  * 
  * Features:
- * - Collapsible header
+ * - Collapsible lender section header
  * - Fixed left column with project names and staged draws
  * - Scrollable right section with month-based Gantt bars
- * - Crosshair highlighting on hover
+ * - Draws always visible (no individual project collapse)
  */
 export function LenderTimelineSection({
   lender,
@@ -74,26 +74,14 @@ export function LenderTimelineSection({
   animationDelay = 0
 }: LenderTimelineSectionProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => {
-    // Auto-expand projects with draws or staged draws
-    const expanded = new Set<string>()
-    projects.forEach(project => {
-      const hasFundedDraws = project.draws.some(d => d.status === 'funded')
-      const hasStagedDraws = (stagedDrawsByProject.get(project.id) || []).length > 0
-      if (hasFundedDraws || hasStagedDraws) {
-        expanded.add(project.id)
-      }
-    })
-    return expanded
-  })
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
   const [hoveredMonth, setHoveredMonth] = useState<string | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   // Calculate column dimensions
   const monthColumnWidth = 100 // pixels per month column
-  const fixedColumnWidth = 200 // pixels for project column + staged
-  const rowHeight = 36 // Compact row height
+  const fixedColumnWidth = 220 // pixels for project column + staged
+  const rowHeight = 40 // Row height
 
   // Generate month columns
   const monthColumns = useMemo(() => generateMonthColumns(allFundDates), [allFundDates])
@@ -144,18 +132,6 @@ export function LenderTimelineSection({
     return byMonth
   }, [monthColumns])
 
-  const toggleProjectExpanded = useCallback((projectId: string) => {
-    setExpandedProjects(prev => {
-      const next = new Set(prev)
-      if (next.has(projectId)) {
-        next.delete(projectId)
-      } else {
-        next.add(projectId)
-      }
-      return next
-    })
-  }, [])
-
   const handleMouseEnterCell = useCallback((projectId: string, monthKey: string) => {
     setHoveredRow(projectId)
     setHoveredMonth(monthKey)
@@ -168,7 +144,12 @@ export function LenderTimelineSection({
 
   return (
     <motion.div
-      className="card-ios overflow-hidden"
+      className="rounded-lg overflow-hidden"
+      style={{
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border-subtle)',
+        boxShadow: 'var(--elevation-2)',
+      }}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: animationDelay, duration: 0.3 }}
@@ -176,7 +157,7 @@ export function LenderTimelineSection({
       {/* Lender Header - Collapsible */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="w-full px-3 py-2 flex items-center justify-between border-b transition-colors"
+        className="w-full px-4 py-3 flex items-center justify-between border-b transition-colors"
         style={{ 
           borderColor: 'var(--border-subtle)',
           background: 'var(--bg-secondary)'
@@ -186,7 +167,7 @@ export function LenderTimelineSection({
           <motion.svg
             animate={{ rotate: isCollapsed ? -90 : 0 }}
             transition={{ duration: 0.2 }}
-            className="w-3.5 h-3.5"
+            className="w-4 h-4"
             style={{ color: 'var(--text-muted)' }}
             fill="none"
             viewBox="0 0 24 24"
@@ -198,14 +179,14 @@ export function LenderTimelineSection({
             {lender?.name || 'No Lender Assigned'}
           </h4>
           <span 
-            className="text-xs px-1.5 py-0.5 rounded-full"
+            className="text-xs px-1.5 py-0.5 rounded"
             style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
           >
             {projects.length} loan{projects.length !== 1 ? 's' : ''}
           </span>
         </div>
 
-        <div className="flex items-center gap-3 text-xs">
+        <div className="flex items-center gap-4 text-xs" style={{ fontFamily: 'var(--font-mono)' }}>
           <span style={{ color: 'var(--text-muted)' }}>
             Drawn: <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
               {formatCurrency(sectionTotals.totalDrawn)}
@@ -240,20 +221,18 @@ export function LenderTimelineSection({
                 <div 
                   className="px-3 flex items-center border-b text-xs font-medium"
                   style={{ 
-                    height: 28,
+                    height: 32,
                     borderColor: 'var(--border-subtle)',
                     background: 'var(--bg-secondary)',
                     color: 'var(--text-muted)'
                   }}
                 >
                   <div className="flex-1">Project</div>
-                  <div className="w-14 text-center">Staged</div>
+                  <div className="w-16 text-center">Staged</div>
                 </div>
 
                 {/* Project Rows */}
                 {projects.map((project, index) => {
-                  const isExpanded = expandedProjects.has(project.id)
-                  const hasFundedDraws = project.draws.some(d => d.status === 'funded')
                   const staged = stagedDrawsByProject.get(project.id) || []
                   
                   return (
@@ -262,9 +241,6 @@ export function LenderTimelineSection({
                       project={project}
                       stagedDraws={staged}
                       isHovered={hoveredRow === project.id}
-                      isExpanded={isExpanded}
-                      hasDraws={hasFundedDraws || staged.length > 0}
-                      onToggleExpand={() => toggleProjectExpanded(project.id)}
                       animationDelay={animationDelay + (index * 0.02)}
                       rowHeight={rowHeight}
                     />
@@ -275,16 +251,16 @@ export function LenderTimelineSection({
                 <div 
                   className="px-3 flex items-center justify-between border-t font-semibold text-xs"
                   style={{ 
-                    height: rowHeight,
+                    height: 36,
                     borderColor: 'var(--border-subtle)',
                     background: 'var(--bg-secondary)',
                     color: 'var(--text-primary)'
                   }}
                 >
-                  <span>TOTALS</span>
+                  <span className="uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Totals</span>
                   {sectionTotals.totalStaged > 0 && (
-                    <span style={{ color: 'var(--warning)' }}>
-                      {formatCurrency(sectionTotals.totalStaged)}
+                    <span style={{ color: 'var(--warning)', fontFamily: 'var(--font-mono)' }}>
+                      {formatCompactCurrency(sectionTotals.totalStaged)}
                     </span>
                   )}
                 </div>
@@ -296,11 +272,11 @@ export function LenderTimelineSection({
                 className="flex-1 overflow-x-auto"
                 style={{ scrollbarWidth: 'thin' }}
               >
-                <div style={{ minWidth: monthColumns.length * monthColumnWidth + 80 }}>
+                <div style={{ minWidth: Math.max(monthColumns.length * monthColumnWidth + 90, 300) }}>
                   {/* Month Headers */}
                   <div 
                     className="flex border-b"
-                    style={{ height: 28, borderColor: 'var(--border-subtle)', background: 'var(--bg-secondary)' }}
+                    style={{ height: 32, borderColor: 'var(--border-subtle)', background: 'var(--bg-secondary)' }}
                   >
                     {monthColumns.map(month => (
                       <div
@@ -319,18 +295,17 @@ export function LenderTimelineSection({
                     <div
                       className="flex items-center justify-center text-xs font-medium px-2"
                       style={{ 
-                        minWidth: 80,
+                        minWidth: 90,
                         color: 'var(--text-muted)',
                         borderLeft: '1px solid var(--border-subtle)'
                       }}
                     >
-                      Total
+                      Drawn
                     </div>
                   </div>
 
                   {/* Gantt Rows */}
                   {projects.map((project) => {
-                    const isExpanded = expandedProjects.has(project.id)
                     const drawsByMonth = getDrawsByMonth(project)
                     
                     return (
@@ -359,7 +334,7 @@ export function LenderTimelineSection({
                               onMouseEnter={() => handleMouseEnterCell(project.id, month.key)}
                               onMouseLeave={handleMouseLeaveCell}
                             >
-                              {isExpanded && drawsInMonth.map(({ draw, positionPercent, prevDate }) => (
+                              {drawsInMonth.map(({ draw, positionPercent, prevDate }) => (
                                 <GanttDrawBar
                                   key={draw.id}
                                   draw={draw}
@@ -378,14 +353,15 @@ export function LenderTimelineSection({
 
                         {/* Row Total */}
                         <div
-                          className="flex items-center justify-center px-2 font-medium text-xs"
+                          className="flex items-center justify-center px-2 font-medium text-sm"
                           style={{ 
-                            minWidth: 80,
-                            color: 'var(--text-primary)',
-                            borderLeft: '1px solid var(--border-subtle)'
+                            minWidth: 90,
+                            color: (project.total_spent || 0) > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
+                            borderLeft: '1px solid var(--border-subtle)',
+                            fontFamily: 'var(--font-mono)'
                           }}
                         >
-                          {formatCurrency(project.total_spent || 0)}
+                          {(project.total_spent || 0) > 0 ? formatCompactCurrency(project.total_spent || 0) : '—'}
                         </div>
                       </div>
                     )
@@ -395,7 +371,7 @@ export function LenderTimelineSection({
                   <div 
                     className="flex items-center border-t"
                     style={{ 
-                      height: rowHeight,
+                      height: 36,
                       borderColor: 'var(--border-subtle)',
                       background: 'var(--bg-secondary)'
                     }}
@@ -418,23 +394,25 @@ export function LenderTimelineSection({
                           className="flex items-center justify-center text-xs font-semibold"
                           style={{ 
                             width: monthColumnWidth,
-                            color: monthTotal > 0 ? 'var(--accent)' : 'var(--text-muted)'
+                            color: monthTotal > 0 ? 'var(--accent)' : 'var(--text-muted)',
+                            fontFamily: 'var(--font-mono)'
                           }}
                         >
-                          {monthTotal > 0 ? formatCurrency(monthTotal) : '—'}
+                          {monthTotal > 0 ? formatCompactCurrency(monthTotal) : '—'}
                         </div>
                       )
                     })}
                     {/* Grand Total */}
                     <div
-                      className="flex items-center justify-center px-2 font-bold text-xs"
+                      className="flex items-center justify-center px-2 font-bold text-sm"
                       style={{ 
-                        minWidth: 80,
+                        minWidth: 90,
                         color: 'var(--accent)',
-                        borderLeft: '1px solid var(--border-subtle)'
+                        borderLeft: '1px solid var(--border-subtle)',
+                        fontFamily: 'var(--font-mono)'
                       }}
                     >
-                      {formatCurrency(sectionTotals.totalDrawn)}
+                      {formatCompactCurrency(sectionTotals.totalDrawn)}
                     </div>
                   </div>
                 </div>
@@ -447,18 +425,22 @@ export function LenderTimelineSection({
   )
 }
 
-// Helper function
+// Helper functions
 function formatCurrency(amount: number): string {
-  if (amount >= 1000000) {
-    return `$${(amount / 1000000).toFixed(1)}M`
-  }
-  if (amount >= 1000) {
-    return `$${Math.round(amount / 1000)}k`
-  }
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount)
+}
+
+function formatCompactCurrency(amount: number): string {
+  if (amount >= 1000000) {
+    return `$${(amount / 1000000).toFixed(1)}M`
+  }
+  if (amount >= 1000) {
+    return `$${Math.round(amount / 1000)}k`
+  }
+  return `$${amount}`
 }

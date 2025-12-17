@@ -175,12 +175,21 @@ export function TimelineDetailPanel({
               {/* Amount Card */}
               <div 
                 className="p-4 rounded-lg"
-                style={{ background: 'var(--bg-card)' }}
+                style={{ 
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-subtle)'
+                }}
               >
                 <div className="text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
                   Total Amount
                 </div>
-                <div className="text-3xl font-bold" style={{ color: 'var(--accent)' }}>
+                <div 
+                  className="text-3xl font-bold"
+                  style={{ 
+                    color: 'var(--accent)',
+                    fontFamily: 'var(--font-mono)'
+                  }}
+                >
                   {formatCurrency(draw.total_amount)}
                 </div>
               </div>
