@@ -70,17 +70,18 @@ export function LoanStatusTab({
     return detectAnomalies(budgets, draws, drawLines, project)
   }, [budgets, draws, drawLines, project])
 
-  // Prepare draw lines for amortization
+  // Prepare draws for amortization - aggregate by draw (not individual lines)
   const drawLinesForAmort = useMemo(() => {
-    return drawLines
-      .filter(line => line.draw_request?.status === 'funded')
-      .map(line => ({
-        amount: line.amount_approved || line.amount_requested || 0,
-        date: line.draw_request?.funded_at || line.draw_request?.request_date || line.created_at || '',
-        drawNumber: line.draw_request?.draw_number,
+    // Use the draws array directly, not individual draw lines
+    return draws
+      .filter(draw => draw.status === 'funded' && draw.funded_at)
+      .map(draw => ({
+        amount: draw.total_amount || 0,
+        date: draw.funded_at || draw.request_date || '',
+        drawNumber: draw.draw_number,
       }))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-  }, [drawLines])
+  }, [draws])
 
   // Calculate alerts
   const alerts: { type: 'warning' | 'error' | 'info'; message: string }[] = []
