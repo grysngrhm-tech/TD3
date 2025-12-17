@@ -83,9 +83,14 @@ export default function DrawDetailPage() {
     }
   }, [draw, project, setCurrentPageTitle])
 
+  // Helper to check if invoice is currently being processed
+  // Note: DB only allows status: 'pending', 'matched', 'rejected'
+  // We use flags='PROCESSING' to indicate active AI processing
+  const isInvoiceProcessing = (inv: any) => inv.status === 'pending' && inv.flags === 'PROCESSING'
+
   // Auto-refresh when invoices are processing (poll every 3 seconds)
   useEffect(() => {
-    const hasProcessingInvoices = invoices.some(inv => inv.status === 'processing')
+    const hasProcessingInvoices = invoices.some(isInvoiceProcessing)
     
     if (hasProcessingInvoices) {
       const interval = setInterval(async () => {
@@ -99,7 +104,7 @@ export default function DrawDetailPage() {
           setInvoices(updatedInvoices)
           
           // If no more processing invoices, also refresh lines to get updated matches
-          const stillProcessing = updatedInvoices.some(inv => inv.status === 'processing')
+          const stillProcessing = updatedInvoices.some((inv: any) => inv.status === 'pending' && inv.flags === 'PROCESSING')
           if (!stillProcessing) {
             loadDrawRequest()
           }
@@ -1132,7 +1137,7 @@ export default function DrawDetailPage() {
             <div className="card p-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>All Invoices ({invoices.length})</h3>
-                {invoices.some(inv => inv.status === 'processing') && (
+                {invoices.some(isInvoiceProcessing) && (
                   <span className="flex items-center gap-2 text-xs px-2 py-1 rounded-full" style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}>
                     <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -1146,14 +1151,14 @@ export default function DrawDetailPage() {
                 {invoices.map(inv => (
                   <button
                     key={inv.id}
-                    onClick={() => inv.status !== 'processing' && setSelectedInvoice(inv)}
-                    className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all ${inv.status === 'processing' ? 'cursor-wait opacity-70' : 'hover:opacity-80'}`}
+                    onClick={() => !isInvoiceProcessing(inv) && setSelectedInvoice(inv)}
+                    className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all ${isInvoiceProcessing(inv) ? 'cursor-wait opacity-70' : 'hover:opacity-80'}`}
                     style={{ background: 'var(--bg-secondary)' }}
-                    disabled={inv.status === 'processing'}
+                    disabled={isInvoiceProcessing(inv)}
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       {/* Status indicator */}
-                      {inv.status === 'processing' ? (
+                      {isInvoiceProcessing(inv) ? (
                         <svg className="w-4 h-4 flex-shrink-0 animate-spin" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -1162,13 +1167,13 @@ export default function DrawDetailPage() {
                         <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--success)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                      ) : inv.status === 'review' ? (
-                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                      ) : inv.status === 'error' ? (
+                      ) : inv.status === 'rejected' ? (
                         <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--error)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      ) : inv.status === 'pending' ? (
+                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
                       ) : (
                         <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1177,12 +1182,12 @@ export default function DrawDetailPage() {
                       )}
                       <div className="min-w-0">
                         <p className="font-medium text-sm truncate" style={{ color: 'var(--text-primary)' }}>
-                          {inv.status === 'processing' ? 'Processing...' : inv.vendor_name}
+                          {isInvoiceProcessing(inv) ? 'Processing...' : inv.vendor_name}
                         </p>
                         <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
-                          {inv.status === 'processing' ? 'Extracting invoice data' : 
-                           inv.matched_to_category || (inv.status === 'error' ? 'Processing failed' : 'Unmatched')}
-                          {inv.confidence_score !== null && inv.status !== 'processing' && (
+                          {isInvoiceProcessing(inv) ? 'Extracting invoice data' : 
+                           inv.matched_to_category || (inv.status === 'rejected' ? 'Processing failed' : 'Needs review')}
+                          {inv.confidence_score !== null && !isInvoiceProcessing(inv) && (
                             <span className="ml-1" style={{ color: inv.confidence_score >= 0.9 ? 'var(--success)' : inv.confidence_score >= 0.7 ? 'var(--warning)' : 'var(--error)' }}>
                               ({Math.round(inv.confidence_score * 100)}%)
                             </span>
@@ -1190,8 +1195,8 @@ export default function DrawDetailPage() {
                         </p>
                       </div>
                     </div>
-                    <span className="font-medium flex-shrink-0 ml-2" style={{ color: inv.status === 'processing' ? 'var(--text-muted)' : 'var(--text-primary)' }}>
-                      {inv.status === 'processing' ? '—' : formatCurrency(inv.amount)}
+                    <span className="font-medium flex-shrink-0 ml-2" style={{ color: isInvoiceProcessing(inv) ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+                      {isInvoiceProcessing(inv) ? '—' : formatCurrency(inv.amount)}
                     </span>
                   </button>
                 ))}
