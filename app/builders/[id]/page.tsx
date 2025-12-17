@@ -5,14 +5,10 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { BuilderInfoCard } from '@/app/components/builders/BuilderInfoCard'
 import { BuilderLoanGrid } from '@/app/components/builders/BuilderLoanGrid'
-import { StagedDrawsSection } from '@/app/components/builders/StagedDrawsSection'
+import { BuilderTimeline, type ProjectWithDraws, type DrawWithProject } from '@/app/components/builders/BuilderTimeline'
 import { useNavigation } from '@/app/context/NavigationContext'
 import { calculateLoanIncome, calculateIRR } from '@/lib/calculations'
-import type { Builder, LifecycleStage, DrawRequest, Project } from '@/types/database'
-
-type StagedDraw = DrawRequest & {
-  project?: Project | null
-}
+import type { Builder, LifecycleStage, DrawRequest, Project, Lender } from '@/types/database'
 
 type ProjectWithBudget = {
   id: string
@@ -41,7 +37,8 @@ export default function BuilderDetailPage() {
 
   const [builder, setBuilder] = useState<Builder | null>(null)
   const [projects, setProjects] = useState<ProjectWithBudget[]>([])
-  const [stagedDraws, setStagedDraws] = useState<StagedDraw[]>([])
+  const [projectsWithDraws, setProjectsWithDraws] = useState<ProjectWithDraws[]>([])
+  const [stagedDraws, setStagedDraws] = useState<DrawWithProject[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -67,20 +64,24 @@ export default function BuilderDetailPage() {
       if (builderError) throw builderError
       setBuilder(builderData)
 
-      // Fetch projects for this builder
+      // Fetch projects for this builder WITH lender relation
       const { data: projectsData } = await supabase
         .from('projects')
-        .select('*')
+        .select('*, lender:lenders(*)')
         .eq('builder_id', builderId)
         .order('created_at', { ascending: false })
 
       if (!projectsData) {
         setProjects([])
+        setProjectsWithDraws([])
         return
       }
 
-      // Get budget totals and draw data for each project
-      const projectsWithBudgets = await Promise.all(
+      // Get budget totals, draw data, and all draws for each project
+      const projectsWithBudgets: ProjectWithBudget[] = []
+      const projectsForTimeline: ProjectWithDraws[] = []
+
+      await Promise.all(
         projectsData.map(async (project) => {
           // Get budgets
           const { data: budgets } = await supabase
@@ -91,26 +92,28 @@ export default function BuilderDetailPage() {
           const totalBudget = budgets?.reduce((sum, b) => sum + (b.current_amount || 0), 0) || 0
           const totalSpent = budgets?.reduce((sum, b) => sum + (b.spent_amount || 0), 0) || 0
 
+          // Get ALL draws for this project (for timeline)
+          const { data: drawsData } = await supabase
+            .from('draw_requests')
+            .select('*')
+            .eq('project_id', project.id)
+            .order('request_date', { ascending: true })
+
+          const draws = drawsData || []
+
           // Get draws for historic projects (for income/IRR calculation)
           let totalIncome = 0
           let irr: number | null = null
 
           if (project.lifecycle_stage === 'historic') {
-            const { data: drawsData } = await supabase
-              .from('draw_requests')
-              .select('*')
-              .eq('project_id', project.id)
-              .order('request_date', { ascending: true })
-
-            const draws = drawsData || []
-
             // Calculate income and IRR
             const incomeResult = calculateLoanIncome(project, draws)
             totalIncome = incomeResult.total
             irr = calculateIRR(draws, project.payoff_amount, project.payoff_date)
           }
 
-          return {
+          // Add to both arrays
+          projectsWithBudgets.push({
             id: project.id,
             project_code: project.project_code,
             name: project.name,
@@ -127,11 +130,21 @@ export default function BuilderDetailPage() {
             total_spent: totalSpent,
             totalIncome,
             irr,
-          }
+          })
+
+          // For timeline - include lender and draws
+          projectsForTimeline.push({
+            ...project,
+            lender: (project as any).lender as Lender | null,
+            draws: draws,
+            total_budget: totalBudget,
+            total_spent: totalSpent,
+          })
         })
       )
 
       setProjects(projectsWithBudgets)
+      setProjectsWithDraws(projectsForTimeline)
 
       // Fetch staged draws for this builder's projects
       const projectIds = projectsData.map(p => p.id)
@@ -264,15 +277,16 @@ export default function BuilderDetailPage() {
 
       {/* Content */}
       <div className="max-w-6xl mx-auto px-6 py-6 space-y-8">
-        {/* Staged Draws Section - Shows at top when draws are staged */}
-        <StagedDrawsSection 
-          builder={builder} 
-          stagedDraws={stagedDraws} 
-          onRefresh={loadBuilder}
-        />
-
         {/* Builder Information Card */}
         <BuilderInfoCard builder={builder} onDataRefresh={loadBuilder} />
+
+        {/* Builder Timeline - NEW: Interactive timeline with Gantt/Spreadsheet views */}
+        <BuilderTimeline
+          builder={builder}
+          projects={projectsWithDraws}
+          stagedDraws={stagedDraws}
+          onRefresh={loadBuilder}
+        />
 
         {/* Loan Grid */}
         <BuilderLoanGrid projects={projects} builder={builder} />
