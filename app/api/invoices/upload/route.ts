@@ -134,6 +134,11 @@ export async function POST(request: NextRequest) {
         
         // Trigger n8n workflow for AI processing (non-blocking)
         // Use signed URL for secure file access from n8n
+        // Get the base URL for callback (use Vercel URL or fallback)
+        const baseUrl = process.env.VERCEL_URL 
+          ? `https://${process.env.VERCEL_URL}` 
+          : process.env.NEXT_PUBLIC_APP_URL || 'https://td3.vercel.app'
+        
         const payload: InvoiceProcessPayload = {
           invoiceId: invoice.id,
           fileUrl: fileUrlForProcessing,
@@ -141,6 +146,7 @@ export async function POST(request: NextRequest) {
           drawRequestId,
           projectId,
           projectCode,
+          callbackUrl: `${baseUrl}/api/invoices/process-callback`,
           budgetCategories,
           drawLines: formattedDrawLines
         }

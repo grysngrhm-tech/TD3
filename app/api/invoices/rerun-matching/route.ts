@@ -124,6 +124,11 @@ export async function POST(request: NextRequest) {
           continue
         }
         
+        // Get the base URL for callback (use Vercel URL or fallback)
+        const baseUrl = process.env.VERCEL_URL 
+          ? `https://${process.env.VERCEL_URL}` 
+          : process.env.NEXT_PUBLIC_APP_URL || 'https://td3.vercel.app'
+        
         const payload: InvoiceProcessPayload = {
           invoiceId: invoice.id,
           fileUrl,
@@ -131,6 +136,7 @@ export async function POST(request: NextRequest) {
           drawRequestId,
           projectId,
           projectCode,
+          callbackUrl: `${baseUrl}/api/invoices/process-callback`,
           budgetCategories,
           drawLines: formattedDrawLines
         }
