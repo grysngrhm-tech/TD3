@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { validateDrawRequest } from '@/lib/validations'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigation } from '@/app/context/NavigationContext'
+import { InvoiceMatchPanel } from '@/app/components/draws/InvoiceMatchPanel'
 import type { DrawRequestWithDetails, ValidationResult, Budget, Invoice, Builder, Project, NahbCategory, NahbSubcategory } from '@/types/database'
 import { DRAW_STATUS_LABELS, DRAW_FLAG_LABELS, DrawStatus, DrawLineFlag } from '@/types/database'
 
@@ -54,6 +55,7 @@ export default function DrawDetailPage() {
   
   // Invoice viewer
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
+  const [matchingInvoice, setMatchingInvoice] = useState<Invoice | null>(null)
   
   // Editing
   const [editingLineId, setEditingLineId] = useState<string | null>(null)
@@ -80,6 +82,33 @@ export default function DrawDetailPage() {
       setCurrentPageTitle(`Draw #${draw.draw_number} - ${project.project_code || project.name}`)
     }
   }, [draw, project, setCurrentPageTitle])
+
+  // Auto-refresh when invoices are processing (poll every 3 seconds)
+  useEffect(() => {
+    const hasProcessingInvoices = invoices.some(inv => inv.status === 'processing')
+    
+    if (hasProcessingInvoices) {
+      const interval = setInterval(async () => {
+        // Only refresh invoices, not the whole page
+        const { data: updatedInvoices } = await supabase
+          .from('invoices')
+          .select('*')
+          .eq('draw_request_id', drawId)
+        
+        if (updatedInvoices) {
+          setInvoices(updatedInvoices)
+          
+          // If no more processing invoices, also refresh lines to get updated matches
+          const stillProcessing = updatedInvoices.some(inv => inv.status === 'processing')
+          if (!stillProcessing) {
+            loadDrawRequest()
+          }
+        }
+      }, 3000)
+      
+      return () => clearInterval(interval)
+    }
+  }, [invoices, drawId])
 
   async function loadDrawRequest() {
     try {
@@ -1101,22 +1130,69 @@ export default function DrawDetailPage() {
           {/* All Invoices */}
           {invoices.length > 0 && (
             <div className="card p-4">
-              <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>All Invoices ({invoices.length})</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>All Invoices ({invoices.length})</h3>
+                {invoices.some(inv => inv.status === 'processing') && (
+                  <span className="flex items-center gap-2 text-xs px-2 py-1 rounded-full" style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}>
+                    <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing
+                  </span>
+                )}
+              </div>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {invoices.map(inv => (
                   <button
                     key={inv.id}
-                    onClick={() => setSelectedInvoice(inv)}
-                    className="w-full flex items-center justify-between p-2 rounded-lg hover:opacity-80 text-left"
+                    onClick={() => inv.status !== 'processing' && setSelectedInvoice(inv)}
+                    className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all ${inv.status === 'processing' ? 'cursor-wait opacity-70' : 'hover:opacity-80'}`}
                     style={{ background: 'var(--bg-secondary)' }}
+                    disabled={inv.status === 'processing'}
                   >
-                    <div>
-                      <p className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>{inv.vendor_name}</p>
-                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {inv.matched_to_category || 'Unmatched'}
-                      </p>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {/* Status indicator */}
+                      {inv.status === 'processing' ? (
+                        <svg className="w-4 h-4 flex-shrink-0 animate-spin" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : inv.status === 'matched' ? (
+                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--success)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      ) : inv.status === 'review' ? (
+                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                      ) : inv.status === 'error' ? (
+                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--error)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate" style={{ color: 'var(--text-primary)' }}>
+                          {inv.status === 'processing' ? 'Processing...' : inv.vendor_name}
+                        </p>
+                        <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+                          {inv.status === 'processing' ? 'Extracting invoice data' : 
+                           inv.matched_to_category || (inv.status === 'error' ? 'Processing failed' : 'Unmatched')}
+                          {inv.confidence_score !== null && inv.status !== 'processing' && (
+                            <span className="ml-1" style={{ color: inv.confidence_score >= 0.9 ? 'var(--success)' : inv.confidence_score >= 0.7 ? 'var(--warning)' : 'var(--error)' }}>
+                              ({Math.round(inv.confidence_score * 100)}%)
+                            </span>
+                          )}
+                        </p>
+                      </div>
                     </div>
-                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(inv.amount)}</span>
+                    <span className="font-medium flex-shrink-0 ml-2" style={{ color: inv.status === 'processing' ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+                      {inv.status === 'processing' ? '—' : formatCurrency(inv.amount)}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -1183,24 +1259,51 @@ export default function DrawDetailPage() {
                 )}
               </div>
               
-              <div className="p-4 border-t flex justify-between" style={{ borderColor: 'var(--border-primary)' }}>
+              <div className="p-4 border-t flex justify-between items-center" style={{ borderColor: 'var(--border-primary)' }}>
                 <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
                   {selectedInvoice.invoice_number && <span>Invoice #{selectedInvoice.invoice_number} • </span>}
                   {selectedInvoice.invoice_date && <span>{new Date(selectedInvoice.invoice_date).toLocaleDateString()}</span>}
                 </div>
-                {selectedInvoice.file_url && (
-                  <a
-                    href={selectedInvoice.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-secondary text-sm"
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setMatchingInvoice(selectedInvoice)
+                      setSelectedInvoice(null)
+                    }}
+                    className="btn-primary text-sm flex items-center gap-1"
                   >
-                    Open in New Tab
-                  </a>
-                )}
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    Match to Category
+                  </button>
+                  {selectedInvoice.file_url && (
+                    <a
+                      href={selectedInvoice.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-secondary text-sm"
+                    >
+                      Open in New Tab
+                    </a>
+                  )}
+                </div>
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Invoice Match Panel */}
+      <AnimatePresence>
+        {matchingInvoice && (
+          <InvoiceMatchPanel
+            invoice={matchingInvoice}
+            drawLines={lines}
+            allBudgets={allBudgets}
+            onClose={() => setMatchingInvoice(null)}
+            onMatched={() => loadDrawRequest()}
+          />
         )}
       </AnimatePresence>
     </div>

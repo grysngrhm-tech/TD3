@@ -1,0 +1,197 @@
+{
+  "name": "TD3 Invoice Process",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "td3-invoice-process",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "webhookId": "td3-invoice-process"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.fileUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "download-invoice",
+      "name": "Download Invoice File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "text": "You are an expert at extracting data from construction invoices. Analyze this invoice and extract the following information in JSON format:\n\n{\n  \"vendorName\": \"The company name that issued the invoice\",\n  \"invoiceNumber\": \"Invoice number or ID\",\n  \"invoiceDate\": \"Date in YYYY-MM-DD format\",\n  \"totalAmount\": 0.00,\n  \"lineItems\": [\n    {\n      \"description\": \"Line item description\",\n      \"amount\": 0.00\n    }\n  ],\n  \"constructionCategory\": \"Best guess of construction category (e.g., Electrical, Plumbing, HVAC, Framing, Roofing, Flooring, Interior Finishes, etc.)\"\n}\n\nIf you cannot find a value, use null. For amounts, extract the numeric value only.\n\nIMPORTANT: Return ONLY valid JSON, no other text.",
+        "options": {
+          "maxTokens": 1000,
+          "temperature": 0.1
+        }
+      },
+      "id": "openai-extract",
+      "name": "Extract Invoice Data",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the OpenAI response and match to budget categories\nconst input = $input.first().json;\nconst webhookData = $('Webhook').first().json;\n\n// Parse OpenAI response (handle both string and object)\nlet extracted;\ntry {\n  if (typeof input.text === 'string') {\n    // Remove markdown code blocks if present\n    let jsonStr = input.text.replace(/```json\\n?|```\\n?/g, '').trim();\n    extracted = JSON.parse(jsonStr);\n  } else {\n    extracted = input.text;\n  }\n} catch (e) {\n  return [{\n    json: {\n      success: false,\n      error: 'Failed to parse OpenAI response: ' + e.message,\n      invoiceId: webhookData.invoiceId\n    }\n  }];\n}\n\n// Get budget categories from webhook payload\nconst budgetCategories = webhookData.budgetCategories || [];\nconst drawLines = webhookData.drawLines || [];\n\n// Normalize string for matching\nfunction normalize(str) {\n  return (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');\n}\n\n// Calculate similarity score between two strings\nfunction similarity(s1, s2) {\n  s1 = normalize(s1);\n  s2 = normalize(s2);\n  if (s1 === s2) return 1;\n  if (s1.includes(s2) || s2.includes(s1)) return 0.85;\n  \n  // Simple word matching\n  const words1 = s1.split(/\\s+/);\n  const words2 = s2.split(/\\s+/);\n  let matches = 0;\n  for (const w1 of words1) {\n    if (w1.length > 2 && words2.some(w2 => w2.includes(w1) || w1.includes(w2))) {\n      matches++;\n    }\n  }\n  return matches / Math.max(words1.length, 1);\n}\n\n// Find best matching category\nlet bestMatch = null;\nlet bestScore = 0;\nlet matchedLineId = null;\n\nconst categoryGuess = extracted.constructionCategory || '';\nconst vendorName = extracted.vendorName || '';\n\n// Try to match by category name and line item descriptions\nfor (const budget of budgetCategories) {\n  const catScore = similarity(categoryGuess, budget.category);\n  const nahbScore = budget.nahbCategory ? similarity(categoryGuess, budget.nahbCategory) * 0.8 : 0;\n  const vendorScore = similarity(vendorName, budget.category) * 0.5;\n  \n  const score = Math.max(catScore, nahbScore, vendorScore);\n  \n  if (score > bestScore) {\n    bestScore = score;\n    bestMatch = budget;\n  }\n}\n\n// Try to match to draw lines\nif (bestMatch) {\n  const matchingLine = drawLines.find(line => \n    line.budgetId === bestMatch.id ||\n    normalize(line.budgetCategory || '') === normalize(bestMatch.category)\n  );\n  if (matchingLine) {\n    matchedLineId = matchingLine.id;\n  }\n}\n\n// Generate flags\nconst flags = [];\nif (bestScore < 0.7) flags.push('LOW_CONFIDENCE');\nif (!extracted.vendorName) flags.push('MISSING_VENDOR');\nif (!extracted.totalAmount || extracted.totalAmount === 0) flags.push('MISSING_AMOUNT');\nif (!matchedLineId) flags.push('NO_DRAW_LINE');\n\n// Calculate final confidence (adjust based on data quality)\nlet confidence = bestScore;\nif (!extracted.vendorName) confidence *= 0.8;\nif (!extracted.totalAmount) confidence *= 0.7;\n\nreturn [{\n  json: {\n    invoiceId: webhookData.invoiceId,\n    success: true,\n    extractedData: {\n      vendorName: extracted.vendorName || 'Unknown Vendor',\n      invoiceNumber: extracted.invoiceNumber,\n      invoiceDate: extracted.invoiceDate,\n      amount: extracted.totalAmount || 0,\n      lineItems: extracted.lineItems\n    },\n    matching: {\n      matchedCategory: bestMatch?.category || null,\n      matchedNahbCode: bestMatch?.nahbCategory || null,\n      matchedDrawLineId: matchedLineId,\n      confidenceScore: Math.round(confidence * 100) / 100,\n      flags: flags\n    }\n  }\n}];"
+      },
+      "id": "match-categories",
+      "name": "Match to Categories",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TD3_API_URL || 'http://localhost:3000' }}/api/invoices/process-callback",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "callback-success",
+      "name": "Send Result to TD3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ received: true, invoiceId: $('Webhook').first().json.invoiceId }) }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1320, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TD3_API_URL || 'http://localhost:3000' }}/api/invoices/process-callback",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ invoiceId: $('Webhook').first().json.invoiceId, success: false, error: $json.message || 'Processing failed' }) }}"
+      },
+      "id": "callback-error",
+      "name": "Send Error to TD3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 500]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Download Invoice File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Invoice File": {
+      "main": [
+        [
+          {
+            "node": "Extract Invoice Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Invoice Data": {
+      "main": [
+        [
+          {
+            "node": "Match to Categories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match to Categories": {
+      "main": [
+        [
+          {
+            "node": "Send Result to TD3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Result to TD3": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "TD3",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}
+
