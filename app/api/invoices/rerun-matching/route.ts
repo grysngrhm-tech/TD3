@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       .from('invoices')
       .update({ 
         status: 'pending', 
-        flags: 'PROCESSING',
+        flags: JSON.stringify({ status_detail: 'processing' }),
         confidence_score: null,
         matched_to_category: null,
         matched_to_nahb_code: null
@@ -96,19 +96,37 @@ export async function POST(request: NextRequest) {
       try {
         // Generate signed URL for the invoice file
         let fileUrl = invoice.file_url
+        
         if (invoice.file_path) {
-          const { data: signedUrlData } = await supabaseAdmin.storage
+          const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
             .from('documents')
             .createSignedUrl(invoice.file_path, 3600) // 1 hour expiry
           
-          if (signedUrlData?.signedUrl) {
+          if (signedUrlError) {
+            console.error(`Error generating signed URL for invoice ${invoice.id}:`, signedUrlError)
+          } else if (signedUrlData?.signedUrl) {
             fileUrl = signedUrlData.signedUrl
           }
         }
         
+        // Skip invoices without valid file URLs
+        if (!fileUrl) {
+          console.warn(`Invoice ${invoice.id} has no valid file URL, skipping`)
+          // Update invoice with error status
+          await supabaseAdmin
+            .from('invoices')
+            .update({ 
+              status: 'rejected',
+              flags: JSON.stringify({ status_detail: 'error', error: 'No file URL available' })
+            })
+            .eq('id', invoice.id)
+          errorCount++
+          continue
+        }
+        
         const payload: InvoiceProcessPayload = {
           invoiceId: invoice.id,
-          fileUrl: fileUrl || '',
+          fileUrl,
           fileName: invoice.file_path?.split('/').pop() || 'invoice.pdf',
           drawRequestId,
           projectId,
@@ -116,6 +134,8 @@ export async function POST(request: NextRequest) {
           budgetCategories,
           drawLines: formattedDrawLines
         }
+        
+        console.log(`Triggering processing for invoice ${invoice.id} with fileUrl: ${fileUrl.substring(0, 50)}...`)
         
         // Fire and forget - trigger processing
         triggerInvoiceProcess(payload).then(result => {

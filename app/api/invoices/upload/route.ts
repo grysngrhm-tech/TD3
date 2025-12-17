@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
             file_path: filePath,
             file_url: fileUrlForStorage,
             status: 'pending',
-            flags: 'PROCESSING'
+            flags: JSON.stringify({ status_detail: 'processing' })
           })
           .select()
           .single()
