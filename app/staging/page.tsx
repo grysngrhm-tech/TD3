@@ -426,175 +426,225 @@ function StagingDashboardContent() {
           />
 
           {/* Content Sections */}
-          <div className="space-y-6">
-            {/* Pending Review Section */}
-            {(selectedStatus === 'all' || selectedStatus === 'review') && (
+          <div className="space-y-4">
+            {/* Pending Wire Confirmation - Full Width at Top */}
+            {(selectedStatus === 'all' || selectedStatus === 'pending_wire') && (
               <motion.div 
+                layout
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 className="card overflow-hidden"
               >
-                <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                    <span className="w-2 h-2 rounded-full" style={{ background: 'var(--accent)' }}></span>
-                    Pending Review
-                    {filteredPendingReview.length > 0 && (
-                      <span className="text-sm px-2 py-0.5 rounded" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
-                        {filteredPendingReview.length}
-                      </span>
-                    )}
-                  </h3>
-                </div>
-
-                {filteredPendingReview.length === 0 ? (
-                  <div className="p-8 text-center" style={{ color: 'var(--text-muted)' }}>
-                    No draws pending review
-                  </div>
-                ) : (
-                  <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                    {filteredPendingReview.map(draw => (
-                      <a
-                        key={draw.id}
-                        href={`/draws/${draw.id}`}
-                        className="flex items-center justify-between p-4 hover:opacity-80 transition-opacity"
-                        style={{ background: 'transparent' }}
-                      >
-                        <div>
-                          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                            Draw #{draw.draw_number}
-                          </span>
-                          <span className="mx-2" style={{ color: 'var(--text-muted)' }}>—</span>
-                          <span style={{ color: 'var(--text-secondary)' }}>
-                            {draw.project?.builder?.company_name || 'No Builder'}
-                          </span>
-                          <span className="mx-2" style={{ color: 'var(--text-muted)' }}>—</span>
-                          <span style={{ color: 'var(--text-muted)' }}>
-                            {draw.project?.project_code || draw.project?.name}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold" style={{ color: 'var(--text-primary)' }}>
-                            {formatCurrency(draw.total_amount)}
-                          </span>
-                          <svg className="w-5 h-5" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </div>
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </motion.div>
-            )}
-
-            {/* Staged by Builder Section */}
-            {(selectedStatus === 'all' || selectedStatus === 'staged') && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="card overflow-hidden"
-              >
-                <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                    <span className="w-2 h-2 rounded-full" style={{ background: 'var(--success)' }}></span>
-                    Staged by Builder
-                  </h3>
-                </div>
-
-                {filteredStagedByBuilder.length === 0 ? (
-                  <div className="p-8 text-center" style={{ color: 'var(--text-muted)' }}>
-                    No draws staged for funding
-                  </div>
-                ) : (
-                  <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                    {filteredStagedByBuilder.map(builder => (
-                      <div key={builder.id} className="p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <a
-                            href={`/builders/${builder.id}`}
-                            className="font-semibold hover:underline"
-                            style={{ color: 'var(--text-primary)' }}
-                          >
-                            {builder.company_name}
-                          </a>
-                          <div className="flex items-center gap-3">
-                            <span className="font-bold" style={{ color: 'var(--success)' }}>
-                              {formatCurrency(builder.totalAmount)}
-                            </span>
-                            <a
-                              href={`/builders/${builder.id}`}
-                              className="btn-secondary text-sm"
-                            >
-                              Fund All →
-                            </a>
-                          </div>
-                        </div>
-                        <div className="space-y-1 text-sm">
-                          {builder.stagedDraws.map(draw => (
-                            <div key={draw.id} className="flex justify-between" style={{ color: 'var(--text-muted)' }}>
-                              <span>{draw.project?.project_code || draw.project?.name} - Draw #{draw.draw_number}</span>
-                              <span>{formatCurrency(draw.total_amount)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </motion.div>
-            )}
-
-            {/* Pending Wire Batches Section */}
-            {(selectedStatus === 'all' || selectedStatus === 'pending_wire') && filteredPendingWireBatches.length > 0 && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="card overflow-hidden"
-              >
-                <div 
-                  className="px-4 py-3 border-b"
-                  style={{ borderColor: 'var(--border-subtle)', background: 'rgba(245, 158, 11, 0.1)' }}
-                >
-                  <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--warning)' }}>
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                {filteredPendingWireBatches.length === 0 ? (
+                  // Collapsed empty state
+                  <div 
+                    className="px-4 py-2.5 flex items-center gap-2"
+                    style={{ background: 'var(--bg-secondary)' }}
+                  >
+                    <svg className="w-4 h-4" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Pending Wire Confirmation
-                    <span className="text-sm px-2 py-0.5 rounded" style={{ background: 'rgba(245, 158, 11, 0.2)' }}>
-                      {filteredPendingWireBatches.length}
-                    </span>
-                  </h3>
-                </div>
-
-                <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                  {filteredPendingWireBatches.map(batch => (
-                    <button
-                      key={batch.id}
-                      onClick={() => setSelectedBatch(batch)}
-                      className="w-full p-4 text-left hover:opacity-80 transition-opacity"
-                      style={{ 
-                        background: batch.id === highlightedBatchId ? 'rgba(245, 158, 11, 0.1)' : 'transparent'
-                      }}
+                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>No pending wire confirmations</span>
+                  </div>
+                ) : (
+                  // Expanded state with content
+                  <>
+                    <div 
+                      className="px-4 py-3 border-b"
+                      style={{ borderColor: 'var(--border-subtle)', background: 'rgba(245, 158, 11, 0.1)' }}
                     >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                            {batch.builder?.company_name}
-                          </p>
-                          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                            {batch.draws?.length || 0} draw{(batch.draws?.length || 0) !== 1 ? 's' : ''} • {formatTimeAgo(batch.submitted_at || batch.created_at || '')}
-                          </p>
-                        </div>
-                        <span className="font-bold" style={{ color: 'var(--warning)' }}>
-                          {formatCurrency(batch.total_amount)}
+                      <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--warning)' }}>
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Pending Wire Confirmation
+                        <span className="text-sm px-2 py-0.5 rounded" style={{ background: 'rgba(245, 158, 11, 0.2)' }}>
+                          {filteredPendingWireBatches.length}
                         </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                      </h3>
+                    </div>
+
+                    <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                      {filteredPendingWireBatches.map(batch => (
+                        <button
+                          key={batch.id}
+                          onClick={() => setSelectedBatch(batch)}
+                          className="w-full p-4 text-left hover:opacity-80 transition-opacity"
+                          style={{ 
+                            background: batch.id === highlightedBatchId ? 'rgba(245, 158, 11, 0.1)' : 'transparent'
+                          }}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                {batch.builder?.company_name}
+                              </p>
+                              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                                {batch.draws?.length || 0} draw{(batch.draws?.length || 0) !== 1 ? 's' : ''} • {formatTimeAgo(batch.submitted_at || batch.created_at || '')}
+                              </p>
+                            </div>
+                            <span className="font-bold" style={{ color: 'var(--warning)' }}>
+                              {formatCurrency(batch.total_amount)}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </motion.div>
+            )}
+
+            {/* Side-by-Side Container: Pending Review + Staged by Builder */}
+            {(selectedStatus === 'all' || selectedStatus === 'review' || selectedStatus === 'staged') && (
+              <div className="flex gap-4">
+                {/* Pending Review Section - Left */}
+                {(selectedStatus === 'all' || selectedStatus === 'review') && (
+                  <motion.div 
+                    layout
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 30, delay: 0.05 }}
+                    className={`card overflow-hidden ${
+                      filteredPendingReview.length > 0 && filteredStagedByBuilder.length === 0 
+                        ? 'flex-[2]' 
+                        : filteredPendingReview.length === 0 && filteredStagedByBuilder.length > 0 
+                          ? 'flex-1' 
+                          : 'flex-1'
+                    }`}
+                    style={{ minWidth: filteredPendingReview.length > 0 ? 400 : 200 }}
+                  >
+                    <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-subtle)' }}>
+                      <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                        <span className="w-2 h-2 rounded-full" style={{ background: 'var(--accent)' }}></span>
+                        Pending Review
+                        {filteredPendingReview.length > 0 && (
+                          <span className="text-sm px-2 py-0.5 rounded" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                            {filteredPendingReview.length}
+                          </span>
+                        )}
+                      </h3>
+                    </div>
+
+                    {filteredPendingReview.length === 0 ? (
+                      <div className="px-4 py-4 flex items-center justify-center gap-2" style={{ color: 'var(--text-muted)' }}>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-sm">No draws pending review</span>
+                      </div>
+                    ) : (
+                      <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                        {filteredPendingReview.map(draw => (
+                          <a
+                            key={draw.id}
+                            href={`/draws/${draw.id}`}
+                            className="flex items-center justify-between p-4 hover:opacity-80 transition-opacity"
+                            style={{ background: 'transparent' }}
+                          >
+                            <div>
+                              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                                Draw #{draw.draw_number}
+                              </span>
+                              <span className="mx-2" style={{ color: 'var(--text-muted)' }}>—</span>
+                              <span style={{ color: 'var(--text-secondary)' }}>
+                                {draw.project?.builder?.company_name || 'No Builder'}
+                              </span>
+                              <span className="mx-2" style={{ color: 'var(--text-muted)' }}>—</span>
+                              <span style={{ color: 'var(--text-muted)' }}>
+                                {draw.project?.project_code || draw.project?.name}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                                {formatCurrency(draw.total_amount)}
+                              </span>
+                              <svg className="w-5 h-5" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* Staged by Builder Section - Right */}
+                {(selectedStatus === 'all' || selectedStatus === 'staged') && (
+                  <motion.div 
+                    layout
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 30, delay: 0.1 }}
+                    className={`card overflow-hidden ${
+                      filteredStagedByBuilder.length > 0 && filteredPendingReview.length === 0 
+                        ? 'flex-[2]' 
+                        : filteredStagedByBuilder.length === 0 && filteredPendingReview.length > 0 
+                          ? 'flex-1' 
+                          : 'flex-1'
+                    }`}
+                    style={{ minWidth: filteredStagedByBuilder.length > 0 ? 400 : 200 }}
+                  >
+                    <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-subtle)' }}>
+                      <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                        <span className="w-2 h-2 rounded-full" style={{ background: 'var(--success)' }}></span>
+                        Staged by Builder
+                        {filteredStagedByBuilder.length > 0 && (
+                          <span className="text-sm px-2 py-0.5 rounded" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                            {filteredStagedByBuilder.reduce((sum, b) => sum + b.stagedDraws.length, 0)}
+                          </span>
+                        )}
+                      </h3>
+                    </div>
+
+                    {filteredStagedByBuilder.length === 0 ? (
+                      <div className="px-4 py-4 flex items-center justify-center gap-2" style={{ color: 'var(--text-muted)' }}>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                        </svg>
+                        <span className="text-sm">No draws staged for funding</span>
+                      </div>
+                    ) : (
+                      <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                        {filteredStagedByBuilder.map(builder => (
+                          <div key={builder.id} className="p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <a
+                                href={`/builders/${builder.id}`}
+                                className="font-semibold hover:underline"
+                                style={{ color: 'var(--text-primary)' }}
+                              >
+                                {builder.company_name}
+                              </a>
+                              <div className="flex items-center gap-3">
+                                <span className="font-bold" style={{ color: 'var(--success)' }}>
+                                  {formatCurrency(builder.totalAmount)}
+                                </span>
+                                <a
+                                  href={`/builders/${builder.id}`}
+                                  className="btn-secondary text-sm"
+                                >
+                                  Fund All →
+                                </a>
+                              </div>
+                            </div>
+                            <div className="space-y-1 text-sm">
+                              {builder.stagedDraws.map(draw => (
+                                <div key={draw.id} className="flex justify-between" style={{ color: 'var(--text-muted)' }}>
+                                  <span>{draw.project?.project_code || draw.project?.name} - Draw #{draw.draw_number}</span>
+                                  <span>{formatCurrency(draw.total_amount)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </div>
             )}
           </div>
         </div>
