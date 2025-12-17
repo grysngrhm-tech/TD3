@@ -44,7 +44,7 @@ export function BuilderTimeline({
   onRefresh 
 }: BuilderTimelineProps) {
   const [viewMode, setViewMode] = useState<TimelineViewMode>('gantt')
-  const [showOnlyActive, setShowOnlyActive] = useState(true) // Hide empty projects by default
+  const [showOnlyFunded, setShowOnlyFunded] = useState(true) // Show only loans with draws/staged by default
   const [selectedDraw, setSelectedDraw] = useState<DrawRequest | null>(null)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [focusedDrawIndex, setFocusedDrawIndex] = useState<number>(-1)
@@ -66,19 +66,24 @@ export function BuilderTimeline({
     return map
   }, [stagedDraws])
 
-  // Filter projects based on showOnlyActive
+  // First: Only show active lifecycle stage loans (never pending or historic)
+  const activeProjects = useMemo(() => {
+    return projects.filter(project => project.lifecycle_stage === 'active')
+  }, [projects])
+
+  // Then: Filter based on showOnlyFunded checkbox
   const filteredProjects = useMemo(() => {
-    if (!showOnlyActive) return projects
+    if (!showOnlyFunded) return activeProjects
     
-    return projects.filter(project => {
+    return activeProjects.filter(project => {
       const hasFundedDraws = project.draws.some(d => d.status === 'funded')
       const hasStagedDraws = (stagedDrawsByProject.get(project.id) || []).length > 0
       return hasFundedDraws || hasStagedDraws
     })
-  }, [projects, showOnlyActive, stagedDrawsByProject])
+  }, [activeProjects, showOnlyFunded, stagedDrawsByProject])
 
-  // Count how many projects are hidden
-  const hiddenProjectsCount = projects.length - filteredProjects.length
+  // Count how many active projects are hidden by the funded filter
+  const hiddenProjectsCount = activeProjects.length - filteredProjects.length
 
   // Flatten all draws for keyboard navigation
   const allDrawsFlat = useMemo(() => {
@@ -200,25 +205,29 @@ export function BuilderTimeline({
     setSelectedProject(null)
   }, [])
 
-  // Calculate totals (from all projects, not just filtered)
+  // Calculate totals (from active projects only)
   const totals = useMemo(() => {
     let totalBudget = 0
     let totalDrawn = 0
     let totalStaged = 0
 
-    projects.forEach(project => {
+    activeProjects.forEach(project => {
       totalBudget += project.loan_amount || 0
       totalDrawn += project.total_spent || 0
     })
 
+    // Only count staged draws for active projects
     stagedDraws.forEach(draw => {
-      totalStaged += draw.total_amount || 0
+      const project = activeProjects.find(p => p.id === draw.project_id)
+      if (project) {
+        totalStaged += draw.total_amount || 0
+      }
     })
 
     return { totalBudget, totalDrawn, totalStaged }
-  }, [projects, stagedDraws])
+  }, [activeProjects, stagedDraws])
 
-  const hasData = projects.length > 0
+  const hasActiveLoans = activeProjects.length > 0
   const hasFilteredData = filteredProjects.length > 0
 
   return (
@@ -234,7 +243,7 @@ export function BuilderTimeline({
             style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
           >
             {filteredProjects.length} loan{filteredProjects.length !== 1 ? 's' : ''}
-            {hiddenProjectsCount > 0 && showOnlyActive && (
+            {hiddenProjectsCount > 0 && showOnlyFunded && (
               <span className="ml-1 opacity-70">({hiddenProjectsCount} hidden)</span>
             )}
           </span>
@@ -245,8 +254,8 @@ export function BuilderTimeline({
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox"
-              checked={showOnlyActive}
-              onChange={(e) => setShowOnlyActive(e.target.checked)}
+              checked={showOnlyFunded}
+              onChange={(e) => setShowOnlyFunded(e.target.checked)}
               className="w-4 h-4 rounded border-2 accent-[var(--accent)] cursor-pointer"
               style={{ 
                 borderColor: 'var(--border)',
@@ -254,7 +263,7 @@ export function BuilderTimeline({
               }}
             />
             <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-              Show only active
+              Show only funded
             </span>
           </label>
 
@@ -301,7 +310,7 @@ export function BuilderTimeline({
       </div>
 
       {/* Timeline Content */}
-      {!hasData ? (
+      {!hasActiveLoans ? (
         <div className="card-ios text-center py-8">
           <div
             className="w-10 h-10 rounded-full mx-auto mb-3 flex items-center justify-center"
@@ -323,10 +332,10 @@ export function BuilderTimeline({
             </svg>
           </div>
           <p className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
-            No loans yet
+            No active loans
           </p>
           <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-            Create a loan to see the timeline
+            Activate a loan to see it in the timeline
           </p>
         </div>
       ) : !hasFilteredData ? (
@@ -351,10 +360,10 @@ export function BuilderTimeline({
             </svg>
           </div>
           <p className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
-            No active loans with draws
+            No loans with draw history
           </p>
           <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-            Uncheck "Show only active" to see all {projects.length} loans
+            Uncheck "Show only funded" to see all {activeProjects.length} active loans
           </p>
         </div>
       ) : (
@@ -400,7 +409,7 @@ export function BuilderTimeline({
       )}
 
       {/* Compact Summary Footer */}
-      {hasData && (
+      {hasActiveLoans && (
         <motion.div 
           className="flex items-center justify-between py-2 px-3 rounded-lg text-xs"
           style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
