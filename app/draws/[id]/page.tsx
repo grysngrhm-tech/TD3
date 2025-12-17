@@ -440,13 +440,8 @@ export default function DrawDetailPage() {
         }
       })
       
-      const webhookUrl = process.env.NEXT_PUBLIC_N8N_DRAW_WEBHOOK
-      if (!webhookUrl) {
-        setActionError('Invoice matching webhook not configured')
-        return
-      }
-      
-      const response = await fetch(webhookUrl, {
+      // Call server-side API to avoid CORS issues with n8n
+      const response = await fetch('/api/invoices/rerun-matching', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
