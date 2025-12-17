@@ -54,6 +54,7 @@ export type InvoiceProcessPayload = {
   drawRequestId: string
   projectId: string
   projectCode: string | null
+  callbackUrl: string  // TD3 callback URL for n8n to send results to
   budgetCategories: Array<{
     id: string
     category: string
