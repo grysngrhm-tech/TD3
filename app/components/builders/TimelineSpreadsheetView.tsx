@@ -19,15 +19,36 @@ type TimelineSpreadsheetViewProps = {
   onDrawClick: (draw: DrawRequest, project: Project) => void
 }
 
+// Generate month columns from date range
+function generateMonthColumns(allFundDates: string[]): { key: string; label: string }[] {
+  if (allFundDates.length === 0) return []
+  
+  const minDate = new Date(allFundDates[0])
+  const maxDate = new Date(allFundDates[allFundDates.length - 1])
+  
+  const months: { key: string; label: string }[] = []
+  const current = new Date(minDate.getFullYear(), minDate.getMonth(), 1)
+  const end = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0)
+  
+  while (current <= end) {
+    months.push({
+      key: `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`,
+      label: current.toLocaleDateString('en-US', { month: 'short', day: undefined })
+    })
+    current.setMonth(current.getMonth() + 1)
+  }
+  
+  return months
+}
+
 /**
- * TimelineSpreadsheetView - Legacy Excel-style table view
+ * TimelineSpreadsheetView - Compact spreadsheet-style view
  * 
  * Features:
- * - Traditional spreadsheet layout matching legacy Excel
+ * - Month-based columns
  * - Grouped by lender sections
- * - Fixed left column with project names
- * - Date columns with draw amounts
- * - Totals row and column
+ * - Compact rows with minimal padding
+ * - Fixed project column on left
  */
 export function TimelineSpreadsheetView({
   projectsByLender,
@@ -37,18 +58,45 @@ export function TimelineSpreadsheetView({
 }: TimelineSpreadsheetViewProps) {
   const router = useRouter()
   const [collapsedLenders, setCollapsedLenders] = useState<Set<string>>(new Set())
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => {
+    // Auto-expand projects with draws
+    const expanded = new Set<string>()
+    projectsByLender.forEach(group => {
+      group.projects.forEach(project => {
+        const hasFundedDraws = project.draws.some(d => d.status === 'funded')
+        const hasStagedDraws = (stagedDrawsByProject.get(project.id) || []).length > 0
+        if (hasFundedDraws || hasStagedDraws) {
+          expanded.add(project.id)
+        }
+      })
+    })
+    return expanded
+  })
 
   const toggleLenderCollapse = useCallback((lenderId: string) => {
     setCollapsedLenders(prev => {
       const next = new Set(prev)
-      if (next.has(lenderId)) {
-        next.delete(lenderId)
-      } else {
-        next.add(lenderId)
-      }
+      if (next.has(lenderId)) next.delete(lenderId)
+      else next.add(lenderId)
       return next
     })
   }, [])
+
+  const toggleProjectExpand = useCallback((projectId: string) => {
+    setExpandedProjects(prev => {
+      const next = new Set(prev)
+      if (next.has(projectId)) next.delete(projectId)
+      else next.add(projectId)
+      return next
+    })
+  }, [])
+
+  const formatShortCurrency = (amount: number) => {
+    if (amount === 0) return ''
+    if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`
+    if (amount >= 1000) return `$${Math.round(amount / 1000)}k`
+    return `$${amount}`
+  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -59,156 +107,144 @@ export function TimelineSpreadsheetView({
     }).format(amount)
   }
 
-  const formatShortCurrency = (amount: number) => {
-    if (amount === 0) return ''
-    if (amount >= 1000000) {
-      return `$${(amount / 1000000).toFixed(1)}M`
-    }
-    if (amount >= 1000) {
-      return `$${(amount / 1000).toFixed(0)}k`
-    }
-    return `$${amount}`
-  }
+  // Generate month columns
+  const monthColumns = useMemo(() => generateMonthColumns(allFundDates), [allFundDates])
 
-  const formatColumnDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })
-  }
-
-  // Get draws for a specific date and project
-  const getDrawsForDateAndProject = useCallback((project: ProjectWithDraws, dateStr: string) => {
+  // Get draws for a specific month and project
+  const getDrawsForMonth = useCallback((project: ProjectWithDraws, monthKey: string) => {
     return project.draws.filter(draw => {
       if (draw.status !== 'funded' || !draw.funded_at) return false
-      const fundDate = new Date(draw.funded_at).toISOString().split('T')[0]
-      return fundDate === dateStr
+      const fundDate = new Date(draw.funded_at)
+      const drawMonthKey = `${fundDate.getFullYear()}-${String(fundDate.getMonth() + 1).padStart(2, '0')}`
+      return drawMonthKey === monthKey
     })
   }, [])
 
   // Calculate grand totals
   const grandTotals = useMemo(() => {
-    const byDate = new Map<string, number>()
+    const byMonth = new Map<string, number>()
     let total = 0
     let budget = 0
-    let amortization = 0
 
-    allFundDates.forEach(date => byDate.set(date, 0))
+    monthColumns.forEach(m => byMonth.set(m.key, 0))
 
     projectsByLender.forEach(group => {
       group.projects.forEach(project => {
         budget += project.loan_amount || 0
-        amortization += project.loan_amount || 0 // Simplified - would need actual amortization calc
         
         project.draws.forEach(draw => {
           if (draw.status === 'funded' && draw.funded_at) {
-            const dateStr = new Date(draw.funded_at).toISOString().split('T')[0]
+            const fundDate = new Date(draw.funded_at)
+            const monthKey = `${fundDate.getFullYear()}-${String(fundDate.getMonth() + 1).padStart(2, '0')}`
             total += draw.total_amount
-            const current = byDate.get(dateStr) || 0
-            byDate.set(dateStr, current + draw.total_amount)
+            const current = byMonth.get(monthKey) || 0
+            byMonth.set(monthKey, current + draw.total_amount)
           }
         })
       })
     })
 
-    return { byDate, total, budget, amortization }
-  }, [projectsByLender, allFundDates])
+    return { byMonth, total, budget }
+  }, [projectsByLender, monthColumns])
+
+  const rowHeight = 32
+  const headerHeight = 28
+  const colWidth = 80
 
   return (
     <div className="card-ios overflow-hidden">
       <div className="overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
-        <table className="w-full border-collapse" style={{ minWidth: 800 + allFundDates.length * 100 }}>
+        <table className="w-full border-collapse text-xs" style={{ minWidth: 400 + monthColumns.length * colWidth }}>
           <thead>
             <tr style={{ background: 'var(--bg-secondary)' }}>
               <th 
-                className="sticky left-0 z-10 px-4 py-3 text-left text-xs font-semibold border-b border-r"
+                className="sticky left-0 z-20 px-3 text-left font-semibold border-b border-r"
                 style={{ 
+                  height: headerHeight,
                   background: 'var(--bg-secondary)',
                   borderColor: 'var(--border-subtle)',
                   color: 'var(--text-muted)',
-                  minWidth: 180
+                  minWidth: 140
                 }}
               >
                 Project
               </th>
               <th 
-                className="sticky left-[180px] z-10 px-3 py-3 text-center text-xs font-semibold border-b border-r"
+                className="sticky left-[140px] z-20 px-2 text-center font-semibold border-b border-r"
                 style={{ 
+                  height: headerHeight,
                   background: 'var(--bg-secondary)',
                   borderColor: 'var(--border-subtle)',
                   color: 'var(--text-muted)',
-                  minWidth: 70
+                  width: 60
                 }}
               >
-                Draw
+                Staged
               </th>
-              {allFundDates.map(dateStr => (
+              {monthColumns.map(month => (
                 <th 
-                  key={dateStr}
-                  className="px-2 py-3 text-center text-xs font-medium border-b"
+                  key={month.key}
+                  className="px-2 text-center font-medium border-b"
                   style={{ 
+                    height: headerHeight,
                     borderColor: 'var(--border-subtle)',
                     color: 'var(--text-muted)',
-                    minWidth: 100
+                    width: colWidth
                   }}
                 >
-                  {formatColumnDate(dateStr)}
+                  {month.label}
                 </th>
               ))}
               <th 
-                className="px-3 py-3 text-center text-xs font-semibold border-b border-l"
+                className="px-2 text-center font-semibold border-b border-l"
                 style={{ 
+                  height: headerHeight,
                   borderColor: 'var(--border-subtle)',
                   color: 'var(--text-muted)',
-                  minWidth: 100
+                  width: colWidth
                 }}
               >
-                Totals
+                Total
               </th>
               <th 
-                className="px-3 py-3 text-center text-xs font-semibold border-b"
+                className="px-2 text-center font-semibold border-b"
                 style={{ 
+                  height: headerHeight,
                   borderColor: 'var(--border-subtle)',
                   color: 'var(--text-muted)',
-                  minWidth: 100
+                  width: colWidth
                 }}
               >
                 Budget
-              </th>
-              <th 
-                className="px-3 py-3 text-center text-xs font-semibold border-b"
-                style={{ 
-                  borderColor: 'var(--border-subtle)',
-                  color: 'var(--text-muted)',
-                  minWidth: 100
-                }}
-              >
-                Amortization
               </th>
             </tr>
           </thead>
           <tbody>
             {projectsByLender.map((group, groupIndex) => {
-              const isCollapsed = collapsedLenders.has(group.lenderId)
+              const isLenderCollapsed = collapsedLenders.has(group.lenderId)
               
               // Calculate lender totals
               const lenderTotals = {
-                byDate: new Map<string, number>(),
+                byMonth: new Map<string, number>(),
                 total: 0,
                 budget: 0,
-                amortization: 0
+                staged: 0
               }
               
-              allFundDates.forEach(date => lenderTotals.byDate.set(date, 0))
+              monthColumns.forEach(m => lenderTotals.byMonth.set(m.key, 0))
               
               group.projects.forEach(project => {
                 lenderTotals.budget += project.loan_amount || 0
-                lenderTotals.amortization += project.loan_amount || 0
+                const stagedDraws = stagedDrawsByProject.get(project.id) || []
+                stagedDraws.forEach(d => lenderTotals.staged += d.total_amount || 0)
                 
                 project.draws.forEach(draw => {
                   if (draw.status === 'funded' && draw.funded_at) {
-                    const dateStr = new Date(draw.funded_at).toISOString().split('T')[0]
+                    const fundDate = new Date(draw.funded_at)
+                    const monthKey = `${fundDate.getFullYear()}-${String(fundDate.getMonth() + 1).padStart(2, '0')}`
                     lenderTotals.total += draw.total_amount
-                    const current = lenderTotals.byDate.get(dateStr) || 0
-                    lenderTotals.byDate.set(dateStr, current + draw.total_amount)
+                    const current = lenderTotals.byMonth.get(monthKey) || 0
+                    lenderTotals.byMonth.set(monthKey, current + draw.total_amount)
                   }
                 })
               })
@@ -218,26 +254,24 @@ export function TimelineSpreadsheetView({
                   key={group.lenderId}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ delay: groupIndex * 0.1 }}
+                  transition={{ delay: groupIndex * 0.05 }}
                 >
                   {/* Lender Header Row */}
                   <tr>
-                    <td 
-                      colSpan={3 + allFundDates.length + 3}
-                      className="px-0 py-0"
-                    >
+                    <td colSpan={4 + monthColumns.length}>
                       <button
                         onClick={() => toggleLenderCollapse(group.lenderId)}
-                        className="w-full px-4 py-2 flex items-center gap-2 text-left font-semibold border-b transition-colors hover:opacity-80"
+                        className="w-full px-3 flex items-center gap-2 text-left font-semibold border-b transition-colors hover:opacity-80"
                         style={{ 
+                          height: rowHeight,
                           background: 'var(--bg-card)',
                           borderColor: 'var(--border)',
                           color: 'var(--text-primary)'
                         }}
                       >
                         <motion.svg
-                          animate={{ rotate: isCollapsed ? -90 : 0 }}
-                          className="w-4 h-4"
+                          animate={{ rotate: isLenderCollapsed ? -90 : 0 }}
+                          className="w-3 h-3"
                           style={{ color: 'var(--text-muted)' }}
                           fill="none"
                           viewBox="0 0 24 24"
@@ -245,85 +279,106 @@ export function TimelineSpreadsheetView({
                         >
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </motion.svg>
-                        {group.lender?.name || 'No Lender Assigned'}
+                        <span>{group.lender?.name || 'No Lender Assigned'}</span>
+                        <span className="text-[10px] font-normal" style={{ color: 'var(--text-muted)' }}>
+                          ({group.projects.length} loan{group.projects.length !== 1 ? 's' : ''})
+                        </span>
                       </button>
                     </td>
                   </tr>
 
                   {/* Project Rows */}
                   <AnimatePresence>
-                    {!isCollapsed && group.projects.map((project, projectIndex) => {
-                      const projectTotal = project.total_spent || 0
+                    {!isLenderCollapsed && group.projects.map((project, projectIndex) => {
                       const stagedDraws = stagedDrawsByProject.get(project.id) || []
+                      const stagedTotal = stagedDraws.reduce((sum, d) => sum + d.total_amount, 0)
+                      const projectTotal = project.total_spent || 0
+                      const hasFundedDraws = project.draws.some(d => d.status === 'funded')
+                      const isExpanded = expandedProjects.has(project.id)
                       
                       return (
                         <motion.tr
                           key={project.id}
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="hover:opacity-90 transition-opacity"
-                          style={{ background: projectIndex % 2 === 0 ? 'transparent' : 'var(--bg-secondary)' }}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          style={{ 
+                            height: rowHeight,
+                            background: projectIndex % 2 === 0 ? 'transparent' : 'var(--bg-secondary)' 
+                          }}
                         >
-                          {/* Project Name - Fixed */}
+                          {/* Project Name */}
                           <td 
-                            className="sticky left-0 z-10 px-4 py-2 border-b border-r"
+                            className="sticky left-0 z-10 px-3 border-b border-r"
                             style={{ 
                               background: projectIndex % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)',
                               borderColor: 'var(--border-subtle)'
                             }}
                           >
-                            <button
-                              onClick={() => router.push(`/projects/${project.id}`)}
-                              className="text-sm font-medium hover:underline text-left"
-                              style={{ color: 'var(--text-primary)' }}
-                            >
-                              {project.project_code || project.name}
-                            </button>
-                          </td>
-
-                          {/* Draw Number / Staged Indicator */}
-                          <td 
-                            className="sticky left-[180px] z-10 px-3 py-2 text-center border-b border-r"
-                            style={{ 
-                              background: projectIndex % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)',
-                              borderColor: 'var(--border-subtle)'
-                            }}
-                          >
-                            {stagedDraws.length > 0 ? (
-                              <span 
-                                className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-semibold animate-pulse"
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => hasFundedDraws && toggleProjectExpand(project.id)}
+                                className="w-3 h-3 flex items-center justify-center"
                                 style={{ 
-                                  background: 'rgba(245, 158, 11, 0.15)',
-                                  color: 'var(--warning)'
+                                  color: hasFundedDraws ? 'var(--text-muted)' : 'transparent',
+                                  cursor: hasFundedDraws ? 'pointer' : 'default'
                                 }}
                               >
-                                {stagedDraws.length}
-                              </span>
-                            ) : (
-                              <span style={{ color: 'var(--text-muted)' }}>—</span>
-                            )}
+                                {hasFundedDraws && (
+                                  <motion.svg 
+                                    animate={{ rotate: isExpanded ? 0 : -90 }}
+                                    className="w-2.5 h-2.5" 
+                                    fill="none" 
+                                    viewBox="0 0 24 24" 
+                                    stroke="currentColor"
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </motion.svg>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => router.push(`/projects/${project.id}`)}
+                                className="font-medium hover:underline text-left truncate"
+                                style={{ color: 'var(--text-primary)' }}
+                              >
+                                {project.project_code || project.name}
+                              </button>
+                            </div>
                           </td>
 
-                          {/* Date Columns */}
-                          {allFundDates.map(dateStr => {
-                            const draws = getDrawsForDateAndProject(project, dateStr)
-                            const dateTotal = draws.reduce((sum, d) => sum + d.total_amount, 0)
+                          {/* Staged */}
+                          <td 
+                            className="sticky left-[140px] z-10 px-2 text-center border-b border-r"
+                            style={{ 
+                              background: projectIndex % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)',
+                              borderColor: 'var(--border-subtle)',
+                              color: stagedTotal > 0 ? 'var(--warning)' : 'var(--text-muted)'
+                            }}
+                          >
+                            {stagedTotal > 0 ? formatShortCurrency(stagedTotal) : '—'}
+                          </td>
+
+                          {/* Month Columns */}
+                          {monthColumns.map(month => {
+                            const draws = getDrawsForMonth(project, month.key)
+                            const monthTotal = draws.reduce((sum, d) => sum + d.total_amount, 0)
                             
                             return (
                               <td 
-                                key={dateStr}
-                                className="px-2 py-2 text-center border-b text-sm"
+                                key={month.key}
+                                className="px-2 text-center border-b"
                                 style={{ borderColor: 'var(--border-subtle)' }}
                               >
-                                {draws.length > 0 ? (
+                                {draws.length > 0 && isExpanded ? (
                                   <button
                                     onClick={() => draws[0] && onDrawClick(draws[0], project)}
                                     className="hover:underline font-medium"
                                     style={{ color: 'var(--accent)' }}
                                   >
-                                    {formatShortCurrency(dateTotal)}
+                                    {formatShortCurrency(monthTotal)}
                                   </button>
+                                ) : draws.length > 0 ? (
+                                  <span style={{ color: 'var(--text-muted)' }}>•</span>
                                 ) : null}
                               </td>
                             )
@@ -331,7 +386,7 @@ export function TimelineSpreadsheetView({
 
                           {/* Row Totals */}
                           <td 
-                            className="px-3 py-2 text-center border-b border-l text-sm font-semibold"
+                            className="px-2 text-center border-b border-l font-semibold"
                             style={{ 
                               borderColor: 'var(--border-subtle)',
                               color: 'var(--text-primary)'
@@ -340,16 +395,7 @@ export function TimelineSpreadsheetView({
                             {formatShortCurrency(projectTotal)}
                           </td>
                           <td 
-                            className="px-3 py-2 text-center border-b text-sm"
-                            style={{ 
-                              borderColor: 'var(--border-subtle)',
-                              color: 'var(--text-secondary)'
-                            }}
-                          >
-                            {formatShortCurrency(project.loan_amount || 0)}
-                          </td>
-                          <td 
-                            className="px-3 py-2 text-center border-b text-sm"
+                            className="px-2 text-center border-b"
                             style={{ 
                               borderColor: 'var(--border-subtle)',
                               color: 'var(--text-secondary)'
@@ -363,11 +409,12 @@ export function TimelineSpreadsheetView({
                   </AnimatePresence>
 
                   {/* Lender Totals Row */}
-                  {!isCollapsed && (
+                  {!isLenderCollapsed && (
                     <tr style={{ background: 'var(--bg-secondary)' }}>
                       <td 
-                        className="sticky left-0 z-10 px-4 py-2 border-b border-r font-semibold text-sm"
+                        className="sticky left-0 z-10 px-3 border-b border-r font-semibold"
                         style={{ 
+                          height: rowHeight,
                           background: 'var(--bg-secondary)',
                           borderColor: 'var(--border)',
                           color: 'var(--text-muted)'
@@ -376,30 +423,36 @@ export function TimelineSpreadsheetView({
                         TOTALS
                       </td>
                       <td 
-                        className="sticky left-[180px] z-10 px-3 py-2 border-b border-r"
+                        className="sticky left-[140px] z-10 px-2 border-b border-r text-center font-semibold"
                         style={{ 
+                          height: rowHeight,
                           background: 'var(--bg-secondary)',
-                          borderColor: 'var(--border)'
+                          borderColor: 'var(--border)',
+                          color: lenderTotals.staged > 0 ? 'var(--warning)' : 'var(--text-muted)'
                         }}
-                      />
-                      {allFundDates.map(dateStr => {
-                        const dateTotal = lenderTotals.byDate.get(dateStr) || 0
+                      >
+                        {lenderTotals.staged > 0 ? formatShortCurrency(lenderTotals.staged) : '—'}
+                      </td>
+                      {monthColumns.map(month => {
+                        const monthTotal = lenderTotals.byMonth.get(month.key) || 0
                         return (
                           <td 
-                            key={dateStr}
-                            className="px-2 py-2 text-center border-b text-sm font-semibold"
+                            key={month.key}
+                            className="px-2 text-center border-b font-semibold"
                             style={{ 
+                              height: rowHeight,
                               borderColor: 'var(--border)',
-                              color: dateTotal > 0 ? 'var(--accent)' : 'var(--text-muted)'
+                              color: monthTotal > 0 ? 'var(--accent)' : 'var(--text-muted)'
                             }}
                           >
-                            {dateTotal > 0 ? formatShortCurrency(dateTotal) : '—'}
+                            {monthTotal > 0 ? formatShortCurrency(monthTotal) : '—'}
                           </td>
                         )
                       })}
                       <td 
-                        className="px-3 py-2 text-center border-b border-l text-sm font-bold"
+                        className="px-2 text-center border-b border-l font-bold"
                         style={{ 
+                          height: rowHeight,
                           borderColor: 'var(--border)',
                           color: 'var(--accent)'
                         }}
@@ -407,22 +460,14 @@ export function TimelineSpreadsheetView({
                         {formatCurrency(lenderTotals.total)}
                       </td>
                       <td 
-                        className="px-3 py-2 text-center border-b text-sm font-semibold"
+                        className="px-2 text-center border-b font-semibold"
                         style={{ 
+                          height: rowHeight,
                           borderColor: 'var(--border)',
                           color: 'var(--text-primary)'
                         }}
                       >
                         {formatCurrency(lenderTotals.budget)}
-                      </td>
-                      <td 
-                        className="px-3 py-2 text-center border-b text-sm font-semibold"
-                        style={{ 
-                          borderColor: 'var(--border)',
-                          color: 'var(--text-primary)'
-                        }}
-                      >
-                        {formatCurrency(lenderTotals.amortization)}
                       </td>
                     </tr>
                   )}
@@ -433,8 +478,9 @@ export function TimelineSpreadsheetView({
             {/* Grand Total Row */}
             <tr style={{ background: 'var(--bg-card)' }}>
               <td 
-                className="sticky left-0 z-10 px-4 py-3 border-t-2 border-r font-bold"
+                className="sticky left-0 z-10 px-3 border-t-2 border-r font-bold"
                 style={{ 
+                  height: rowHeight + 4,
                   background: 'var(--bg-card)',
                   borderColor: 'var(--border)',
                   color: 'var(--text-primary)'
@@ -443,8 +489,9 @@ export function TimelineSpreadsheetView({
                 TOTAL DRAW
               </td>
               <td 
-                className="sticky left-[180px] z-10 px-3 py-3 border-t-2 border-r font-bold"
+                className="sticky left-[140px] z-10 px-2 border-t-2 border-r font-bold text-center"
                 style={{ 
+                  height: rowHeight + 4,
                   background: 'var(--bg-card)',
                   borderColor: 'var(--border)',
                   color: 'var(--accent)'
@@ -452,24 +499,26 @@ export function TimelineSpreadsheetView({
               >
                 {formatCurrency(grandTotals.total)}
               </td>
-              {allFundDates.map(dateStr => {
-                const dateTotal = grandTotals.byDate.get(dateStr) || 0
+              {monthColumns.map(month => {
+                const monthTotal = grandTotals.byMonth.get(month.key) || 0
                 return (
                   <td 
-                    key={dateStr}
-                    className="px-2 py-3 text-center border-t-2 text-sm font-bold"
+                    key={month.key}
+                    className="px-2 text-center border-t-2 font-bold"
                     style={{ 
+                      height: rowHeight + 4,
                       borderColor: 'var(--border)',
-                      color: dateTotal > 0 ? 'var(--accent)' : 'var(--text-muted)'
+                      color: monthTotal > 0 ? 'var(--accent)' : 'var(--text-muted)'
                     }}
                   >
-                    {dateTotal > 0 ? formatCurrency(dateTotal) : '—'}
+                    {monthTotal > 0 ? formatCurrency(monthTotal) : '—'}
                   </td>
                 )
               })}
               <td 
-                className="px-3 py-3 text-center border-t-2 border-l font-bold"
+                className="px-2 text-center border-t-2 border-l font-bold"
                 style={{ 
+                  height: rowHeight + 4,
                   borderColor: 'var(--border)',
                   color: 'var(--accent)'
                 }}
@@ -477,22 +526,14 @@ export function TimelineSpreadsheetView({
                 {formatCurrency(grandTotals.total)}
               </td>
               <td 
-                className="px-3 py-3 text-center border-t-2 font-bold"
+                className="px-2 text-center border-t-2 font-bold"
                 style={{ 
+                  height: rowHeight + 4,
                   borderColor: 'var(--border)',
                   color: 'var(--text-primary)'
                 }}
               >
                 {formatCurrency(grandTotals.budget)}
-              </td>
-              <td 
-                className="px-3 py-3 text-center border-t-2 font-bold"
-                style={{ 
-                  borderColor: 'var(--border)',
-                  color: 'var(--text-primary)'
-                }}
-              >
-                {formatCurrency(grandTotals.amortization)}
               </td>
             </tr>
           </tbody>
@@ -501,4 +542,3 @@ export function TimelineSpreadsheetView({
     </div>
   )
 }
-

@@ -9,6 +9,7 @@ type GanttDrawBarProps = {
   project: Project
   previousDate: Date | null
   currentDate: Date
+  positionPercent: number  // 0-100, position within the month column
   columnWidth: number
   onClick: () => void
   isHighlighted: boolean
@@ -18,16 +19,17 @@ type GanttDrawBarProps = {
  * GanttDrawBar - Interactive Gantt bar for a single draw
  * 
  * Features:
- * - Visual bar spanning from previous draw date to current
+ * - Positioned based on date within month column
  * - Hover effects: scale up, shadow, rich tooltip
  * - Click to open detail panel
- * - Gradient intensity based on amount
+ * - Compact pill shape with amount inside
  */
 export function GanttDrawBar({
   draw,
   project,
   previousDate,
   currentDate,
+  positionPercent,
   columnWidth,
   onClick,
   isHighlighted
@@ -35,23 +37,26 @@ export function GanttDrawBar({
   const [isHovered, setIsHovered] = useState(false)
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
 
-  // Calculate bar width based on time span (visual representation)
-  // For simplicity, we'll use a fixed minimum width that looks good
-  const barWidth = Math.max(columnWidth * 0.7, 60)
-  const barHeight = 28
+  // Bar dimensions - compact
+  const barHeight = 20
+  const barWidth = Math.max(columnWidth * 0.8, 50)
+  
+  // Position from left edge of column based on day of month
+  const leftOffset = Math.max(2, (positionPercent / 100) * (columnWidth - barWidth / 2) - barWidth / 2)
 
   // Calculate gradient intensity based on draw amount relative to loan
   const loanAmount = project.loan_amount || 100000
-  const amountRatio = Math.min(draw.total_amount / (loanAmount * 0.3), 1) // Cap at 30% of loan for max intensity
-  const gradientOpacity = 0.7 + (amountRatio * 0.3) // Range from 0.7 to 1.0
+  const amountRatio = Math.min(draw.total_amount / (loanAmount * 0.3), 1)
+  const gradientOpacity = 0.8 + (amountRatio * 0.2)
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
+    if (amount >= 1000000) {
+      return `$${(amount / 1000000).toFixed(1)}M`
+    }
+    if (amount >= 1000) {
+      return `$${Math.round(amount / 1000)}k`
+    }
+    return `$${amount}`
   }
 
   const formatDate = (date: Date | string | null) => {
@@ -81,49 +86,39 @@ export function GanttDrawBar({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onMouseMove={handleMouseMove}
-        className="relative rounded-md cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+        className="absolute rounded-full cursor-pointer focus:outline-none focus-visible:ring-2"
         style={{
+          left: leftOffset,
           width: barWidth,
           height: barHeight,
           background: `linear-gradient(135deg, ${barColor}, ${barColor}dd)`,
           opacity: gradientOpacity,
           boxShadow: isHovered || isHighlighted 
-            ? `0 4px 12px ${barColor}40, 0 0 0 2px ${barColor}30`
-            : '0 1px 3px rgba(0,0,0,0.1)',
+            ? `0 2px 8px ${barColor}40, 0 0 0 1px ${barColor}30`
+            : '0 1px 2px rgba(0,0,0,0.1)',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: isHovered ? 10 : 1,
         }}
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ 
           scale: isHovered ? 1.05 : 1, 
           opacity: gradientOpacity,
-          y: isHovered ? -2 : 0
         }}
         transition={{ 
           type: 'spring', 
           stiffness: 400, 
           damping: 25,
-          opacity: { duration: 0.3 }
+          opacity: { duration: 0.2 }
         }}
         whileTap={{ scale: 0.98 }}
         aria-label={`Draw #${draw.draw_number}: ${formatCurrency(draw.total_amount)}`}
       >
-        {/* Draw number and amount */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-[10px] font-bold text-white drop-shadow-sm">
-            #{draw.draw_number}
+        {/* Draw amount inside bar */}
+        <div className="absolute inset-0 flex items-center justify-center px-1">
+          <span className="text-[9px] font-bold text-white drop-shadow-sm truncate">
+            {formatCurrency(draw.total_amount)}
           </span>
-        </div>
-
-        {/* Amount badge */}
-        <div 
-          className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 translate-y-full text-[9px] font-semibold whitespace-nowrap px-1.5 py-0.5 rounded"
-          style={{ 
-            background: 'var(--bg-card)',
-            color: barColor,
-            boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-            opacity: isHovered || isHighlighted ? 1 : 0.7,
-          }}
-        >
-          {formatCurrency(draw.total_amount)}
         </div>
       </motion.button>
 
@@ -142,7 +137,7 @@ export function GanttDrawBar({
             transition={{ duration: 0.15 }}
           >
             <div 
-              className="rounded-lg shadow-xl overflow-hidden min-w-[220px]"
+              className="rounded-lg shadow-xl overflow-hidden min-w-[200px]"
               style={{ 
                 background: 'var(--bg-card)',
                 border: '1px solid var(--border)',
@@ -150,17 +145,17 @@ export function GanttDrawBar({
             >
               {/* Header */}
               <div 
-                className="px-3 py-2 flex items-center justify-between"
+                className="px-2.5 py-1.5 flex items-center justify-between"
                 style={{ 
-                  background: `${barColor}20`,
+                  background: `${barColor}15`,
                   borderBottom: '1px solid var(--border-subtle)'
                 }}
               >
-                <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
                   Draw #{draw.draw_number}
                 </span>
                 <span 
-                  className="px-2 py-0.5 rounded-full text-xs font-medium capitalize"
+                  className="px-1.5 py-0.5 rounded-full text-[10px] font-medium capitalize"
                   style={{ 
                     background: `${barColor}20`,
                     color: barColor
@@ -171,46 +166,28 @@ export function GanttDrawBar({
               </div>
 
               {/* Content */}
-              <div className="px-3 py-2 space-y-2">
+              <div className="px-2.5 py-2 space-y-1.5">
                 {/* Amount */}
                 <div className="flex justify-between items-center">
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Amount</span>
-                  <span className="text-sm font-bold" style={{ color: barColor }}>
-                    {formatCurrency(draw.total_amount)}
+                  <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Amount</span>
+                  <span className="text-xs font-bold" style={{ color: barColor }}>
+                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(draw.total_amount)}
                   </span>
                 </div>
 
                 {/* Project */}
                 <div className="flex justify-between items-center">
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Project</span>
-                  <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                  <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Project</span>
+                  <span className="text-[10px] font-medium" style={{ color: 'var(--text-primary)' }}>
                     {project.project_code || project.name}
                   </span>
                 </div>
 
-                {/* Date Range */}
-                <div className="flex justify-between items-center">
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Period</span>
-                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                    {previousDate ? formatDate(previousDate) : 'Start'} → {formatDate(currentDate)}
-                  </span>
-                </div>
-
-                {/* Request Date */}
-                {draw.request_date && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Requested</span>
-                    <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                      {formatDate(draw.request_date)}
-                    </span>
-                  </div>
-                )}
-
                 {/* Funded Date */}
                 {draw.funded_at && (
                   <div className="flex justify-between items-center">
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Funded</span>
-                    <span className="text-xs font-medium" style={{ color: 'var(--success)' }}>
+                    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Funded</span>
+                    <span className="text-[10px] font-medium" style={{ color: 'var(--success)' }}>
                       {formatDate(draw.funded_at)}
                     </span>
                   </div>
@@ -219,7 +196,7 @@ export function GanttDrawBar({
 
               {/* Footer - Click hint */}
               <div 
-                className="px-3 py-1.5 text-center text-[10px]"
+                className="px-2.5 py-1 text-center text-[9px]"
                 style={{ 
                   background: 'var(--bg-secondary)',
                   color: 'var(--text-muted)'
@@ -234,4 +211,3 @@ export function GanttDrawBar({
     </>
   )
 }
-
