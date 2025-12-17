@@ -33,7 +33,7 @@ function generateMonthColumns(allFundDates: string[]): { key: string; label: str
   while (current <= end) {
     months.push({
       key: `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`,
-      label: current.toLocaleDateString('en-US', { month: 'short', day: undefined })
+      label: current.toLocaleDateString('en-US', { month: 'short' })
     })
     current.setMonth(current.getMonth() + 1)
   }
@@ -42,13 +42,13 @@ function generateMonthColumns(allFundDates: string[]): { key: string; label: str
 }
 
 /**
- * TimelineSpreadsheetView - Compact spreadsheet-style view
+ * TimelineSpreadsheetView - Clean spreadsheet-style table view
  * 
- * Features:
- * - Month-based columns
- * - Grouped by lender sections
- * - Compact rows with minimal padding
- * - Fixed project column on left
+ * Design Language:
+ * - Table styling from DESIGN_LANGUAGE.md Section 8.7
+ * - Monospace font for financial values
+ * - Right-aligned numeric columns
+ * - Clear lender section grouping
  */
 export function TimelineSpreadsheetView({
   projectsByLender,
@@ -58,20 +58,6 @@ export function TimelineSpreadsheetView({
 }: TimelineSpreadsheetViewProps) {
   const router = useRouter()
   const [collapsedLenders, setCollapsedLenders] = useState<Set<string>>(new Set())
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => {
-    // Auto-expand projects with draws
-    const expanded = new Set<string>()
-    projectsByLender.forEach(group => {
-      group.projects.forEach(project => {
-        const hasFundedDraws = project.draws.some(d => d.status === 'funded')
-        const hasStagedDraws = (stagedDrawsByProject.get(project.id) || []).length > 0
-        if (hasFundedDraws || hasStagedDraws) {
-          expanded.add(project.id)
-        }
-      })
-    })
-    return expanded
-  })
 
   const toggleLenderCollapse = useCallback((lenderId: string) => {
     setCollapsedLenders(prev => {
@@ -82,22 +68,15 @@ export function TimelineSpreadsheetView({
     })
   }, [])
 
-  const toggleProjectExpand = useCallback((projectId: string) => {
-    setExpandedProjects(prev => {
-      const next = new Set(prev)
-      if (next.has(projectId)) next.delete(projectId)
-      else next.add(projectId)
-      return next
-    })
-  }, [])
-
+  // Format currency - compact for cells
   const formatShortCurrency = (amount: number) => {
-    if (amount === 0) return ''
+    if (amount === 0) return '—'
     if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`
     if (amount >= 1000) return `$${Math.round(amount / 1000)}k`
     return `$${amount}`
   }
 
+  // Format currency - full for totals
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -123,20 +102,26 @@ export function TimelineSpreadsheetView({
   // Calculate grand totals
   const grandTotals = useMemo(() => {
     const byMonth = new Map<string, number>()
-    let total = 0
-    let budget = 0
+    let totalDrawn = 0
+    let totalStaged = 0
+    let totalBudget = 0
 
     monthColumns.forEach(m => byMonth.set(m.key, 0))
 
     projectsByLender.forEach(group => {
       group.projects.forEach(project => {
-        budget += project.loan_amount || 0
+        totalBudget += project.loan_amount || 0
         
+        // Staged draws
+        const stagedDraws = stagedDrawsByProject.get(project.id) || []
+        stagedDraws.forEach(d => totalStaged += d.total_amount || 0)
+        
+        // Funded draws
         project.draws.forEach(draw => {
           if (draw.status === 'funded' && draw.funded_at) {
             const fundDate = new Date(draw.funded_at)
             const monthKey = `${fundDate.getFullYear()}-${String(fundDate.getMonth() + 1).padStart(2, '0')}`
-            total += draw.total_amount
+            totalDrawn += draw.total_amount
             const current = byMonth.get(monthKey) || 0
             byMonth.set(monthKey, current + draw.total_amount)
           }
@@ -144,105 +129,137 @@ export function TimelineSpreadsheetView({
       })
     })
 
-    return { byMonth, total, budget }
-  }, [projectsByLender, monthColumns])
+    return { byMonth, totalDrawn, totalStaged, totalBudget }
+  }, [projectsByLender, monthColumns, stagedDrawsByProject])
 
-  const rowHeight = 32
-  const headerHeight = 28
-  const colWidth = 80
+  // Column count for colspan calculations
+  const totalColumns = 4 + monthColumns.length // Project, Staged, ...months, Total, Budget
 
   return (
-    <div className="card-ios overflow-hidden">
+    <div 
+      className="rounded-lg overflow-hidden"
+      style={{ 
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border-subtle)',
+        boxShadow: 'var(--elevation-2)'
+      }}
+    >
       <div className="overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
-        <table className="w-full border-collapse text-xs" style={{ minWidth: 400 + monthColumns.length * colWidth }}>
+        <table 
+          className="w-full border-collapse"
+          style={{ 
+            minWidth: Math.max(500, 200 + 70 + monthColumns.length * 80 + 90 + 90),
+            fontFamily: 'var(--font-primary)'
+          }}
+        >
+          {/* Table Header */}
           <thead>
             <tr style={{ background: 'var(--bg-secondary)' }}>
+              {/* Project Column - Sticky */}
               <th 
-                className="sticky left-0 z-20 px-3 text-left font-semibold border-b border-r"
+                className="sticky left-0 z-20 text-left font-semibold"
                 style={{ 
-                  height: headerHeight,
+                  padding: '12px 16px',
                   background: 'var(--bg-secondary)',
-                  borderColor: 'var(--border-subtle)',
-                  color: 'var(--text-muted)',
-                  minWidth: 140
+                  borderBottom: '1px solid var(--border)',
+                  borderRight: '1px solid var(--border-subtle)',
+                  color: 'var(--text-secondary)',
+                  fontSize: '13px',
+                  minWidth: 180,
                 }}
               >
                 Project
               </th>
+              
+              {/* Staged Column - Sticky */}
               <th 
-                className="sticky left-[140px] z-20 px-2 text-center font-semibold border-b border-r"
+                className="sticky left-[180px] z-20 text-right font-semibold"
                 style={{ 
-                  height: headerHeight,
+                  padding: '12px 16px',
                   background: 'var(--bg-secondary)',
-                  borderColor: 'var(--border-subtle)',
-                  color: 'var(--text-muted)',
-                  width: 60
+                  borderBottom: '1px solid var(--border)',
+                  borderRight: '1px solid var(--border-subtle)',
+                  color: 'var(--text-secondary)',
+                  fontSize: '13px',
+                  minWidth: 70,
                 }}
               >
                 Staged
               </th>
+              
+              {/* Month Columns */}
               {monthColumns.map(month => (
                 <th 
                   key={month.key}
-                  className="px-2 text-center font-medium border-b"
+                  className="text-right font-medium"
                   style={{ 
-                    height: headerHeight,
-                    borderColor: 'var(--border-subtle)',
+                    padding: '12px 16px',
+                    borderBottom: '1px solid var(--border)',
                     color: 'var(--text-muted)',
-                    width: colWidth
+                    fontSize: '13px',
+                    minWidth: 80,
                   }}
                 >
                   {month.label}
                 </th>
               ))}
+              
+              {/* Total Column */}
               <th 
-                className="px-2 text-center font-semibold border-b border-l"
+                className="text-right font-semibold"
                 style={{ 
-                  height: headerHeight,
-                  borderColor: 'var(--border-subtle)',
-                  color: 'var(--text-muted)',
-                  width: colWidth
+                  padding: '12px 16px',
+                  borderBottom: '1px solid var(--border)',
+                  borderLeft: '1px solid var(--border-subtle)',
+                  color: 'var(--text-secondary)',
+                  fontSize: '13px',
+                  minWidth: 90,
                 }}
               >
-                Total
+                Drawn
               </th>
+              
+              {/* Budget Column */}
               <th 
-                className="px-2 text-center font-semibold border-b"
+                className="text-right font-semibold"
                 style={{ 
-                  height: headerHeight,
-                  borderColor: 'var(--border-subtle)',
-                  color: 'var(--text-muted)',
-                  width: colWidth
+                  padding: '12px 16px',
+                  borderBottom: '1px solid var(--border)',
+                  color: 'var(--text-secondary)',
+                  fontSize: '13px',
+                  minWidth: 90,
                 }}
               >
                 Budget
               </th>
             </tr>
           </thead>
+          
           <tbody>
             {projectsByLender.map((group, groupIndex) => {
-              const isLenderCollapsed = collapsedLenders.has(group.lenderId)
+              const isCollapsed = collapsedLenders.has(group.lenderId)
               
               // Calculate lender totals
               const lenderTotals = {
                 byMonth: new Map<string, number>(),
-                total: 0,
-                budget: 0,
-                staged: 0
+                totalDrawn: 0,
+                totalStaged: 0,
+                totalBudget: 0,
               }
               
               monthColumns.forEach(m => lenderTotals.byMonth.set(m.key, 0))
               
               group.projects.forEach(project => {
-                lenderTotals.budget += project.loan_amount || 0
+                lenderTotals.totalBudget += project.loan_amount || 0
+                
                 const stagedDraws = stagedDrawsByProject.get(project.id) || []
-                stagedDraws.forEach(d => lenderTotals.staged += d.total_amount || 0)
+                stagedDraws.forEach(d => lenderTotals.totalStaged += d.total_amount || 0)
                 
                 project.draws.forEach(draw => {
                   if (draw.status === 'funded' && draw.funded_at) {
                     const fundDate = new Date(draw.funded_at)
                     const monthKey = `${fundDate.getFullYear()}-${String(fundDate.getMonth() + 1).padStart(2, '0')}`
-                    lenderTotals.total += draw.total_amount
+                    lenderTotals.totalDrawn += draw.total_amount
                     const current = lenderTotals.byMonth.get(monthKey) || 0
                     lenderTotals.byMonth.set(monthKey, current + draw.total_amount)
                   }
@@ -256,103 +273,106 @@ export function TimelineSpreadsheetView({
                   animate={{ opacity: 1 }}
                   transition={{ delay: groupIndex * 0.05 }}
                 >
-                  {/* Lender Header Row */}
+                  {/* Lender Section Header */}
                   <tr>
-                    <td colSpan={4 + monthColumns.length}>
+                    <td colSpan={totalColumns} style={{ padding: 0 }}>
                       <button
                         onClick={() => toggleLenderCollapse(group.lenderId)}
-                        className="w-full px-3 flex items-center gap-2 text-left font-semibold border-b transition-colors hover:opacity-80"
+                        className="w-full flex items-center justify-between transition-colors"
                         style={{ 
-                          height: rowHeight,
-                          background: 'var(--bg-card)',
-                          borderColor: 'var(--border)',
-                          color: 'var(--text-primary)'
+                          padding: '10px 16px',
+                          background: 'var(--bg-tertiary)',
+                          borderBottom: '1px solid var(--border)',
                         }}
                       >
-                        <motion.svg
-                          animate={{ rotate: isLenderCollapsed ? -90 : 0 }}
-                          className="w-3 h-3"
-                          style={{ color: 'var(--text-muted)' }}
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </motion.svg>
-                        <span>{group.lender?.name || 'No Lender Assigned'}</span>
-                        <span className="text-[10px] font-normal" style={{ color: 'var(--text-muted)' }}>
-                          ({group.projects.length} loan{group.projects.length !== 1 ? 's' : ''})
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <motion.svg
+                            animate={{ rotate: isCollapsed ? -90 : 0 }}
+                            transition={{ duration: 0.15 }}
+                            className="w-4 h-4"
+                            style={{ color: 'var(--text-muted)' }}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </motion.svg>
+                          <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+                            {group.lender?.name || 'No Lender Assigned'}
+                          </span>
+                          <span 
+                            className="text-xs px-1.5 py-0.5 rounded"
+                            style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+                          >
+                            {group.projects.length} loan{group.projects.length !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-4 text-xs" style={{ fontFamily: 'var(--font-mono)' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>
+                            Drawn: <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                              {formatCurrency(lenderTotals.totalDrawn)}
+                            </span>
+                          </span>
+                          <span style={{ color: 'var(--text-muted)' }}>
+                            of {formatCurrency(lenderTotals.totalBudget)}
+                          </span>
+                        </div>
                       </button>
                     </td>
                   </tr>
 
                   {/* Project Rows */}
                   <AnimatePresence>
-                    {!isLenderCollapsed && group.projects.map((project, projectIndex) => {
+                    {!isCollapsed && group.projects.map((project, projectIndex) => {
                       const stagedDraws = stagedDrawsByProject.get(project.id) || []
-                      const stagedTotal = stagedDraws.reduce((sum, d) => sum + d.total_amount, 0)
-                      const projectTotal = project.total_spent || 0
-                      const hasFundedDraws = project.draws.some(d => d.status === 'funded')
-                      const isExpanded = expandedProjects.has(project.id)
+                      const stagedTotal = stagedDraws.reduce((sum, d) => sum + (d.total_amount || 0), 0)
+                      const projectDrawn = project.total_spent || 0
+                      const isEvenRow = projectIndex % 2 === 0
                       
                       return (
                         <motion.tr
                           key={project.id}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.15 }}
+                          className="hover:opacity-90"
                           style={{ 
-                            height: rowHeight,
-                            background: projectIndex % 2 === 0 ? 'transparent' : 'var(--bg-secondary)' 
+                            background: isEvenRow ? 'transparent' : 'var(--bg-secondary)',
                           }}
                         >
-                          {/* Project Name */}
+                          {/* Project Name - Sticky */}
                           <td 
-                            className="sticky left-0 z-10 px-3 border-b border-r"
+                            className="sticky left-0 z-10"
                             style={{ 
-                              background: projectIndex % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)',
-                              borderColor: 'var(--border-subtle)'
+                              padding: '10px 16px',
+                              background: isEvenRow ? 'var(--bg-card)' : 'var(--bg-secondary)',
+                              borderBottom: '1px solid var(--border-subtle)',
+                              borderRight: '1px solid var(--border-subtle)',
                             }}
                           >
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                onClick={() => hasFundedDraws && toggleProjectExpand(project.id)}
-                                className="w-3 h-3 flex items-center justify-center"
-                                style={{ 
-                                  color: hasFundedDraws ? 'var(--text-muted)' : 'transparent',
-                                  cursor: hasFundedDraws ? 'pointer' : 'default'
-                                }}
-                              >
-                                {hasFundedDraws && (
-                                  <motion.svg 
-                                    animate={{ rotate: isExpanded ? 0 : -90 }}
-                                    className="w-2.5 h-2.5" 
-                                    fill="none" 
-                                    viewBox="0 0 24 24" 
-                                    stroke="currentColor"
-                                  >
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                  </motion.svg>
-                                )}
-                              </button>
-                              <button
-                                onClick={() => router.push(`/projects/${project.id}`)}
-                                className="font-medium hover:underline text-left truncate"
-                                style={{ color: 'var(--text-primary)' }}
-                              >
-                                {project.project_code || project.name}
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => router.push(`/projects/${project.id}`)}
+                              className="font-medium text-sm hover:underline text-left"
+                              style={{ color: 'var(--text-primary)' }}
+                            >
+                              {project.project_code || project.name}
+                            </button>
                           </td>
 
-                          {/* Staged */}
+                          {/* Staged - Sticky */}
                           <td 
-                            className="sticky left-[140px] z-10 px-2 text-center border-b border-r"
+                            className="sticky left-[180px] z-10 text-right"
                             style={{ 
-                              background: projectIndex % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)',
-                              borderColor: 'var(--border-subtle)',
-                              color: stagedTotal > 0 ? 'var(--warning)' : 'var(--text-muted)'
+                              padding: '10px 16px',
+                              background: isEvenRow ? 'var(--bg-card)' : 'var(--bg-secondary)',
+                              borderBottom: '1px solid var(--border-subtle)',
+                              borderRight: '1px solid var(--border-subtle)',
+                              fontFamily: 'var(--font-mono)',
+                              fontSize: '13px',
+                              color: stagedTotal > 0 ? 'var(--warning)' : 'var(--text-muted)',
+                              fontWeight: stagedTotal > 0 ? 600 : 400,
                             }}
                           >
                             {stagedTotal > 0 ? formatShortCurrency(stagedTotal) : '—'}
@@ -366,39 +386,51 @@ export function TimelineSpreadsheetView({
                             return (
                               <td 
                                 key={month.key}
-                                className="px-2 text-center border-b"
-                                style={{ borderColor: 'var(--border-subtle)' }}
+                                className="text-right"
+                                style={{ 
+                                  padding: '10px 16px',
+                                  borderBottom: '1px solid var(--border-subtle)',
+                                  fontFamily: 'var(--font-mono)',
+                                  fontSize: '13px',
+                                }}
                               >
-                                {draws.length > 0 && isExpanded ? (
+                                {draws.length > 0 ? (
                                   <button
-                                    onClick={() => draws[0] && onDrawClick(draws[0], project)}
+                                    onClick={() => onDrawClick(draws[0], project)}
                                     className="hover:underline font-medium"
                                     style={{ color: 'var(--accent)' }}
                                   >
                                     {formatShortCurrency(monthTotal)}
                                   </button>
-                                ) : draws.length > 0 ? (
-                                  <span style={{ color: 'var(--text-muted)' }}>•</span>
                                 ) : null}
                               </td>
                             )
                           })}
 
-                          {/* Row Totals */}
+                          {/* Drawn Total */}
                           <td 
-                            className="px-2 text-center border-b border-l font-semibold"
+                            className="text-right font-semibold"
                             style={{ 
-                              borderColor: 'var(--border-subtle)',
-                              color: 'var(--text-primary)'
+                              padding: '10px 16px',
+                              borderBottom: '1px solid var(--border-subtle)',
+                              borderLeft: '1px solid var(--border-subtle)',
+                              fontFamily: 'var(--font-mono)',
+                              fontSize: '13px',
+                              color: projectDrawn > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
                             }}
                           >
-                            {formatShortCurrency(projectTotal)}
+                            {projectDrawn > 0 ? formatShortCurrency(projectDrawn) : '—'}
                           </td>
+
+                          {/* Budget */}
                           <td 
-                            className="px-2 text-center border-b"
+                            className="text-right"
                             style={{ 
-                              borderColor: 'var(--border-subtle)',
-                              color: 'var(--text-secondary)'
+                              padding: '10px 16px',
+                              borderBottom: '1px solid var(--border-subtle)',
+                              fontFamily: 'var(--font-mono)',
+                              fontSize: '13px',
+                              color: 'var(--text-secondary)',
                             }}
                           >
                             {formatShortCurrency(project.loan_amount || 0)}
@@ -408,41 +440,47 @@ export function TimelineSpreadsheetView({
                     })}
                   </AnimatePresence>
 
-                  {/* Lender Totals Row */}
-                  {!isLenderCollapsed && (
+                  {/* Lender Subtotals Row */}
+                  {!isCollapsed && group.projects.length > 1 && (
                     <tr style={{ background: 'var(--bg-secondary)' }}>
                       <td 
-                        className="sticky left-0 z-10 px-3 border-b border-r font-semibold"
+                        className="sticky left-0 z-10 text-right font-semibold text-xs uppercase tracking-wide"
                         style={{ 
-                          height: rowHeight,
+                          padding: '8px 16px',
                           background: 'var(--bg-secondary)',
-                          borderColor: 'var(--border)',
-                          color: 'var(--text-muted)'
+                          borderBottom: '1px solid var(--border)',
+                          borderRight: '1px solid var(--border-subtle)',
+                          color: 'var(--text-muted)',
                         }}
                       >
-                        TOTALS
+                        Subtotal
                       </td>
                       <td 
-                        className="sticky left-[140px] z-10 px-2 border-b border-r text-center font-semibold"
+                        className="sticky left-[180px] z-10 text-right font-semibold"
                         style={{ 
-                          height: rowHeight,
+                          padding: '8px 16px',
                           background: 'var(--bg-secondary)',
-                          borderColor: 'var(--border)',
-                          color: lenderTotals.staged > 0 ? 'var(--warning)' : 'var(--text-muted)'
+                          borderBottom: '1px solid var(--border)',
+                          borderRight: '1px solid var(--border-subtle)',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '13px',
+                          color: lenderTotals.totalStaged > 0 ? 'var(--warning)' : 'var(--text-muted)',
                         }}
                       >
-                        {lenderTotals.staged > 0 ? formatShortCurrency(lenderTotals.staged) : '—'}
+                        {lenderTotals.totalStaged > 0 ? formatShortCurrency(lenderTotals.totalStaged) : '—'}
                       </td>
                       {monthColumns.map(month => {
                         const monthTotal = lenderTotals.byMonth.get(month.key) || 0
                         return (
                           <td 
                             key={month.key}
-                            className="px-2 text-center border-b font-semibold"
+                            className="text-right font-semibold"
                             style={{ 
-                              height: rowHeight,
-                              borderColor: 'var(--border)',
-                              color: monthTotal > 0 ? 'var(--accent)' : 'var(--text-muted)'
+                              padding: '8px 16px',
+                              borderBottom: '1px solid var(--border)',
+                              fontFamily: 'var(--font-mono)',
+                              fontSize: '13px',
+                              color: monthTotal > 0 ? 'var(--accent)' : 'var(--text-muted)',
                             }}
                           >
                             {monthTotal > 0 ? formatShortCurrency(monthTotal) : '—'}
@@ -450,24 +488,29 @@ export function TimelineSpreadsheetView({
                         )
                       })}
                       <td 
-                        className="px-2 text-center border-b border-l font-bold"
+                        className="text-right font-bold"
                         style={{ 
-                          height: rowHeight,
-                          borderColor: 'var(--border)',
-                          color: 'var(--accent)'
+                          padding: '8px 16px',
+                          borderBottom: '1px solid var(--border)',
+                          borderLeft: '1px solid var(--border-subtle)',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '13px',
+                          color: 'var(--accent)',
                         }}
                       >
-                        {formatCurrency(lenderTotals.total)}
+                        {formatShortCurrency(lenderTotals.totalDrawn)}
                       </td>
                       <td 
-                        className="px-2 text-center border-b font-semibold"
+                        className="text-right font-semibold"
                         style={{ 
-                          height: rowHeight,
-                          borderColor: 'var(--border)',
-                          color: 'var(--text-primary)'
+                          padding: '8px 16px',
+                          borderBottom: '1px solid var(--border)',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '13px',
+                          color: 'var(--text-primary)',
                         }}
                       >
-                        {formatCurrency(lenderTotals.budget)}
+                        {formatShortCurrency(lenderTotals.totalBudget)}
                       </td>
                     </tr>
                   )}
@@ -476,39 +519,46 @@ export function TimelineSpreadsheetView({
             })}
 
             {/* Grand Total Row */}
-            <tr style={{ background: 'var(--bg-card)' }}>
+            <tr style={{ background: 'var(--bg-tertiary)' }}>
               <td 
-                className="sticky left-0 z-10 px-3 border-t-2 border-r font-bold"
+                className="sticky left-0 z-10 font-bold uppercase tracking-wide"
                 style={{ 
-                  height: rowHeight + 4,
-                  background: 'var(--bg-card)',
-                  borderColor: 'var(--border)',
-                  color: 'var(--text-primary)'
+                  padding: '12px 16px',
+                  background: 'var(--bg-tertiary)',
+                  borderTop: '2px solid var(--border)',
+                  borderRight: '1px solid var(--border-subtle)',
+                  color: 'var(--text-primary)',
+                  fontSize: '13px',
                 }}
               >
-                TOTAL DRAW
+                Total Draw
               </td>
               <td 
-                className="sticky left-[140px] z-10 px-2 border-t-2 border-r font-bold text-center"
+                className="sticky left-[180px] z-10 text-right font-bold"
                 style={{ 
-                  height: rowHeight + 4,
-                  background: 'var(--bg-card)',
-                  borderColor: 'var(--border)',
-                  color: 'var(--accent)'
+                  padding: '12px 16px',
+                  background: 'var(--bg-tertiary)',
+                  borderTop: '2px solid var(--border)',
+                  borderRight: '1px solid var(--border-subtle)',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '13px',
+                  color: grandTotals.totalStaged > 0 ? 'var(--warning)' : 'var(--text-muted)',
                 }}
               >
-                {formatCurrency(grandTotals.total)}
+                {grandTotals.totalStaged > 0 ? formatCurrency(grandTotals.totalStaged) : '—'}
               </td>
               {monthColumns.map(month => {
                 const monthTotal = grandTotals.byMonth.get(month.key) || 0
                 return (
                   <td 
                     key={month.key}
-                    className="px-2 text-center border-t-2 font-bold"
+                    className="text-right font-bold"
                     style={{ 
-                      height: rowHeight + 4,
-                      borderColor: 'var(--border)',
-                      color: monthTotal > 0 ? 'var(--accent)' : 'var(--text-muted)'
+                      padding: '12px 16px',
+                      borderTop: '2px solid var(--border)',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '13px',
+                      color: monthTotal > 0 ? 'var(--accent)' : 'var(--text-muted)',
                     }}
                   >
                     {monthTotal > 0 ? formatCurrency(monthTotal) : '—'}
@@ -516,24 +566,29 @@ export function TimelineSpreadsheetView({
                 )
               })}
               <td 
-                className="px-2 text-center border-t-2 border-l font-bold"
+                className="text-right font-bold"
                 style={{ 
-                  height: rowHeight + 4,
-                  borderColor: 'var(--border)',
-                  color: 'var(--accent)'
+                  padding: '12px 16px',
+                  borderTop: '2px solid var(--border)',
+                  borderLeft: '1px solid var(--border-subtle)',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '14px',
+                  color: 'var(--accent)',
                 }}
               >
-                {formatCurrency(grandTotals.total)}
+                {formatCurrency(grandTotals.totalDrawn)}
               </td>
               <td 
-                className="px-2 text-center border-t-2 font-bold"
+                className="text-right font-bold"
                 style={{ 
-                  height: rowHeight + 4,
-                  borderColor: 'var(--border)',
-                  color: 'var(--text-primary)'
+                  padding: '12px 16px',
+                  borderTop: '2px solid var(--border)',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '14px',
+                  color: 'var(--text-primary)',
                 }}
               >
-                {formatCurrency(grandTotals.budget)}
+                {formatCurrency(grandTotals.totalBudget)}
               </td>
             </tr>
           </tbody>
