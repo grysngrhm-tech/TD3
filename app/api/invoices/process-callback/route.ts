@@ -43,13 +43,13 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // If processing failed, update status to 'error'
+    // If processing failed, update status to 'rejected' (DB only allows: pending, matched, rejected)
     if (!success) {
       const { error: updateError } = await supabaseAdmin
         .from('invoices')
         .update({
-          status: 'error',
-          flags: error || 'Processing failed',
+          status: 'rejected',
+          flags: JSON.stringify({ error: error || 'Processing failed', status_detail: 'error' }),
           updated_at: new Date().toISOString()
         })
         .eq('id', invoiceId)
@@ -89,20 +89,22 @@ export async function POST(request: NextRequest) {
       if (extractedData?.constructionCategory) metadata.constructionCategory = extractedData.constructionCategory
       if (extractedData?.lineItems) metadata.lineItems = extractedData.lineItems
       
-      updateData.flags = Object.keys(metadata).length > 0 ? JSON.stringify(metadata) : null
-      
       // Set status based on confidence
-      if (matching.confidenceScore >= 0.9) {
+      // DB constraint only allows: 'pending', 'matched', 'rejected'
+      // Use flags field to store detailed status
+      if (matching.confidenceScore >= 0.7) {
         updateData.status = 'matched'
-      } else if (matching.confidenceScore >= 0.7) {
-        updateData.status = 'review' // Needs human review
-      } else if (matching.confidenceScore >= 0.5) {
-        updateData.status = 'low_confidence'
+        metadata.status_detail = matching.confidenceScore >= 0.9 ? 'high_confidence' : 'needs_review'
       } else {
-        updateData.status = 'unmatched'
+        updateData.status = 'pending' // Low confidence = needs manual review
+        metadata.status_detail = matching.confidenceScore >= 0.5 ? 'low_confidence' : 'unmatched'
       }
+      
+      // Update flags with metadata
+      updateData.flags = Object.keys(metadata).length > 0 ? JSON.stringify(metadata) : null
     } else {
-      updateData.status = 'extracted' // Data extracted but not matched
+      updateData.status = 'pending' // Data extracted but not matched
+      updateData.flags = JSON.stringify({ status_detail: 'extracted' })
     }
     
     // Update the invoice record

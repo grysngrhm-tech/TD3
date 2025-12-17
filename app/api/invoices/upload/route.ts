@@ -105,7 +105,8 @@ export async function POST(request: NextRequest) {
         const fileUrlForProcessing = signedUrlError ? publicUrlData.publicUrl : signedUrlData.signedUrl
         const fileUrlForStorage = publicUrlData.publicUrl
         
-        // Create invoice record in database with 'processing' status
+        // Create invoice record in database with 'pending' status
+        // Note: DB constraint only allows 'pending', 'matched', 'rejected'
         const { data: invoice, error: insertError } = await supabaseAdmin
           .from('invoices')
           .insert({
@@ -115,7 +116,8 @@ export async function POST(request: NextRequest) {
             amount: 0,
             file_path: filePath,
             file_url: fileUrlForStorage,
-            status: 'processing'
+            status: 'pending',
+            flags: 'PROCESSING'
           })
           .select()
           .single()
