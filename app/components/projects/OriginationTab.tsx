@@ -7,6 +7,7 @@ import { ImportPreview } from '@/app/components/import/ImportPreview'
 import { DocumentUploadSection } from './DocumentUploadSection'
 import { BudgetEditor } from './BudgetEditor'
 import { toast } from '@/app/components/ui/Toast'
+import { SubdivisionCombobox } from '@/app/components/ui/SubdivisionCombobox'
 import { generateProjectCode } from '@/lib/projectCode'
 import { supabase } from '@/lib/supabase'
 
@@ -26,12 +27,17 @@ type FormData = {
   borrower_name: string
   address: string
   loan_amount: string
-  appraised_value: string
-  sales_price: string
+  appraised_value: string  // Also serves as "Estimated Value" - the expected sales price for LTV
   square_footage: string
   interest_rate_annual: string
   origination_fee_pct: string
   loan_term_months: string
+}
+
+// Validation state for required fields
+type ValidationErrors = {
+  subdivision_name?: string
+  lot_number?: string
 }
 
 type OriginationTabProps = {
@@ -74,13 +80,15 @@ export function OriginationTab({
     borrower_name: '',
     address: '',
     loan_amount: '',
-    appraised_value: '',
-    sales_price: '',
+    appraised_value: '',  // Estimated value / expected sales price
     square_footage: '',
     interest_rate_annual: (DEFAULT_TERMS.interest_rate_annual * 100).toString(),
     origination_fee_pct: (DEFAULT_TERMS.origination_fee_pct * 100).toString(),
     loan_term_months: DEFAULT_TERMS.loan_term_months.toString(),
   })
+  
+  // Validation errors
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
 
   // Load all builders for dropdown
   useEffect(() => {
@@ -108,7 +116,6 @@ export function OriginationTab({
         address: project.address || '',
         loan_amount: project.loan_amount?.toString() || '',
         appraised_value: project.appraised_value?.toString() || '',
-        sales_price: project.sales_price?.toString() || '',
         square_footage: project.square_footage?.toString() || '',
         interest_rate_annual: project.interest_rate_annual 
           ? (project.interest_rate_annual * 100).toString() 
@@ -179,6 +186,25 @@ export function OriginationTab({
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+    // Clear validation error when user starts typing
+    if (validationErrors[field as keyof ValidationErrors]) {
+      setValidationErrors(prev => ({ ...prev, [field]: undefined }))
+    }
+  }
+  
+  // Validate required fields
+  const validateForm = (): boolean => {
+    const errors: ValidationErrors = {}
+    
+    if (!formData.subdivision_name.trim()) {
+      errors.subdivision_name = 'Subdivision is required'
+    }
+    if (!formData.lot_number.trim()) {
+      errors.lot_number = 'Lot number is required'
+    }
+    
+    setValidationErrors(errors)
+    return Object.keys(errors).length === 0
   }
 
   const handleBuilderSelect = (builder: Builder) => {
@@ -193,9 +219,9 @@ export function OriginationTab({
   }
 
   const handleSave = async () => {
-    // Validate subdivision and lot (needed for project code)
-    if (!formData.subdivision_name.trim() || !formData.lot_number.trim()) {
-      toast({ type: 'error', title: 'Error', message: 'Subdivision and Lot Number are required to generate Project Code' })
+    // Validate required fields
+    if (!validateForm()) {
+      toast({ type: 'error', title: 'Error', message: 'Please fill in all required fields' })
       return
     }
 
@@ -213,7 +239,8 @@ export function OriginationTab({
         address: formData.address.trim() || null,
         loan_amount: formData.loan_amount ? parseFloat(formData.loan_amount) : null,
         appraised_value: formData.appraised_value ? parseFloat(formData.appraised_value) : null,
-        sales_price: formData.sales_price ? parseFloat(formData.sales_price) : null,
+        // sales_price is deprecated - we now use appraised_value as the estimated value
+        sales_price: formData.appraised_value ? parseFloat(formData.appraised_value) : null,
         square_footage: formData.square_footage ? parseFloat(formData.square_footage) : null,
         interest_rate_annual: formData.interest_rate_annual 
           ? parseFloat(formData.interest_rate_annual) / 100 
@@ -278,7 +305,6 @@ export function OriginationTab({
           address: project.address || '',
           loan_amount: project.loan_amount?.toString() || '',
           appraised_value: project.appraised_value?.toString() || '',
-          sales_price: project.sales_price?.toString() || '',
           square_footage: project.square_footage?.toString() || '',
           interest_rate_annual: project.interest_rate_annual 
             ? (project.interest_rate_annual * 100).toString() 
@@ -290,6 +316,7 @@ export function OriginationTab({
         })
       }
       setIsEditing(false)
+      setValidationErrors({})
     }
   }
 
@@ -343,9 +370,13 @@ export function OriginationTab({
     label: string, 
     field: keyof FormData, 
     type: 'text' | 'currency' | 'percent' | 'number' = 'text',
-    placeholder?: string
+    placeholder?: string,
+    options?: { required?: boolean; helperText?: string }
   ) => {
     const value = formData[field]
+    const error = validationErrors[field as keyof ValidationErrors]
+    const isRequired = options?.required ?? false
+    const helperText = options?.helperText
     
     if (!isEditing) {
       // View mode - static display
@@ -379,6 +410,7 @@ export function OriginationTab({
       <div>
         <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
           {label}
+          {isRequired && <span style={{ color: 'var(--error)' }}> *</span>}
         </label>
         <div className="relative">
           {type === 'currency' && (
@@ -393,12 +425,48 @@ export function OriginationTab({
             style={{ 
               paddingLeft: type === 'currency' ? '1.75rem' : undefined,
               paddingRight: type === 'percent' ? '2rem' : undefined,
+              borderColor: error ? 'var(--error)' : undefined,
             }}
           />
           {type === 'percent' && (
             <span className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>%</span>
           )}
         </div>
+        {error && (
+          <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>{error}</p>
+        )}
+        {helperText && !error && (
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{helperText}</p>
+        )}
+      </div>
+    )
+  }
+
+  // Render subdivision field with combobox
+  const renderSubdivisionField = () => {
+    const error = validationErrors.subdivision_name
+
+    if (!isEditing) {
+      return (
+        <div>
+          <div style={{ color: 'var(--text-muted)' }}>Subdivision</div>
+          <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+            {formData.subdivision_name || '—'}
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div>
+        <SubdivisionCombobox
+          value={formData.subdivision_name}
+          onChange={(value) => handleInputChange('subdivision_name', value)}
+          placeholder="Search or create subdivision..."
+        />
+        {error && (
+          <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>{error}</p>
+        )}
       </div>
     )
   }
@@ -622,34 +690,84 @@ export function OriginationTab({
       <div className="card-ios">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Loan Details</h3>
+          {isEditing && (
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              <span style={{ color: 'var(--error)' }}>*</span> Required fields
+            </span>
+          )}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-          {/* Project Code - auto-generated, shown first */}
-          <div>
-            <div style={{ color: 'var(--text-muted)' }}>Project Code</div>
-            <div className="text-lg font-semibold font-mono" style={{ color: projectCode ? 'var(--accent)' : 'var(--text-muted)' }}>
-              {projectCode || (isEditing ? 'Auto-generated' : '—')}
+        
+        {/* Section 1: Property Identification */}
+        <div className="mb-6">
+          <h4 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>
+            Property Identification
+          </h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            {/* Project Code - auto-generated */}
+            <div>
+              <div style={{ color: 'var(--text-muted)' }}>Project Code</div>
+              <div className="text-lg font-semibold font-mono" style={{ color: projectCode ? 'var(--accent)' : 'var(--text-muted)' }}>
+                {projectCode || (isEditing ? 'Auto-generated' : '—')}
+              </div>
+              {isEditing && !projectCode && (
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  Generated from Subdivision + Lot
+                </p>
+              )}
             </div>
+            {renderSubdivisionField()}
+            {renderField('Lot Number', 'lot_number', 'text', 'e.g., 244', { required: true })}
+            {renderField('Address', 'address', 'text', 'Property address')}
           </div>
-          {renderField('Subdivision', 'subdivision_name', 'text', 'e.g., Discovery West')}
-          {renderField('Lot Number', 'lot_number', 'text', 'e.g., 244')}
-          {renderBuilderField()}
-          {renderField('Borrower', 'borrower_name', 'text', 'Auto-filled from builder')}
-          {renderField('Address', 'address', 'text', 'Property address')}
-          {renderField('Loan Amount', 'loan_amount', 'currency', '0')}
-          {renderField('Appraised Value', 'appraised_value', 'currency', '0')}
-          {/* Budget Amount - auto-calculated from budget categories */}
-          <div>
-            <div style={{ color: 'var(--text-muted)' }}>Budget Amount</div>
-            <div className="font-medium" style={{ color: totalBudget > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-              {totalBudget > 0 ? formatCurrency(totalBudget) : (budgets.length === 0 ? 'Upload budget' : '—')}
+        </div>
+
+        {/* Section 2: Builder & Borrower */}
+        <div className="mb-6 pt-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+          <h4 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>
+            Builder & Borrower
+          </h4>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            {renderBuilderField()}
+            {renderField('Borrower', 'borrower_name', 'text', 'Auto-filled from builder')}
+          </div>
+        </div>
+
+        {/* Section 3: Financial Terms */}
+        <div className="mb-6 pt-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+          <h4 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>
+            Financial Terms
+          </h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            {renderField('Loan Amount', 'loan_amount', 'currency', '0')}
+            {renderField('Estimated Value', 'appraised_value', 'currency', '0', { 
+              helperText: 'Expected sales price for LTV qualification'
+            })}
+            {/* Budget Amount - auto-calculated from budget categories */}
+            <div>
+              <div style={{ color: 'var(--text-muted)' }}>Budget Amount</div>
+              <div className="font-medium" style={{ color: totalBudget > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                {totalBudget > 0 ? formatCurrency(totalBudget) : (budgets.length === 0 ? 'Upload budget' : '—')}
+              </div>
+              {!isEditing && budgets.length > 0 && (
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  {budgets.length} line items
+                </p>
+              )}
             </div>
+            {renderField('Interest Rate', 'interest_rate_annual', 'percent', '11')}
+            {renderField('Origination Fee', 'origination_fee_pct', 'percent', '2')}
+            {renderField('Term', 'loan_term_months', 'number', '12')}
           </div>
-          {renderField('Sales Price', 'sales_price', 'currency', '0')}
-          {renderField('Square Footage', 'square_footage', 'number', '0')}
-          {renderField('Interest Rate', 'interest_rate_annual', 'percent', '11')}
-          {renderField('Origination Fee', 'origination_fee_pct', 'percent', '2')}
-          {renderField('Term', 'loan_term_months', 'number', '12')}
+        </div>
+
+        {/* Section 4: Property Details */}
+        <div className="pt-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+          <h4 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>
+            Property Details
+          </h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            {renderField('Square Footage', 'square_footage', 'number', '0')}
+          </div>
         </div>
       </div>
 
@@ -727,6 +845,63 @@ export function OriginationTab({
           </div>
 
           <div className="space-y-4">
+            {/* DocuSign Integration Placeholder */}
+            <div 
+              className="p-4 rounded-lg border border-dashed flex items-start gap-3"
+              style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}
+            >
+              <div 
+                className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: 'var(--bg-hover)' }}
+              >
+                <svg className="w-5 h-5" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>DocuSign Integration</span>
+                  <span 
+                    className="text-xs px-2 py-0.5 rounded-full"
+                    style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+                  >
+                    Coming Soon
+                  </span>
+                </div>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  Future integration will allow sending loan documents for signature via DocuSign 
+                  and automatically update this status when executed.
+                </p>
+                <button
+                  type="button"
+                  disabled
+                  className="mt-3 text-sm px-3 py-1.5 rounded-lg flex items-center gap-2 cursor-not-allowed"
+                  style={{ 
+                    background: 'var(--bg-hover)', 
+                    color: 'var(--text-muted)',
+                    opacity: 0.6
+                  }}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                  Send for Signature
+                </button>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t" style={{ borderColor: 'var(--border)' }}></div>
+              </div>
+              <div className="relative flex justify-center">
+                <span className="px-2 text-xs" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)' }}>
+                  or manually confirm
+                </span>
+              </div>
+            </div>
+
             {/* Loan Documents Recorded Checkbox */}
             <label className="flex items-start gap-3 cursor-pointer">
               <input
