@@ -113,6 +113,19 @@ export type ProjectWithBudget = Project & {
   lender?: Lender | null
 }
 
+// Project with draws for Builder Timeline
+export type ProjectWithDraws = Project & {
+  draws: DrawRequest[]
+  lender?: Lender | null
+  total_budget: number
+  total_spent: number
+}
+
+// Draw with project relation for staging views
+export type DrawWithProject = DrawRequest & {
+  project?: Project | null
+}
+
 // Validation result structure
 export type ValidationResult = {
   overages: Array<{ budgetId, category, requested, remaining, overage }>
@@ -242,6 +255,42 @@ export type ViewMode = 'table' | 'cards' | 'chart'
 export type DetailItemType = 'budgetLine' | 'draw' | 'anomaly'
 ```
 
+### Builder Timeline Types
+
+```typescript
+// Timeline view mode toggle
+export type TimelineViewMode = 'spreadsheet' | 'gantt'
+
+// Lender group for timeline sections
+export type LenderGroup = {
+  lenderId: string
+  lender: Lender | null
+  projects: ProjectWithDraws[]
+}
+
+// Staged draw mapping by project
+export type StagedDrawsByProject = Map<string, DrawWithProject[]>
+```
+
+### Draw Dashboard Types
+
+```typescript
+// Draw status filter values
+export type DrawStatus = 'all' | 'review' | 'staged' | 'pending_wire'
+
+// Builder with aggregated staged draws
+export type BuilderWithDraws = Builder & {
+  stagedDraws: DrawWithProject[]
+  totalAmount: number
+}
+
+// Wire batch with related data
+export type WireBatchWithDetails = WireBatch & {
+  builder?: Builder
+  draws?: DrawWithProject[]
+}
+```
+
 ## Regenerating Types
 
 If the Supabase schema changes, regenerate types:
@@ -279,14 +328,14 @@ const projects: Project[] = await supabase
 
 | Table | Description | Key Fields |
 |-------|-------------|------------|
-| `projects` | Construction loans | name, project_code, builder_id, lender_id, loan_amount |
-| `builders` | Builder/contractor companies | company_name, borrower_name, banking info, contact |
-| `lenders` | Lending entities | name, code (TD2, TENBROOK, TENNANT) |
+| `projects` | Construction loans | name, project_code, builder_id, lender_id, loan_amount, lifecycle_stage |
+| `builders` | Builder/contractor companies | company_name, borrower_name, bank_name, phone, email |
+| `lenders` | Lending entities | name, code (TD2, TENBROOK, TENNANT), is_active |
 | `budgets` | Budget line items | category, original_amount, spent_amount, nahb_category, builder_category_raw |
 | `draw_requests` | Draw request headers | draw_number, status (review/staged/pending_wire/funded), total_amount, funded_at |
 | `draw_request_lines` | Individual draw items | budget_id, amount_requested, flags (JSON array), notes |
 | `wire_batches` | Wire groupings per builder | builder_id, status, total_amount, wire_date |
-| `invoices` | Invoice records | vendor_name, amount, matched_to_category, draw_request_line_id |
+| `invoices` | Invoice records | vendor_name, amount, matched_to_category, draw_request_line_id, status |
 | `nahb_categories` | NAHB parent categories | code, name, sort_order |
 | `nahb_subcategories` | NAHB child categories | category_id, code, name |
 | `audit_events` | Immutable audit trail | entity_type, entity_id, action, actor |
