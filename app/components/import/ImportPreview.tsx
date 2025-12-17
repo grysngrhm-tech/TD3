@@ -174,6 +174,9 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
   // Row range state with analysis for filtering which rows to import
   const [rowRangeAnalysis, setRowRangeAnalysis] = useState<RowRangeWithAnalysis | null>(null)
   
+  // Track if user has manually adjusted the row range (to preserve their selection)
+  const [userOverrodeRowRange, setUserOverrodeRowRange] = useState(false)
+  
   // Budget replacement state (for budget imports)
   const [deleteExistingBudget, setDeleteExistingBudget] = useState(false)
   const [existingBudgetCount, setExistingBudgetCount] = useState<number>(0)
@@ -362,6 +365,8 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     if (!workbookInfo) return
     setSelectedSheet(sheetName)
     setLoading(true)
+    // Reset user override since this is a new sheet
+    setUserOverrodeRowRange(false)
     
     try {
       const parsedData = parseSheet(workbookInfo.workbook, sheetName)
@@ -403,18 +408,26 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
         return m
       })
       if (data) {
-        // Re-detect row boundaries with new mappings
-        const newAnalysis = detectRowBoundariesWithAnalysis(data.rows, updated, data.styles)
-        setRowRangeAnalysis(newAnalysis)
-        const newStats = calculateImportStats(data.rows, updated, newAnalysis)
-        setStats(newStats)
+        // Only re-detect row boundaries if user hasn't manually adjusted them
+        if (!userOverrodeRowRange) {
+          const newAnalysis = detectRowBoundariesWithAnalysis(data.rows, updated, data.styles)
+          setRowRangeAnalysis(newAnalysis)
+          const newStats = calculateImportStats(data.rows, updated, newAnalysis)
+          setStats(newStats)
+        } else {
+          // Preserve user's row selection, just recalculate stats with current range
+          const newStats = calculateImportStats(data.rows, updated, rowRangeAnalysis)
+          setStats(newStats)
+        }
       }
       return updated
     })
-  }, [data])
+  }, [data, userOverrodeRowRange, rowRangeAnalysis])
 
   // Handle row range changes from the spreadsheet viewer
   const handleRowRangeChange = useCallback((newRange: RowRange) => {
+    // Mark that user has manually adjusted the row range
+    setUserOverrodeRowRange(true)
     // Update the range while preserving existing analysis
     setRowRangeAnalysis(prev => prev ? {
       ...prev,
@@ -429,6 +442,8 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
 
   // Reset row range to auto-detected values
   const handleResetRowRange = useCallback(() => {
+    // Clear the user override flag since they're explicitly resetting
+    setUserOverrodeRowRange(false)
     if (data) {
       const detectedAnalysis = detectRowBoundariesWithAnalysis(data.rows, mappings, data.styles)
       setRowRangeAnalysis(detectedAnalysis)
@@ -673,6 +688,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     setMappings([])
     setStats(null)
     setRowRangeAnalysis(null)
+    setUserOverrodeRowRange(false)
     setError(null)
     setImporting(false)
     setSelectedBuilderId('')

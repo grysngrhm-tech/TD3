@@ -825,6 +825,7 @@ export function OriginationTab({
             }}
             importType="budget"
             preselectedProjectId={project.id}
+            preselectedBuilderId={project.builder_id}
           />
         </>
       )}

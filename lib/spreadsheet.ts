@@ -187,6 +187,8 @@ export type RowAnalysis = {
     followsGap: boolean        // Preceded by empty rows
     hasAmount: boolean         // Has non-zero amount
     hasCategory: boolean       // Has category text
+    textCellCount: number      // Number of non-empty text (non-numeric) cells
+    isMultiColumnTextRow: boolean  // Has 3+ text cells (strong header indicator)
   }
   manualOverride?: 'include' | 'exclude'  // User override
 }
@@ -394,6 +396,8 @@ export function analyzeRows(
         followsGap: false,
         hasAmount: false,
         hasCategory: false,
+        textCellCount: 0,
+        isMultiColumnTextRow: false,
       }
     }))
   }
@@ -428,6 +432,17 @@ export function analyzeRows(
       .reduce((sum, { weight }) => sum + weight, 0)
     const hasClosingKeyword = closingKeywordScore > 0
     
+    // Count non-empty text cells (non-numeric) - header rows typically have many text labels
+    const textCellCount = row.filter(cell => {
+      if (cell === null || cell === undefined) return false
+      const str = String(cell).trim()
+      if (str.length === 0) return false
+      // Check if it's NOT a number (pure text)
+      const cleanedForNumeric = str.replace(/[$,%]/g, '').trim()
+      return isNaN(parseFloat(cleanedForNumeric))
+    }).length
+    const isMultiColumnTextRow = textCellCount >= 3
+    
     return {
       index,
       classification: 'unknown' as RowClassification,
@@ -443,6 +458,8 @@ export function analyzeRows(
         followsGap: false,       // Will be calculated
         hasAmount: amount !== 0,
         hasCategory: catStr.length > 0,
+        textCellCount,
+        isMultiColumnTextRow,
       }
     }
   })
@@ -514,6 +531,9 @@ export function analyzeRows(
     if (!s.hasAmount && s.hasCategory) headerScore += 10
     if (s.followsGap && i < 5) headerScore += 15
     if (i < 3) headerScore += 25  // First 3 rows likely headers
+    // Strong signal: rows with 3+ text columns (no numbers) are likely headers
+    // This catches header rows like "CAT # | BUDGET | JULY DRAW | AUGUST DRAW..."
+    if (s.isMultiColumnTextRow && !s.hasAmount) headerScore += 45
     // Apply penalty for rows deep in the file (unlikely to be headers)
     if (i > 5) headerScore -= 40
     
