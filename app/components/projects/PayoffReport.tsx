@@ -302,6 +302,7 @@ export function PayoffReport({
       
       {viewMode === 'chart' && (
         <PayoffChartView
+          project={project}
           projectionData={projectionData}
           currentPayoff={currentPayoff}
           terms={terms}
@@ -867,11 +868,13 @@ function PayoffCalculatorView({
 // =============================================================================
 
 function PayoffChartView({
+  project,
   projectionData,
   currentPayoff,
   terms,
   effectiveFeeStartDate,
 }: {
+  project: Project
   projectionData: ProjectionDataPoint[]
   currentPayoff: PayoffBreakdown
   terms: LoanTerms
