@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ResponsiveLine } from '@nivo/line'
 import { ResponsiveBar } from '@nivo/bar'
@@ -8,6 +8,8 @@ import type { Project, DrawRequest } from '@/types/database'
 import type { ViewMode } from '@/app/components/ui/ViewModeSelector'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/app/components/ui/Toast'
+import { ChartHeader } from '@/app/components/ui/ChartInfoTooltip'
+import { CHART_TOOLTIPS } from '@/lib/constants'
 import {
   calculatePayoffBreakdown,
   projectPayoffAtDate,
@@ -23,6 +25,13 @@ import {
   generateFeeSchedule,
   type LoanTerms,
 } from '@/lib/loanTerms'
+
+// Credit type for payoff adjustments
+type PayoffCredit = {
+  id: string
+  description: string
+  amount: number
+}
 
 type DrawLineWithDate = {
   amount: number
@@ -45,6 +54,9 @@ type PayoffReportProps = {
   onWhatIfDateChange?: (date: string) => void
   customFeeStartDate?: string | null
   onCustomFeeStartDateChange?: (date: string | null) => void
+  // Credits for payoff adjustments
+  credits?: PayoffCredit[]
+  onCreditsChange?: (credits: PayoffCredit[]) => void
 }
 
 // =============================================================================
@@ -101,6 +113,8 @@ export function PayoffReport({
   onWhatIfDateChange,
   customFeeStartDate: externalCustomFeeStartDate,
   onCustomFeeStartDateChange,
+  credits: externalCredits,
+  onCreditsChange,
 }: PayoffReportProps) {
   // Use external state if provided, otherwise use internal state
   const [internalPayoffDate, setInternalPayoffDate] = useState<string>(
@@ -108,6 +122,22 @@ export function PayoffReport({
   )
   const payoffDate = externalPayoffDate ?? internalPayoffDate
   const setPayoffDate = onPayoffDateChange ?? setInternalPayoffDate
+  
+  // What-If date state
+  const [internalWhatIfDate, setInternalWhatIfDate] = useState<string>('')
+  const whatIfDate = externalWhatIfDate ?? internalWhatIfDate
+  const setWhatIfDate = onWhatIfDateChange ?? setInternalWhatIfDate
+  
+  // Credits state
+  const [internalCredits, setInternalCredits] = useState<PayoffCredit[]>([])
+  const credits = externalCredits ?? internalCredits
+  const setCredits = onCreditsChange ?? setInternalCredits
+  
+  // Calculate total credits
+  const totalCredits = useMemo(() => 
+    credits.reduce((sum, c) => sum + c.amount, 0), 
+    [credits]
+  )
   
   // Auto-derive loan start date from first funded draw
   const autoLoanStartDate = useMemo(() => {
@@ -134,10 +164,10 @@ export function PayoffReport({
     return resolveEffectiveTerms(project)
   }, [project])
   
-  // Calculate current payoff breakdown
+  // Calculate current payoff breakdown (with credits applied)
   const currentPayoff = useMemo(() => {
     const date = payoffDate ? new Date(payoffDate) : new Date()
-    return calculatePayoffBreakdown(
+    const breakdown = calculatePayoffBreakdown(
       {
         loan_amount: project.loan_amount,
         interest_rate_annual: project.interest_rate_annual,
@@ -148,7 +178,14 @@ export function PayoffReport({
       date,
       terms
     )
-  }, [project, drawLines, payoffDate, terms, effectiveFeeStartDate])
+    
+    // Apply credits
+    return {
+      ...breakdown,
+      credits: totalCredits,
+      totalPayoff: breakdown.totalPayoff - totalCredits,
+    }
+  }, [project, drawLines, payoffDate, terms, effectiveFeeStartDate, totalCredits])
   
   // Calculate projection data for chart
   const projectionData = useMemo(() => {
@@ -233,15 +270,33 @@ export function PayoffReport({
       )}
       
       {viewMode === 'table' && (
-        <PayoffStatementView
-          project={project}
-          payoff={currentPayoff}
-          payoffDate={payoffDate}
-          setPayoffDate={setPayoffDate}
-          daysToMaturity={daysToMaturity}
-          urgencyLevel={urgencyLevel}
-          urgencyColor={urgencyColor}
-        />
+        <>
+          {/* Credits Manager */}
+          <CreditsManager
+            credits={credits}
+            onCreditsChange={setCredits}
+            totalCredits={totalCredits}
+          />
+          
+          <PayoffStatementView
+            project={project}
+            payoff={currentPayoff}
+            payoffDate={payoffDate}
+            setPayoffDate={setPayoffDate}
+            daysToMaturity={daysToMaturity}
+            urgencyLevel={urgencyLevel}
+            urgencyColor={urgencyColor}
+            credits={credits}
+          />
+          
+          {/* Title Company Report Generator */}
+          <PayoffLetterGenerator
+            project={project}
+            payoff={currentPayoff}
+            payoffDate={payoffDate}
+            credits={credits}
+          />
+        </>
       )}
       
       {viewMode === 'chart' && (
@@ -253,6 +308,8 @@ export function PayoffReport({
           effectiveFeeStartDate={effectiveFeeStartDate}
           feeSchedule={feeSchedule}
           drawLines={drawLines}
+          whatIfDate={whatIfDate}
+          onWhatIfDateChange={setWhatIfDate}
         />
       )}
       
@@ -286,6 +343,7 @@ function PayoffStatementView({
   daysToMaturity,
   urgencyLevel,
   urgencyColor,
+  credits,
 }: {
   project: Project
   payoff: PayoffBreakdown
@@ -294,6 +352,7 @@ function PayoffStatementView({
   daysToMaturity: number | null
   urgencyLevel: string
   urgencyColor: string
+  credits: PayoffCredit[]
 }) {
   return (
     <div className="card-ios">
@@ -412,13 +471,19 @@ function PayoffStatementView({
               {formatCurrency(payoff.documentFee)}
             </td>
           </tr>
-          {payoff.credits > 0 && (
-            <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-              <td className="py-3" style={{ color: 'var(--text-secondary)' }}>Less: Credits/Adjustments</td>
-              <td className="py-3 text-right font-medium" style={{ color: 'var(--success)' }}>
-                ({formatCurrency(payoff.credits)})
-              </td>
-            </tr>
+          {credits.length > 0 && (
+            <>
+              {credits.map((credit) => (
+                <tr key={credit.id} className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <td className="py-3" style={{ color: 'var(--text-secondary)' }}>
+                    Less: {credit.description || 'Credit'}
+                  </td>
+                  <td className="py-3 text-right font-medium" style={{ color: 'var(--success)' }}>
+                    ({formatCurrency(credit.amount)})
+                  </td>
+                </tr>
+              ))}
+            </>
           )}
         </tbody>
         <tfoot>
@@ -476,6 +541,8 @@ function ChartDashboard({
   effectiveFeeStartDate,
   feeSchedule,
   drawLines,
+  whatIfDate,
+  onWhatIfDateChange,
 }: {
   project: Project
   projectionData: ProjectionDataPoint[]
@@ -484,6 +551,8 @@ function ChartDashboard({
   effectiveFeeStartDate: string | null
   feeSchedule: ReturnType<typeof generateFeeSchedule>
   drawLines: DrawLineWithDate[]
+  whatIfDate: string
+  onWhatIfDateChange: (date: string) => void
 }) {
   // Empty state check
   if (projectionData.length === 0 || !effectiveFeeStartDate) {
@@ -519,6 +588,8 @@ function ChartDashboard({
           currentPayoff={currentPayoff}
           effectiveFeeStartDate={effectiveFeeStartDate}
           terms={terms}
+          customDate={whatIfDate}
+          onCustomDateChange={onWhatIfDateChange}
         />
       </div>
     </div>
@@ -551,12 +622,13 @@ function FeeEscalationChart({
 
   return (
     <div className="card-ios p-0" style={{ height: 280 }}>
-      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Fee Escalation Timeline</h3>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          Finance fee rate progression over 18 months
-        </p>
-      </div>
+      <ChartHeader
+        title="Fee Escalation Timeline"
+        subtitle="Finance fee rate progression over 18 months"
+        tooltipTitle={CHART_TOOLTIPS.feeEscalation.title}
+        tooltipDescription={CHART_TOOLTIPS.feeEscalation.description}
+        tooltipFormula={CHART_TOOLTIPS.feeEscalation.formula}
+      />
       <div style={{ height: 220 }}>
         <ResponsiveLine
           data={chartData}
@@ -666,12 +738,12 @@ function PayoffProjectionChart({
 
   return (
     <div className="card-ios p-0" style={{ height: 320 }}>
-      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Payoff Projection</h3>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          Interest and total payoff growth over time
-        </p>
-      </div>
+      <ChartHeader
+        title="Payoff Projection"
+        subtitle="Interest and total payoff growth over time"
+        tooltipTitle={CHART_TOOLTIPS.payoffProjection.title}
+        tooltipDescription={CHART_TOOLTIPS.payoffProjection.description}
+      />
       <div style={{ height: 260 }}>
         <ResponsiveLine
           data={chartData}
@@ -761,22 +833,26 @@ function PayoffProjectionChart({
   )
 }
 
-// Chart 3: What-If Date Comparison
+// Chart 3: What-If Date Comparison (with custom date picker)
 function WhatIfComparisonChart({
   currentPayoff,
   effectiveFeeStartDate,
   terms,
+  customDate,
+  onCustomDateChange,
 }: {
   currentPayoff: PayoffBreakdown
   effectiveFeeStartDate: string
   terms: LoanTerms
+  customDate: string
+  onCustomDateChange: (date: string) => void
 }) {
-  // Calculate payoff at different future dates
+  // Calculate payoff at different future dates including custom date
   const comparisonData = useMemo(() => {
     const intervals = [0, 7, 14, 30, 60, 90]
     const baseDate = new Date()
     
-    return intervals.map(days => {
+    const data = intervals.map(days => {
       const futureDate = new Date(baseDate)
       futureDate.setDate(futureDate.getDate() + days)
       
@@ -795,18 +871,86 @@ function WhatIfComparisonChart({
         fees: projected.financeFee + projected.documentFee,
         total: projected.totalPayoff,
         delta: projected.totalPayoff - currentPayoff.totalPayoff,
+        isCustom: false,
       }
     })
-  }, [currentPayoff, effectiveFeeStartDate, terms])
+    
+    // Add custom date if provided
+    if (customDate) {
+      const customDateObj = new Date(customDate)
+      const daysDiff = Math.round((customDateObj.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24))
+      
+      if (daysDiff > 0 && !intervals.includes(daysDiff)) {
+        const projected = projectPayoffAtDate(
+          currentPayoff,
+          customDateObj,
+          new Date(effectiveFeeStartDate),
+          terms
+        )
+        
+        // Insert in sorted order
+        const customEntry = {
+          label: formatDate(customDateObj),
+          days: daysDiff,
+          principal: projected.principalBalance,
+          interest: projected.accruedInterest,
+          fees: projected.financeFee + projected.documentFee,
+          total: projected.totalPayoff,
+          delta: projected.totalPayoff - currentPayoff.totalPayoff,
+          isCustom: true,
+        }
+        
+        // Find insert position
+        const insertIdx = data.findIndex(d => d.days > daysDiff)
+        if (insertIdx === -1) {
+          data.push(customEntry)
+        } else {
+          data.splice(insertIdx, 0, customEntry)
+        }
+      }
+    }
+    
+    return data
+  }, [currentPayoff, effectiveFeeStartDate, terms, customDate])
+
+  // Calculate delta from today for header
+  const maxDelta = comparisonData.length > 0 
+    ? comparisonData[comparisonData.length - 1].delta 
+    : 0
 
   return (
-    <div className="card-ios p-0" style={{ height: 320 }}>
-      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>What-If Comparison</h3>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          Payoff amount at different dates
-        </p>
+    <div className="card-ios p-0" style={{ height: 380 }}>
+      <ChartHeader
+        title="What-If Comparison"
+        subtitle={maxDelta > 0 ? `Cost of waiting: ${formatCurrency(maxDelta)} at 90 days` : 'Compare payoff at different dates'}
+        tooltipTitle={CHART_TOOLTIPS.whatIfComparison.title}
+        tooltipDescription={CHART_TOOLTIPS.whatIfComparison.description}
+      />
+      
+      {/* Custom Date Picker */}
+      <div className="px-4 py-2 border-b flex items-center gap-3" style={{ borderColor: 'var(--border-subtle)' }}>
+        <label className="text-xs" style={{ color: 'var(--text-muted)' }}>
+          Compare custom date:
+        </label>
+        <input
+          type="date"
+          value={customDate}
+          onChange={(e) => onCustomDateChange(e.target.value)}
+          min={new Date().toISOString().split('T')[0]}
+          className="input text-sm py-1 px-2"
+          style={{ background: 'var(--bg-secondary)', minWidth: '140px' }}
+        />
+        {customDate && (
+          <button
+            onClick={() => onCustomDateChange('')}
+            className="text-xs px-2 py-1 rounded hover:bg-[var(--bg-hover)] transition-colors"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Clear
+          </button>
+        )}
       </div>
+      
       <div style={{ height: 260 }}>
         <ResponsiveBar
           data={comparisonData}
@@ -817,7 +961,18 @@ function WhatIfComparisonChart({
           groupMode="stacked"
           valueScale={{ type: 'linear' }}
           indexScale={{ type: 'band', round: true }}
-          colors={['var(--text-muted)', 'var(--warning)', 'var(--accent)']}
+          colors={({ id, data }: { id: string; data: Record<string, unknown> }) => {
+            // Use different color for custom date
+            const isCustom = data?.isCustom as boolean
+            if (isCustom) {
+              if (id === 'principal') return 'var(--info)'
+              if (id === 'interest') return '#f97316' // orange
+              return 'var(--success)'
+            }
+            if (id === 'principal') return 'var(--text-muted)'
+            if (id === 'interest') return 'var(--warning)'
+            return 'var(--accent)'
+          }}
           borderRadius={2}
           axisTop={null}
           axisRight={null}
@@ -1014,6 +1169,391 @@ function CompleteLoanSection({
           </>
         )}
       </button>
+    </div>
+  )
+}
+
+// =============================================================================
+// CREDITS MANAGER - Apply credits/adjustments to payoff
+// =============================================================================
+
+function CreditsManager({
+  credits,
+  onCreditsChange,
+  totalCredits,
+}: {
+  credits: PayoffCredit[]
+  onCreditsChange: (credits: PayoffCredit[]) => void
+  totalCredits: number
+}) {
+  const [newDescription, setNewDescription] = useState('')
+  const [newAmount, setNewAmount] = useState('')
+  const [isAdding, setIsAdding] = useState(false)
+
+  const handleAddCredit = () => {
+    if (!newAmount || parseFloat(newAmount) <= 0) return
+    
+    const credit: PayoffCredit = {
+      id: crypto.randomUUID(),
+      description: newDescription || 'Credit',
+      amount: parseFloat(newAmount),
+    }
+    
+    onCreditsChange([...credits, credit])
+    setNewDescription('')
+    setNewAmount('')
+    setIsAdding(false)
+  }
+
+  const handleRemoveCredit = (id: string) => {
+    onCreditsChange(credits.filter(c => c.id !== id))
+  }
+
+  return (
+    <div className="card-ios">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+            <svg className="w-5 h-5" style={{ color: 'var(--info)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Credits & Adjustments
+          </h3>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            Apply credits to reduce payoff amount
+          </p>
+        </div>
+        {totalCredits > 0 && (
+          <div className="text-right">
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Total Credits</div>
+            <div className="text-lg font-bold" style={{ color: 'var(--success)' }}>
+              -{formatCurrency(totalCredits)}
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Existing Credits List */}
+      {credits.length > 0 && (
+        <div className="space-y-2 mb-4">
+          {credits.map((credit) => (
+            <div
+              key={credit.id}
+              className="flex items-center justify-between p-3 rounded-lg"
+              style={{ background: 'var(--bg-secondary)' }}
+            >
+              <div>
+                <div className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+                  {credit.description}
+                </div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Credit applied to payoff
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-semibold" style={{ color: 'var(--success)' }}>
+                  -{formatCurrency(credit.amount)}
+                </span>
+                <button
+                  onClick={() => handleRemoveCredit(credit.id)}
+                  className="p-1 rounded hover:bg-[var(--bg-hover)] transition-colors"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {/* Add Credit Form */}
+      <AnimatePresence>
+        {isAdding ? (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="p-4 rounded-lg border" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    value={newDescription}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                    placeholder="e.g., Builder rebate, Closing credit"
+                    className="input w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+                    Amount
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>$</span>
+                    <input
+                      type="number"
+                      value={newAmount}
+                      onChange={(e) => setNewAmount(e.target.value)}
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                      className="input w-full pl-7"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleAddCredit}
+                  disabled={!newAmount || parseFloat(newAmount) <= 0}
+                  className="btn-primary text-sm"
+                >
+                  Add Credit
+                </button>
+                <button
+                  onClick={() => { setIsAdding(false); setNewDescription(''); setNewAmount('') }}
+                  className="btn-secondary text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <button
+            onClick={() => setIsAdding(true)}
+            className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg border border-dashed transition-colors hover:bg-[var(--bg-hover)]"
+            style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Credit
+          </button>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// =============================================================================
+// PAYOFF LETTER GENERATOR - Title company ready document
+// =============================================================================
+
+function PayoffLetterGenerator({
+  project,
+  payoff,
+  payoffDate,
+  credits,
+}: {
+  project: Project
+  payoff: PayoffBreakdown
+  payoffDate: string
+  credits: PayoffCredit[]
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const letterRef = useRef<HTMLDivElement>(null)
+
+  const handleCopyToClipboard = async () => {
+    if (!letterRef.current) return
+    
+    try {
+      await navigator.clipboard.writeText(letterRef.current.innerText)
+      toast({ type: 'success', title: 'Copied', message: 'Payoff letter copied to clipboard' })
+    } catch (err) {
+      toast({ type: 'error', title: 'Error', message: 'Failed to copy to clipboard' })
+    }
+  }
+
+  const handlePrint = () => {
+    window.print()
+  }
+
+  return (
+    <div className="card-ios">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+            <svg className="w-5 h-5" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Title Company Payoff Letter
+          </h3>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            Generate a formal payoff statement for title companies
+          </p>
+        </div>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="btn-secondary flex items-center gap-2"
+        >
+          {isOpen ? 'Close' : 'Generate Letter'}
+          <svg 
+            className="w-4 h-4 transition-transform" 
+            style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
+      
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            {/* Letter Preview */}
+            <div 
+              ref={letterRef}
+              className="mt-6 p-8 bg-white rounded-lg border print:border-0"
+              style={{ borderColor: 'var(--border)', color: '#000' }}
+            >
+              {/* Letterhead */}
+              <div className="text-center mb-8 pb-4 border-b border-gray-200">
+                <h1 className="text-xl font-bold text-gray-900">PAYOFF STATEMENT</h1>
+                <p className="text-sm text-gray-600 mt-1">CONFIDENTIAL - FOR TITLE COMPANY USE ONLY</p>
+              </div>
+              
+              {/* Date and Reference */}
+              <div className="flex justify-between mb-6">
+                <div>
+                  <p className="text-sm text-gray-600">Statement Date</p>
+                  <p className="font-medium">{formatDate(new Date())}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-600">Loan Number</p>
+                  <p className="font-medium">{project.project_code || project.id.slice(0, 8).toUpperCase()}</p>
+                </div>
+              </div>
+              
+              {/* Loan Information */}
+              <div className="mb-6 p-4 bg-gray-50 rounded">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-600">Borrower:</span>
+                    <span className="ml-2 font-medium">{project.borrower_name || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Property:</span>
+                    <span className="ml-2 font-medium">{project.address || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Original Loan Amount:</span>
+                    <span className="ml-2 font-medium">{formatCurrency(project.loan_amount)}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Interest Rate:</span>
+                    <span className="ml-2 font-medium">{formatRate(project.interest_rate_annual || 0)}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Payoff Breakdown */}
+              <table className="w-full mb-6 text-sm">
+                <tbody>
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 text-gray-600">Principal Balance</td>
+                    <td className="py-2 text-right font-medium">{formatCurrency(payoff.principalBalance)}</td>
+                  </tr>
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 text-gray-600">
+                      Accrued Interest ({payoff.daysOfInterest} days @ {formatCurrency(payoff.perDiem)}/day)
+                    </td>
+                    <td className="py-2 text-right font-medium">{formatCurrency(payoff.accruedInterest)}</td>
+                  </tr>
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 text-gray-600">Finance Fee ({payoff.feeRatePct})</td>
+                    <td className="py-2 text-right font-medium">{formatCurrency(payoff.financeFee)}</td>
+                  </tr>
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 text-gray-600">Document Fee</td>
+                    <td className="py-2 text-right font-medium">{formatCurrency(payoff.documentFee)}</td>
+                  </tr>
+                  {credits.map((credit) => (
+                    <tr key={credit.id} className="border-b border-gray-200">
+                      <td className="py-2 text-gray-600">Less: {credit.description}</td>
+                      <td className="py-2 text-right font-medium text-green-600">({formatCurrency(credit.amount)})</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="font-bold text-lg">
+                    <td className="pt-4">TOTAL PAYOFF</td>
+                    <td className="pt-4 text-right">{formatCurrency(payoff.totalPayoff)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+              
+              {/* Good Through Notice */}
+              <div className="mb-6 p-4 border-2 border-gray-300 rounded bg-yellow-50">
+                <p className="font-semibold text-center">
+                  Good Through: {formatDate(payoffDate)}
+                </p>
+                <p className="text-sm text-center text-gray-600 mt-1">
+                  For payoff after this date, add {formatCurrency(payoff.perDiem)} per diem interest for each additional day.
+                </p>
+              </div>
+              
+              {/* Wire Instructions Placeholder */}
+              <div className="mb-6 p-4 bg-gray-50 rounded">
+                <p className="font-semibold mb-2">Wire Instructions:</p>
+                <p className="text-sm text-gray-600 italic">
+                  [Contact lender for wire instructions]
+                </p>
+              </div>
+              
+              {/* Authorization */}
+              <div className="mt-8 pt-4 border-t border-gray-200">
+                <p className="text-sm text-gray-600">
+                  This payoff statement is valid only for the date specified above. The actual payoff amount 
+                  may differ if funds are received on a different date. This statement does not constitute 
+                  a payoff commitment.
+                </p>
+                <div className="mt-6 grid grid-cols-2 gap-8">
+                  <div>
+                    <div className="border-b border-gray-400 mb-1"></div>
+                    <p className="text-sm text-gray-600">Authorized Signature</p>
+                  </div>
+                  <div>
+                    <div className="border-b border-gray-400 mb-1"></div>
+                    <p className="text-sm text-gray-600">Date</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Actions */}
+            <div className="mt-4 flex gap-3">
+              <button onClick={handleCopyToClipboard} className="btn-secondary flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
+                Copy to Clipboard
+              </button>
+              <button onClick={handlePrint} className="btn-secondary flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                Print Letter
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

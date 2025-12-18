@@ -7,6 +7,8 @@ import { ResponsiveLine } from '@nivo/line'
 import { ResponsivePie } from '@nivo/pie'
 import type { Project, DrawRequest } from '@/types/database'
 import type { ViewMode } from '@/app/components/ui/ViewModeSelector'
+import { ChartHeader } from '@/app/components/ui/ChartInfoTooltip'
+import { CHART_TOOLTIPS } from '@/lib/constants'
 import { 
   calculateAmortizationSchedule,
   calculatePerDiem,
@@ -175,52 +177,8 @@ export function AmortizationTable({
   
   return (
     <div className="space-y-4">
-      {/* Summary Header */}
-      <div className="card-ios">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-              Principal
-            </div>
-            <div className="text-xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>
-              {formatCurrencyCompact(summary.principal)}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-              Total Interest
-            </div>
-            <div className="text-xl font-bold mt-1" style={{ color: 'var(--warning)' }}>
-              {formatCurrency(summary.totalInterest)}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-              Total Balance
-            </div>
-            <div className="text-xl font-bold mt-1" style={{ color: 'var(--accent)' }}>
-              {formatCurrencyCompact(summary.totalBalance)}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-              Per Diem
-            </div>
-            <div className="text-xl font-bold mt-1" style={{ color: 'var(--info)' }}>
-              {formatCurrency(payoffTotals.perDiem)}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-              Total Payoff
-            </div>
-            <div className="text-xl font-bold mt-1" style={{ color: 'var(--success)' }}>
-              {formatCurrencyCompact(payoffTotals.total)}
-            </div>
-          </div>
-        </div>
-      </div>
-
+      {/* NOTE: Summary header removed - now consolidated in PolymorphicLoanDetails */}
+      
       {/* Amortization Table */}
       <div className="card-ios p-0 overflow-hidden">
         <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -412,7 +370,7 @@ function ChartDashboard({
   return (
     <div className="space-y-6">
       {/* Row 1: Balance Growth Over Time (Full Width) */}
-      <BalanceGrowthChart schedule={schedule} />
+      <BalanceGrowthChart schedule={schedule} payoffTotals={payoffTotals} />
       
       {/* Row 2: Draw Timeline + Interest Analysis */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -423,13 +381,26 @@ function ChartDashboard({
   )
 }
 
-// Chart 1: Balance Growth Over Time (Stacked Area)
-function BalanceGrowthChart({ schedule }: { schedule: AmortizationRow[] }) {
+// Chart 1: Balance Growth Over Time (Stacked Area with Fees)
+function BalanceGrowthChart({ 
+  schedule,
+  payoffTotals,
+}: { 
+  schedule: AmortizationRow[]
+  payoffTotals: {
+    originationFee: number
+    docFee: number
+    total: number
+  }
+}) {
   const chartData = useMemo(() => {
     // Get all rows sorted by date
     const rows = schedule.filter(r => r.type === 'draw' || r.type === 'current' || r.type === 'month_end')
     
     if (rows.length === 0) return []
+    
+    // Calculate fees to add to each point
+    const totalFees = payoffTotals.originationFee + payoffTotals.docFee
     
     const principalData = rows.map(row => ({
       x: formatDateShort(row.date),
@@ -441,11 +412,18 @@ function BalanceGrowthChart({ schedule }: { schedule: AmortizationRow[] }) {
       y: row.totalBalance,
     }))
     
+    // Total Payoff = Balance + Fees
+    const payoffData = rows.map(row => ({
+      x: formatDateShort(row.date),
+      y: row.totalBalance + totalFees,
+    }))
+    
     return [
       { id: 'Principal', data: principalData },
-      { id: 'Total Balance', data: balanceData },
+      { id: 'Balance + Interest', data: balanceData },
+      { id: 'Total Payoff', data: payoffData },
     ]
-  }, [schedule])
+  }, [schedule, payoffTotals])
 
   if (chartData.length === 0 || chartData[0].data.length === 0) {
     return null
@@ -453,12 +431,13 @@ function BalanceGrowthChart({ schedule }: { schedule: AmortizationRow[] }) {
 
   return (
     <div className="card-ios p-0" style={{ height: 350 }}>
-      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Balance Growth Over Time</h3>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          Principal + compound interest accumulation
-        </p>
-      </div>
+      <ChartHeader
+        title="Balance Growth Over Time"
+        subtitle="Principal + Interest + Fees"
+        tooltipTitle={CHART_TOOLTIPS.balanceGrowth.title}
+        tooltipDescription={CHART_TOOLTIPS.balanceGrowth.description}
+        tooltipFormula={CHART_TOOLTIPS.balanceGrowth.formula}
+      />
       <div style={{ height: 290 }}>
         <ResponsiveLine
           data={chartData}
@@ -480,14 +459,14 @@ function BalanceGrowthChart({ schedule }: { schedule: AmortizationRow[] }) {
           }}
           enableGridX={false}
           enableGridY={true}
-          colors={['var(--text-muted)', 'var(--accent)']}
+          colors={['var(--text-muted)', 'var(--accent)', 'var(--success)']}
           lineWidth={3}
           pointSize={6}
           pointColor={{ from: 'color' }}
           pointBorderWidth={2}
           pointBorderColor={{ from: 'serieColor' }}
           enableArea={true}
-          areaOpacity={0.15}
+          areaOpacity={0.1}
           useMesh={true}
           legends={[
             {
@@ -496,9 +475,9 @@ function BalanceGrowthChart({ schedule }: { schedule: AmortizationRow[] }) {
               justify: false,
               translateX: 0,
               translateY: -15,
-              itemsSpacing: 20,
+              itemsSpacing: 10,
               itemDirection: 'left-to-right',
-              itemWidth: 100,
+              itemWidth: 90,
               itemHeight: 20,
               itemOpacity: 0.75,
               symbolSize: 10,
@@ -569,21 +548,14 @@ function DrawTimelineChart({ drawLines }: { drawLines: DrawLineWithDate[] }) {
     )
   }
 
-  // Calculate cumulative amounts for the line
-  let cumulative = 0
-  const cumulativeData = chartData.map(d => {
-    cumulative += d.amount
-    return cumulative
-  })
-
   return (
     <div className="card-ios p-0" style={{ height: 320 }}>
-      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Draw Funding Timeline</h3>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          Individual draw amounts and dates
-        </p>
-      </div>
+      <ChartHeader
+        title="Draw Funding Timeline"
+        subtitle="Individual draw amounts and dates"
+        tooltipTitle={CHART_TOOLTIPS.drawTimeline.title}
+        tooltipDescription={CHART_TOOLTIPS.drawTimeline.description}
+      />
       <div style={{ height: 260 }}>
         <ResponsiveBar
           data={chartData}
@@ -646,7 +618,7 @@ function DrawTimelineChart({ drawLines }: { drawLines: DrawLineWithDate[] }) {
   )
 }
 
-// Chart 3: Interest Analysis (Donut + Stats)
+// Chart 3: Interest Analysis (Donut + Stats) - Now includes fees
 function InterestAnalysisChart({
   summary,
   project,
@@ -658,39 +630,49 @@ function InterestAnalysisChart({
     principal: number
     interest: number
     perDiem: number
+    originationFee: number
+    docFee: number
+    total: number
   }
 }) {
+  // Expanded pie data with fees
   const pieData = useMemo(() => [
     { id: 'Principal', value: summary.principal, color: 'var(--accent)' },
     { id: 'Interest', value: summary.totalInterest, color: 'var(--warning)' },
-  ], [summary])
+    { id: 'Finance Fee', value: payoffTotals.originationFee, color: 'var(--info)' },
+    { id: 'Doc Fee', value: payoffTotals.docFee, color: 'var(--success)' },
+  ].filter(d => d.value > 0), [summary, payoffTotals])
 
-  const interestPct = summary.totalBalance > 0 
-    ? (summary.totalInterest / summary.totalBalance) * 100 
+  const interestPct = payoffTotals.total > 0 
+    ? (summary.totalInterest / payoffTotals.total) * 100 
+    : 0
+    
+  const feePct = payoffTotals.total > 0
+    ? ((payoffTotals.originationFee + payoffTotals.docFee) / payoffTotals.total) * 100
     : 0
 
   return (
     <div className="card-ios p-0" style={{ height: 320 }}>
-      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Interest Analysis</h3>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          Principal vs interest breakdown
-        </p>
-      </div>
+      <ChartHeader
+        title="Interest Analysis"
+        subtitle="Principal, Interest & Fees breakdown"
+        tooltipTitle={CHART_TOOLTIPS.interestAnalysis.title}
+        tooltipDescription={CHART_TOOLTIPS.interestAnalysis.description}
+      />
       <div className="grid grid-cols-2 h-[260px]">
         {/* Donut Chart */}
         <div className="h-full">
           <ResponsivePie
             data={pieData}
             margin={{ top: 20, right: 10, bottom: 20, left: 10 }}
-            innerRadius={0.6}
-            padAngle={2}
-            cornerRadius={4}
+            innerRadius={0.55}
+            padAngle={1.5}
+            cornerRadius={3}
             activeOuterRadiusOffset={4}
             colors={{ datum: 'data.color' }}
             borderWidth={0}
             enableArcLinkLabels={false}
-            arcLabelsSkipAngle={20}
+            arcLabelsSkipAngle={25}
             arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
             tooltip={({ datum }) => (
               <div
@@ -708,39 +690,48 @@ function InterestAnalysisChart({
                     {datum.id}: {formatCurrencyCompact(datum.value)}
                   </span>
                 </div>
+                <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  {((datum.value / payoffTotals.total) * 100).toFixed(1)}% of total
+                </div>
               </div>
             )}
             theme={{
               labels: {
-                text: { fill: 'var(--text-primary)', fontSize: 11 }
+                text: { fill: 'var(--text-primary)', fontSize: 10 }
               }
             }}
           />
         </div>
         
         {/* Stats Panel */}
-        <div className="flex flex-col justify-center pr-4 space-y-3">
-          <div className="p-3 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
+        <div className="flex flex-col justify-center pr-4 space-y-2">
+          <div className="p-2.5 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
             <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Interest Rate</div>
-            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+            <div className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
               {formatRate(project.interest_rate_annual || 0)}
             </div>
           </div>
-          <div className="p-3 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
+          <div className="p-2.5 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
             <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Per Diem</div>
-            <div className="text-lg font-bold" style={{ color: 'var(--info)' }}>
+            <div className="text-base font-bold" style={{ color: 'var(--info)' }}>
               {formatCurrency(payoffTotals.perDiem)}
             </div>
           </div>
-          <div className="p-3 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Interest Portion</div>
-            <div className="text-lg font-bold" style={{ color: 'var(--warning)' }}>
-              {interestPct.toFixed(1)}%
+          <div className="p-2.5 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Finance Fee ({formatRate(project.origination_fee_pct || 0.02)})</div>
+            <div className="text-base font-bold" style={{ color: 'var(--info)' }}>
+              {formatCurrency(payoffTotals.originationFee)}
             </div>
           </div>
-          <div className="p-3 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
+          <div className="p-2.5 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Doc Fee</div>
+            <div className="text-base font-bold" style={{ color: 'var(--success)' }}>
+              {formatCurrency(payoffTotals.docFee)}
+            </div>
+          </div>
+          <div className="p-2.5 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
             <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Days Outstanding</div>
-            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+            <div className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
               {summary.totalDays}
             </div>
           </div>

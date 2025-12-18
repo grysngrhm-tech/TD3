@@ -3,16 +3,18 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ResponsiveSankey } from '@nivo/sankey'
-import { ResponsiveBar } from '@nivo/bar'
+import { ResponsiveBar, type BarCustomLayerProps } from '@nivo/bar'
 import { ResponsiveLine } from '@nivo/line'
 import type { Budget, DrawRequestLine, DrawRequest } from '@/types/database'
 import type { ViewMode } from '@/app/components/ui/ViewModeSelector'
 import { BudgetSparkline, MiniSparkline } from '@/app/components/ui/BudgetSparkline'
+import { ChartHeader } from '@/app/components/ui/ChartInfoTooltip'
 import { 
   type Anomaly, 
   getBudgetSeverity 
 } from '@/lib/anomalyDetection'
 import type { DetailPanelContent, DrawHistoryItem } from '@/app/components/ui/ReportDetailPanel'
+import { getCategoryOrder, CHART_TOOLTIPS } from '@/lib/constants'
 
 type DrawLineWithBudget = DrawRequestLine & {
   budget?: Budget | null
@@ -560,7 +562,7 @@ function SankeyChart({
   draws: DrawRequest[]
   totals: { totalBudget: number; totalSpent: number }
 }) {
-  // Build Sankey data
+  // Build Sankey data with proper ordering
   const sankeyData = useMemo(() => {
     const nodes: { id: string; nodeColor?: string }[] = []
     const links: { source: string; target: string; value: number }[] = []
@@ -568,37 +570,51 @@ function SankeyChart({
     // Add loan source node
     nodes.push({ id: 'Loan', nodeColor: 'var(--accent)' })
     
-    // Add category nodes and links from loan
-    const categories = new Map<string, number>()
+    // Build category data with cost codes for ordering
+    const categoryData = new Map<string, { spent: number; costCode: string | null }>()
     for (const budget of budgets) {
       const category = budget.nahb_category || 'Other'
-      const current = categories.get(category) || 0
-      categories.set(category, current + (budget.spent_amount || 0))
-    }
-    
-    for (const [category, spent] of categories) {
-      if (spent > 0) {
-        nodes.push({ id: category })
-        links.push({ source: 'Loan', target: category, value: spent })
+      const existing = categoryData.get(category) || { spent: 0, costCode: budget.cost_code }
+      existing.spent += budget.spent_amount || 0
+      if (!existing.costCode && budget.cost_code) {
+        existing.costCode = budget.cost_code
       }
+      categoryData.set(category, existing)
     }
     
-    // Add draw nodes and links from categories
-    for (const draw of draws) {
-      if (draw.total_amount > 0) {
-        const drawId = `Draw #${draw.draw_number}`
-        nodes.push({ id: drawId, nodeColor: 'var(--success)' })
-        
-        for (const [category, spent] of categories) {
-          if (spent > 0) {
-            const proportion = spent / totals.totalSpent
-            links.push({ 
-              source: category, 
-              target: drawId, 
-              value: draw.total_amount * proportion 
-            })
-          }
-        }
+    // Sort categories by cost_code (construction chronology) - top to bottom
+    const sortedCategories = Array.from(categoryData.entries())
+      .filter(([_, data]) => data.spent > 0)
+      .sort((a, b) => getCategoryOrder(a[1].costCode) - getCategoryOrder(b[1].costCode))
+    
+    // Add category nodes in sorted order (top to bottom by cost code)
+    for (const [category, data] of sortedCategories) {
+      nodes.push({ id: category })
+      links.push({ source: 'Loan', target: category, value: data.spent })
+    }
+    
+    // Sort draws chronologically by funded_at (top = earliest)
+    const sortedDraws = draws
+      .filter(d => d.total_amount > 0 && d.status === 'funded')
+      .sort((a, b) => {
+        const dateA = a.funded_at ? new Date(a.funded_at).getTime() : 0
+        const dateB = b.funded_at ? new Date(b.funded_at).getTime() : 0
+        return dateA - dateB
+      })
+    
+    // Add draw nodes in chronological order and link from categories
+    for (const draw of sortedDraws) {
+      const drawId = `Draw #${draw.draw_number}`
+      nodes.push({ id: drawId, nodeColor: 'var(--success)' })
+      
+      // Link each category to this draw proportionally
+      for (const [category, data] of sortedCategories) {
+        const proportion = data.spent / totals.totalSpent
+        links.push({ 
+          source: category, 
+          target: drawId, 
+          value: draw.total_amount * proportion 
+        })
       }
     }
     
@@ -621,12 +637,12 @@ function SankeyChart({
 
   return (
     <div className="card-ios p-0" style={{ height: 380 }}>
-      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Fund Flow</h3>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          Loan → Categories → Draws
-        </p>
-      </div>
+      <ChartHeader
+        title="Fund Flow"
+        subtitle="Loan → Categories → Draws (chronological)"
+        tooltipTitle={CHART_TOOLTIPS.fundFlow.title}
+        tooltipDescription={CHART_TOOLTIPS.fundFlow.description}
+      />
       <div style={{ height: 320 }}>
         <ResponsiveSankey
           data={sankeyData}
@@ -647,6 +663,7 @@ function SankeyChart({
           labelOrientation="horizontal"
           labelPadding={16}
           labelTextColor={{ from: 'color', modifiers: [['darker', 1]] }}
+          sort="input"
           theme={{
             background: 'transparent',
             text: {
@@ -670,7 +687,7 @@ function SankeyChart({
   )
 }
 
-// Chart 2: Category Utilization Bars
+// Chart 2: Category Utilization Bars with Budget Markers
 function CategoryUtilizationChart({
   groupedBudgets,
 }: {
@@ -682,13 +699,54 @@ function CategoryUtilizationChart({
       .map(g => ({
         category: g.category.length > 15 ? g.category.substring(0, 12) + '...' : g.category,
         fullCategory: g.category,
+        categoryCode: g.categoryCode,
         spent: g.totalSpent,
+        budgetAmount: g.totalBudget,
+        // For over-budget items, show spent extending past budget
+        // For under-budget items, show remaining space
         remaining: Math.max(0, g.totalBudget - g.totalSpent),
+        overBudgetAmount: Math.max(0, g.totalSpent - g.totalBudget),
         percentUsed: g.totalBudget > 0 ? (g.totalSpent / g.totalBudget) * 100 : 0,
         isOverBudget: g.totalSpent > g.totalBudget,
+        variance: g.totalBudget - g.totalSpent,
       }))
-      .sort((a, b) => b.percentUsed - a.percentUsed)
+      .sort((a, b) => getCategoryOrder(a.categoryCode) - getCategoryOrder(b.categoryCode))
   }, [groupedBudgets])
+
+  // Custom layer to render budget limit markers
+  const BudgetMarkerLayer = ({ bars, xScale }: BarCustomLayerProps<any>) => {
+    return (
+      <g>
+        {bars.map((bar) => {
+          const budgetAmount = bar.data.data.budgetAmount as number
+          if (!budgetAmount || budgetAmount <= 0) return null
+          
+          const markerX = xScale(budgetAmount)
+          const isOverBudget = bar.data.data.isOverBudget as boolean
+          
+          return (
+            <g key={`marker-${bar.key}`}>
+              {/* Budget limit marker line */}
+              <line
+                x1={markerX}
+                x2={markerX}
+                y1={bar.y - 2}
+                y2={bar.y + bar.height + 2}
+                stroke={isOverBudget ? 'var(--error)' : 'var(--text-muted)'}
+                strokeWidth={2}
+                strokeDasharray={isOverBudget ? '0' : '4 2'}
+              />
+              {/* Triangle marker at top */}
+              <polygon
+                points={`${markerX - 4},${bar.y - 6} ${markerX + 4},${bar.y - 6} ${markerX},${bar.y - 1}`}
+                fill={isOverBudget ? 'var(--error)' : 'var(--text-muted)'}
+              />
+            </g>
+          )
+        })}
+      </g>
+    )
+  }
 
   if (chartData.length === 0) {
     return (
@@ -700,23 +758,27 @@ function CategoryUtilizationChart({
     )
   }
 
+  // Calculate max value for x-axis to ensure markers are visible
+  const maxValue = Math.max(...chartData.map(d => Math.max(d.spent, d.budgetAmount))) * 1.1
+
   return (
     <div className="card-ios p-0" style={{ height: 350 }}>
-      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Category Utilization</h3>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          Budget usage by NAHB category
-        </p>
-      </div>
+      <ChartHeader
+        title="Category Utilization"
+        subtitle="Budget usage by NAHB category"
+        tooltipTitle={CHART_TOOLTIPS.categoryUtilization.title}
+        tooltipDescription={CHART_TOOLTIPS.categoryUtilization.description}
+        tooltipFormula={CHART_TOOLTIPS.categoryUtilization.formula}
+      />
       <div style={{ height: 290 }}>
         <ResponsiveBar
           data={chartData}
           keys={['spent', 'remaining']}
           indexBy="category"
-          margin={{ top: 10, right: 20, bottom: 50, left: 100 }}
+          margin={{ top: 15, right: 20, bottom: 50, left: 100 }}
           padding={0.3}
           layout="horizontal"
-          valueScale={{ type: 'linear' }}
+          valueScale={{ type: 'linear', max: maxValue }}
           indexScale={{ type: 'band', round: true }}
           colors={({ id, data }: { id: string; data: Record<string, unknown> }) => {
             if (id === 'spent') {
@@ -741,28 +803,50 @@ function CategoryUtilizationChart({
             tickPadding: 8,
           }}
           enableLabel={false}
+          layers={['grid', 'axes', 'bars', BudgetMarkerLayer, 'markers', 'legends', 'annotations']}
           tooltip={({ id, value, data }: { id: string; value: number; data: Record<string, unknown> }) => {
             const fullCategory = (data?.fullCategory as string) || 'Unknown'
             const isOverBudget = data?.isOverBudget as boolean | undefined
             const percentUsed = (data?.percentUsed as number) ?? 0
+            const budgetAmount = (data?.budgetAmount as number) ?? 0
+            const spent = (data?.spent as number) ?? 0
+            const variance = (data?.variance as number) ?? 0
+            
             return (
               <div
                 style={{
                   background: 'var(--bg-card)',
-                  padding: '8px 12px',
+                  padding: '10px 14px',
                   borderRadius: 'var(--radius-sm)',
                   border: '1px solid var(--border)',
                   boxShadow: 'var(--elevation-2)',
+                  minWidth: '180px',
                 }}
               >
-                <div className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+                <div className="font-medium text-sm mb-2" style={{ color: 'var(--text-primary)' }}>
                   {fullCategory}
                 </div>
-                <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                  {id === 'spent' ? 'Spent' : 'Remaining'}: {formatCurrency(value)}
-                </div>
-                <div className="text-xs" style={{ color: isOverBudget ? 'var(--error)' : 'var(--text-muted)' }}>
-                  {percentUsed.toFixed(1)}% utilized
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Budget:</span>
+                    <span style={{ color: 'var(--text-primary)' }}>{formatCurrency(budgetAmount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Spent:</span>
+                    <span style={{ color: 'var(--accent)' }}>{formatCurrency(spent)}</span>
+                  </div>
+                  <div className="flex justify-between pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Variance:</span>
+                    <span style={{ color: isOverBudget ? 'var(--error)' : 'var(--success)' }}>
+                      {isOverBudget ? '-' : '+'}{formatCurrency(Math.abs(variance))}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Utilized:</span>
+                    <span style={{ color: isOverBudget ? 'var(--error)' : percentUsed > 80 ? 'var(--warning)' : 'var(--text-primary)' }}>
+                      {percentUsed.toFixed(1)}%
+                    </span>
+                  </div>
                 </div>
               </div>
             )
@@ -798,7 +882,7 @@ function SpendingVelocityChart({
       .filter(d => d.status === 'funded' && d.funded_at)
       .sort((a, b) => new Date(a.funded_at!).getTime() - new Date(b.funded_at!).getTime())
     
-    if (fundedDraws.length === 0) return []
+    if (fundedDraws.length === 0) return { series: [], isAheadOfPace: false, paceVariance: 0 }
     
     // Calculate cumulative spending
     let cumulative = 0
@@ -810,15 +894,11 @@ function SpendingVelocityChart({
       }
     })
     
-    // Calculate expected linear burn rate
+    // Calculate expected linear burn rate over 180 days (6 month project)
     const firstDate = new Date(fundedDraws[0].funded_at!)
-    const lastDate = fundedDraws.length > 1 
-      ? new Date(fundedDraws[fundedDraws.length - 1].funded_at!) 
-      : new Date()
-    const totalDays = Math.max(1, (lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24))
-    const dailyBurnRate = totals.totalBudget / Math.max(totalDays, 180) // Assume 6 month project minimum
+    const dailyBurnRate = totals.totalBudget / 180
     
-    const expectedBurn = fundedDraws.map((draw, idx) => {
+    const expectedBurn = fundedDraws.map((draw) => {
       const daysSinceStart = (new Date(draw.funded_at!).getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)
       return {
         x: formatDate(draw.funded_at),
@@ -826,13 +906,23 @@ function SpendingVelocityChart({
       }
     })
     
-    return [
-      { id: 'Actual Spend', data: actualSpending },
-      { id: 'Expected Pace', data: expectedBurn },
-    ]
+    // Calculate pace variance
+    const lastActual = actualSpending[actualSpending.length - 1]?.y || 0
+    const lastExpected = expectedBurn[expectedBurn.length - 1]?.y || 0
+    const paceVariance = lastActual - lastExpected
+    const isAheadOfPace = paceVariance > 0
+    
+    return {
+      series: [
+        { id: 'Actual Spend', data: actualSpending },
+        { id: 'Expected Pace', data: expectedBurn },
+      ],
+      isAheadOfPace,
+      paceVariance,
+    }
   }, [draws, totals.totalBudget])
 
-  if (chartData.length === 0 || chartData[0].data.length === 0) {
+  if (chartData.series.length === 0 || chartData.series[0].data.length === 0) {
     return (
       <div className="card-ios flex items-center justify-center" style={{ height: 350 }}>
         <div className="text-center">
@@ -848,15 +938,20 @@ function SpendingVelocityChart({
 
   return (
     <div className="card-ios p-0" style={{ height: 350 }}>
-      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Spending Velocity</h3>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          Actual vs expected burn rate
-        </p>
-      </div>
+      <ChartHeader
+        title="Spending Velocity"
+        subtitle={
+          chartData.isAheadOfPace 
+            ? `Ahead of pace by ${formatCurrency(chartData.paceVariance)}`
+            : `On pace (${formatCurrency(Math.abs(chartData.paceVariance))} under expected)`
+        }
+        tooltipTitle={CHART_TOOLTIPS.spendingVelocity.title}
+        tooltipDescription={CHART_TOOLTIPS.spendingVelocity.description}
+        tooltipFormula={CHART_TOOLTIPS.spendingVelocity.formula}
+      />
       <div style={{ height: 290 }}>
         <ResponsiveLine
-          data={chartData}
+          data={chartData.series}
           margin={{ top: 20, right: 20, bottom: 50, left: 70 }}
           xScale={{ type: 'point' }}
           yScale={{ type: 'linear', min: 0, max: 'auto' }}
@@ -900,24 +995,36 @@ function SpendingVelocityChart({
               symbolShape: 'circle',
             }
           ]}
-          tooltip={({ point }) => (
-            <div
-              style={{
-                background: 'var(--bg-card)',
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border)',
-                boxShadow: 'var(--elevation-2)',
-              }}
-            >
-              <div className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
-                {point.serieId}
+          tooltip={({ point }) => {
+            const isActual = point.serieId === 'Actual Spend'
+            return (
+              <div
+                style={{
+                  background: 'var(--bg-card)',
+                  padding: '10px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border)',
+                  boxShadow: 'var(--elevation-2)',
+                }}
+              >
+                <div className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+                  {point.data.xFormatted}
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <div 
+                    className="w-3 h-3 rounded-full" 
+                    style={{ background: isActual ? 'var(--accent)' : 'var(--text-muted)' }} 
+                  />
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    {point.serieId}:
+                  </span>
+                  <span className="text-xs font-semibold" style={{ color: isActual ? 'var(--accent)' : 'var(--text-primary)' }}>
+                    {formatCurrency(Number(point.data.y))}
+                  </span>
+                </div>
               </div>
-              <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                {point.data.xFormatted}: {formatCurrency(Number(point.data.y))}
-              </div>
-            </div>
-          )}
+            )
+          }}
           theme={{
             background: 'transparent',
             axis: {
