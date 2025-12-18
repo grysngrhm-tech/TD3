@@ -718,9 +718,13 @@ function CategoryUtilizationChart({
           layout="horizontal"
           valueScale={{ type: 'linear' }}
           indexScale={{ type: 'band', round: true }}
-          colors={({ id, data }) => {
+          colors={({ id, data }: { id: string; data: Record<string, unknown> }) => {
             if (id === 'spent') {
-              return data.isOverBudget ? 'var(--error)' : data.percentUsed > 80 ? 'var(--warning)' : 'var(--accent)'
+              const isOverBudget = data?.isOverBudget as boolean | undefined
+              const percentUsed = data?.percentUsed as number | undefined
+              if (isOverBudget) return 'var(--error)'
+              if ((percentUsed ?? 0) > 80) return 'var(--warning)'
+              return 'var(--accent)'
             }
             return 'var(--bg-hover)'
           }}
@@ -737,27 +741,32 @@ function CategoryUtilizationChart({
             tickPadding: 8,
           }}
           enableLabel={false}
-          tooltip={({ id, value, indexValue, data }) => (
-            <div
-              style={{
-                background: 'var(--bg-card)',
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border)',
-                boxShadow: 'var(--elevation-2)',
-              }}
-            >
-              <div className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
-                {data.fullCategory}
+          tooltip={({ id, value, data }: { id: string; value: number; data: Record<string, unknown> }) => {
+            const fullCategory = (data?.fullCategory as string) || 'Unknown'
+            const isOverBudget = data?.isOverBudget as boolean | undefined
+            const percentUsed = (data?.percentUsed as number) ?? 0
+            return (
+              <div
+                style={{
+                  background: 'var(--bg-card)',
+                  padding: '8px 12px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border)',
+                  boxShadow: 'var(--elevation-2)',
+                }}
+              >
+                <div className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+                  {fullCategory}
+                </div>
+                <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  {id === 'spent' ? 'Spent' : 'Remaining'}: {formatCurrency(value)}
+                </div>
+                <div className="text-xs" style={{ color: isOverBudget ? 'var(--error)' : 'var(--text-muted)' }}>
+                  {percentUsed.toFixed(1)}% utilized
+                </div>
               </div>
-              <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                {id === 'spent' ? 'Spent' : 'Remaining'}: {formatCurrency(value)}
-              </div>
-              <div className="text-xs" style={{ color: data.isOverBudget ? 'var(--error)' : 'var(--text-muted)' }}>
-                {data.percentUsed.toFixed(1)}% utilized
-              </div>
-            </div>
-          )}
+            )
+          }}
           theme={{
             background: 'transparent',
             axis: {
