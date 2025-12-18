@@ -6,6 +6,7 @@ import type { Builder, Project, DrawRequest, Lender } from '@/types/database'
 import { LenderTimelineSection } from './LenderTimelineSection'
 import { TimelineSpreadsheetView } from './TimelineSpreadsheetView'
 import { TimelineDetailPanel } from './TimelineDetailPanel'
+import { FundAllModal } from '../draws/FundAllModal'
 
 export type TimelineViewMode = 'spreadsheet' | 'gantt'
 
@@ -48,6 +49,7 @@ export function BuilderTimeline({
   const [selectedDraw, setSelectedDraw] = useState<DrawRequest | null>(null)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [focusedDrawIndex, setFocusedDrawIndex] = useState<number>(-1)
+  const [showFundAllModal, setShowFundAllModal] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Map staged draws to their projects
@@ -250,6 +252,25 @@ export function BuilderTimeline({
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Fund All Button - only show if staged draws exist */}
+          {stagedDraws.length > 0 && (
+            <motion.button
+              onClick={() => setShowFundAllModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+              style={{
+                background: 'var(--success)',
+                color: 'white',
+              }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Fund All ({stagedDraws.length})
+            </motion.button>
+          )}
+
           {/* Filter Checkbox */}
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input
@@ -476,6 +497,21 @@ export function BuilderTimeline({
         onClose={handleClosePanel}
         onRefresh={onRefresh}
       />
+
+      {/* Fund All Modal */}
+      {showFundAllModal && (
+        <FundAllModal
+          isOpen={true}
+          onClose={() => setShowFundAllModal(false)}
+          builder={builder}
+          stagedDraws={stagedDraws}
+          totalAmount={stagedDraws.reduce((sum, d) => sum + (d.total_amount || 0), 0)}
+          onSuccess={() => {
+            setShowFundAllModal(false)
+            onRefresh()
+          }}
+        />
+      )}
     </div>
   )
 }

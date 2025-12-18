@@ -34,7 +34,7 @@ type Project = {
 type ImportPreviewProps = {
   isOpen: boolean
   onClose: () => void
-  onSuccess?: () => void  // Optional callback after successful webhook submission
+  onSuccess?: (drawId?: string) => void  // Optional callback - passes drawId for draw imports
   importType: 'budget' | 'draw'
   preselectedProjectId?: string  // Pre-select a project when importing from project page
   preselectedBuilderId?: string  // Pre-select a builder
@@ -458,6 +458,9 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     setImporting(true)
     setError(null)
     
+    // Track created draw ID for callback (draw imports only)
+    let createdDrawId: string | undefined = undefined
+    
     try {
       // Get mapped columns
       const categoryCol = mappings.find(m => m.mappedTo === 'category')
@@ -523,6 +526,9 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
         if (drawError) {
           throw new Error('Failed to create draw request: ' + drawError.message)
         }
+        
+        // Store draw ID for redirect after success
+        createdDrawId = newDraw.id
         
         // 3. Match draw categories to BUILDER categories (builder_category_raw) from budgets
         // Uses fuzzy matching to handle typos, word order differences, and minor variations
@@ -671,7 +677,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       // Success - close modal and trigger refresh
       handleReset()
       onClose()
-      onSuccess?.()
+      onSuccess?.(createdDrawId)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Import failed')
     } finally {
