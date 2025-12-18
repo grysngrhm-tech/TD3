@@ -262,10 +262,15 @@ function NewDrawPageContent() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
-  const handleImportSuccess = () => {
+  const handleImportSuccess = (drawId?: string) => {
     setShowImportModal(false)
     setBudgetFile(null)
-    router.push('/staging')
+    // Redirect to the new draw review page if we have a draw ID, otherwise go to staging
+    if (drawId) {
+      router.push(`/draws/${drawId}`)
+    } else {
+      router.push('/staging')
+    }
   }
 
   const handleImportClose = () => {

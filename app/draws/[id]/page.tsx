@@ -977,12 +977,23 @@ export default function DrawDetailPage() {
                   </svg>
                   <p className="font-medium" style={{ color: 'var(--success)' }}>Staged for Funding</p>
                   <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                    Go to builder page to fund
+                    Ready to fund with builder's other staged draws
                   </p>
                   {project?.builder_id && (
-                    <a href={`/builders/${project.builder_id}`} className="btn-secondary mt-3 inline-block text-sm">
-                      View Builder →
-                    </a>
+                    <div className="mt-3 space-y-2">
+                      <a 
+                        href={`/staging?status=staged&builder=${project.builder_id}`} 
+                        className="btn-primary w-full text-sm"
+                      >
+                        View staged draws for {project.builder?.company_name || 'Builder'}
+                      </a>
+                      <a 
+                        href={`/builders/${project.builder_id}`} 
+                        className="btn-secondary w-full text-sm"
+                      >
+                        View Builder →
+                      </a>
+                    </div>
                   )}
                 </div>
               )}

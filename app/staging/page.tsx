@@ -9,6 +9,7 @@ import { DashboardHeader } from '@/app/components/ui/DashboardHeader'
 import { DrawStatusSelector } from '@/app/components/ui/DrawStatusSelector'
 import { DrawFilterSidebar } from '@/app/components/ui/DrawFilterSidebar'
 import { DrawStatsBar } from '@/app/components/ui/DrawStatsBar'
+import { FundAllModal } from '@/app/components/draws/FundAllModal'
 import { useNavigation } from '@/app/context/NavigationContext'
 
 type DrawStatus = 'all' | 'review' | 'staged' | 'pending_wire'
@@ -32,6 +33,8 @@ type BuilderWithDraws = Builder & {
 function StagingDashboardContent() {
   const searchParams = useSearchParams()
   const highlightedBatchId = searchParams.get('batch')
+  const urlStatus = searchParams.get('status') as DrawStatus | null
+  const urlBuilder = searchParams.get('builder')
   const { setLastDashboard, setCurrentPageTitle } = useNavigation()
 
   const [loading, setLoading] = useState(true)
@@ -39,16 +42,23 @@ function StagingDashboardContent() {
   const [stagedByBuilder, setStagedByBuilder] = useState<BuilderWithDraws[]>([])
   const [pendingWireBatches, setPendingWireBatches] = useState<WireBatchWithDetails[]>([])
   
-  // Filter state
-  const [selectedStatus, setSelectedStatus] = useState<DrawStatus>('all')
-  const [selectedBuilders, setSelectedBuilders] = useState<string[]>([])
+  // Filter state - initialize from URL params if present
+  const [selectedStatus, setSelectedStatus] = useState<DrawStatus>(
+    urlStatus && ['all', 'review', 'staged', 'pending_wire'].includes(urlStatus) ? urlStatus : 'all'
+  )
+  const [selectedBuilders, setSelectedBuilders] = useState<string[]>(
+    urlBuilder ? [urlBuilder] : []
+  )
   
-  // Bookkeeper modal state
+  // Bookkeeper modal state (for confirming wire batches)
   const [selectedBatch, setSelectedBatch] = useState<WireBatchWithDetails | null>(null)
   const [wireReference, setWireReference] = useState('')
   const [fundingNotes, setFundingNotes] = useState('')
   const [isFunding, setIsFunding] = useState(false)
   const [fundingError, setFundingError] = useState('')
+  
+  // Fund All modal state (for funding staged draws)
+  const [fundingBuilder, setFundingBuilder] = useState<BuilderWithDraws | null>(null)
 
   // Register this as the Draw dashboard
   useEffect(() => {
@@ -622,12 +632,15 @@ function StagingDashboardContent() {
                                 <span className="font-bold" style={{ color: 'var(--success)' }}>
                                   {formatCurrency(builder.totalAmount)}
                                 </span>
-                                <a
-                                  href={`/builders/${builder.id}`}
-                                  className="btn-secondary text-sm"
+                                <button
+                                  onClick={() => setFundingBuilder(builder)}
+                                  className="btn-primary text-sm flex items-center gap-1.5"
                                 >
-                                  Fund All →
-                                </a>
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  Fund All
+                                </button>
                               </div>
                             </div>
                             <div className="space-y-1 text-sm">
@@ -817,6 +830,21 @@ function StagingDashboardContent() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Fund All Modal */}
+      {fundingBuilder && (
+        <FundAllModal
+          isOpen={true}
+          onClose={() => setFundingBuilder(null)}
+          builder={fundingBuilder}
+          stagedDraws={fundingBuilder.stagedDraws}
+          totalAmount={fundingBuilder.totalAmount}
+          onSuccess={() => {
+            setFundingBuilder(null)
+            loadData()
+          }}
+        />
+      )}
     </div>
   )
 }

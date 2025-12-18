@@ -185,6 +185,9 @@ Your team reviews AI recommendations instead of doing manual data entry. Tasks t
 | **Builder Timeline** | Interactive Gantt/spreadsheet view showing all draws grouped by lender with keyboard navigation |
 | **Lender Integration** | Lender selection on loans with auto-populated builder info and lender grouping in timelines |
 | **Adaptive Dashboard** | Polymorphic tiles that minimize when empty and dynamically adjust widths based on content |
+| **Fund All Workflow** | One-click funding for all staged draws per builder with date picker and wire reference tracking |
+| **Wire Batch System** | Groups funded draws into batches with audit trail and configurable funded date |
+| **Deep-Link Filtering** | URL parameters for dashboard state (status, builder) enabling direct navigation from other pages |
 
 ---
 
@@ -192,8 +195,10 @@ Your team reviews AI recommendations instead of doing manual data entry. Tasks t
 
 1. **Import** — Upload a builder's budget spreadsheet; the webapp detects categories and amounts, you confirm, and AI standardizes categories to NAHB codes
 2. **Submit** — Create draw requests by uploading the updated spreadsheet; AI matches draw amounts to existing budget lines
-3. **Review** — Approve or reject with full visibility into validation results
-4. **Track** — Real-time dashboards show budget status, draw history, and portfolio health
+3. **Review** — Review draw with full visibility into validation results, resolve unmatched categories
+4. **Stage** — Stage approved draws for funding; navigate directly to builder's staged draws
+5. **Fund** — Fund All modal with date picker creates wire batch and marks draws as funded
+6. **Track** — Real-time dashboards show budget status, draw history, and portfolio health
 
 ---
 
@@ -318,10 +323,30 @@ TD3 is currently in active development.
   - Dynamic flex widths based on content population
   - Framer Motion layout animations
 - ✅ **Light Mode Default** — Application defaults to light theme with dark mode available
+- ✅ **Draw Funding Workflow** — Complete end-to-end flow for funding staged draws:
+  - Upload draw → Auto-redirect to draw review page
+  - Review & stage → Navigation to filtered staging dashboard
+  - Fund All modal with date picker, wire reference, and notes
+  - Wire batch API creates batch and marks draws as funded
+  - Audit trail for all funding actions
+- ✅ **FundAllModal Component** — Reusable modal for funding staged draws with:
+  - Builder info and staged draws list
+  - Date picker for funded date (defaults to today, for amortization)
+  - Wire reference input (optional)
+  - Notes input (optional)
+  - Real-time total amount display
+- ✅ **Wire Batch API** — Server-side endpoint (`/api/wire-batches`) that:
+  - Validates builder_id, draw_ids, funded_at
+  - Creates wire batch with 'funded' status
+  - Updates all draws with wire_batch_id and funded_at
+  - Creates audit events for compliance
+- ✅ **URL-Based Dashboard Filtering** — Deep-linking support for staging dashboard:
+  - `/staging?status=staged` - Show only staged section
+  - `/staging?status=staged&builder={uuid}` - Filter to specific builder
+  - Auto-populated from draw review "View staged draws" button
 
 **In Progress:**
 - 🔄 Full invoice-to-budget-line AI matching reliability improvements
-- 🔄 Wire batch processing and bookkeeper notification workflow
 - 🔄 Approval workflow and validation engine
 
 ---
