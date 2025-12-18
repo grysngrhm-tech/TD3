@@ -3,12 +3,13 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ResponsiveSankey } from '@nivo/sankey'
+import { ResponsiveBar } from '@nivo/bar'
+import { ResponsiveLine } from '@nivo/line'
 import type { Budget, DrawRequestLine, DrawRequest } from '@/types/database'
 import type { ViewMode } from '@/app/components/ui/ViewModeSelector'
 import { BudgetSparkline, MiniSparkline } from '@/app/components/ui/BudgetSparkline'
 import { 
   type Anomaly, 
-  getBudgetAnomalies, 
   getBudgetSeverity 
 } from '@/lib/anomalyDetection'
 import type { DetailPanelContent, DrawHistoryItem } from '@/app/components/ui/ReportDetailPanel'
@@ -56,10 +57,9 @@ const formatDate = (dateStr: string | null) => {
 }
 
 /**
- * Progress Budget Report with three view modes:
+ * Progress Budget Report with two view modes:
  * - Table: Grouped rows with expandable draw history
- * - Cards: Budget items as cards grouped by category
- * - Chart: Sankey diagram showing money flow
+ * - Chart: Dashboard with 3 visualizations (Sankey, Utilization, Velocity)
  */
 export function ProgressBudgetReport({
   budgets,
@@ -200,17 +200,13 @@ export function ProgressBudgetReport({
 
   // Render based on view mode
   if (viewMode === 'chart') {
-    return <SankeyView budgets={budgets} draws={draws} totals={totals} />
-  }
-
-  if (viewMode === 'cards') {
     return (
-      <CardsView 
-        groupedBudgets={groupedBudgets} 
-        anomalies={anomalies}
-        drawHistoryByBudget={drawHistoryByBudget}
-        onBudgetClick={handleBudgetClick}
-        getSeverityColor={getSeverityColor}
+      <ChartDashboard 
+        budgets={budgets} 
+        draws={draws} 
+        drawLines={drawLines}
+        groupedBudgets={groupedBudgets}
+        totals={totals} 
       />
     )
   }
@@ -523,130 +519,39 @@ function GroupedBudgetRows({
   )
 }
 
-// Cards View component
-function CardsView({
+// =============================================================================
+// CHART DASHBOARD - 3 Visualizations
+// =============================================================================
+
+function ChartDashboard({
+  budgets,
+  draws,
+  drawLines,
   groupedBudgets,
-  anomalies,
-  drawHistoryByBudget,
-  onBudgetClick,
-  getSeverityColor,
+  totals,
 }: {
+  budgets: Budget[]
+  draws: DrawRequest[]
+  drawLines: DrawLineWithBudget[]
   groupedBudgets: GroupedBudget[]
-  anomalies: Anomaly[]
-  drawHistoryByBudget: Map<string, DrawHistoryItem[]>
-  onBudgetClick: (budget: Budget) => void
-  getSeverityColor: (severity: 'info' | 'warning' | 'critical' | null) => string
+  totals: { totalBudget: number; totalSpent: number; remaining: number; percentUsed: number }
 }) {
   return (
     <div className="space-y-6">
-      {groupedBudgets.map((group) => (
-        <div key={group.category}>
-          {/* Category Header */}
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-              {group.categoryCode} - {group.category}
-            </h3>
-            <div className="flex items-center gap-3 text-sm">
-              <span style={{ color: 'var(--text-muted)' }}>
-                {formatCurrency(group.totalSpent)} / {formatCurrency(group.totalBudget)}
-              </span>
-              <MiniSparkline 
-                percentUsed={group.totalBudget > 0 ? (group.totalSpent / group.totalBudget) * 100 : 0}
-                isOverBudget={group.totalSpent > group.totalBudget}
-              />
-            </div>
-          </div>
-
-          {/* Budget Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {group.items.map((budget) => {
-              const remaining = (budget.current_amount || 0) - (budget.spent_amount || 0)
-              const percentUsed = budget.current_amount ? ((budget.spent_amount || 0) / budget.current_amount) * 100 : 0
-              const severity = getBudgetSeverity(budget.id, anomalies)
-              const history = drawHistoryByBudget.get(budget.id) || []
-
-              return (
-                <motion.div
-                  key={budget.id}
-                  className="card-ios cursor-pointer"
-                  style={{ 
-                    borderLeft: severity ? `3px solid ${getSeverityColor(severity)}` : undefined 
-                  }}
-                  onClick={() => onBudgetClick(budget)}
-                  whileHover={{ scale: 1.01, boxShadow: 'var(--elevation-3)' }}
-                  whileTap={{ scale: 0.99 }}
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                        {budget.category}
-                      </div>
-                      {budget.cost_code && (
-                        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                          {budget.cost_code}
-                        </div>
-                      )}
-                    </div>
-                    {severity && (
-                      <div 
-                        className="w-2 h-2 rounded-full"
-                        style={{ background: getSeverityColor(severity) }}
-                      />
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 text-sm mb-3">
-                    <div>
-                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Budget</div>
-                      <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                        {formatCurrency(budget.current_amount)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Drawn</div>
-                      <div className="font-semibold" style={{ color: 'var(--accent)' }}>
-                        {formatCurrency(budget.spent_amount)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Remaining</div>
-                      <div className="font-semibold" style={{ 
-                        color: remaining < 0 ? 'var(--error)' : 'var(--success)' 
-                      }}>
-                        {formatCurrency(remaining)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
-                    <motion.div 
-                      className="absolute inset-y-0 left-0 rounded-full"
-                      style={{ 
-                        background: remaining < 0 ? 'var(--error)' : 'var(--accent)',
-                      }}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(percentUsed, 100)}%` }}
-                      transition={{ duration: 0.5 }}
-                    />
-                  </div>
-
-                  <div className="flex justify-between items-center mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                    <span>{percentUsed.toFixed(1)}% used</span>
-                    <span>{history.length} draw{history.length !== 1 ? 's' : ''}</span>
-                  </div>
-                </motion.div>
-              )
-            })}
-          </div>
-        </div>
-      ))}
+      {/* Row 1: Sankey Flow (Full Width) */}
+      <SankeyChart budgets={budgets} draws={draws} totals={totals} />
+      
+      {/* Row 2: Utilization Bar + Velocity Timeline */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <CategoryUtilizationChart groupedBudgets={groupedBudgets} />
+        <SpendingVelocityChart draws={draws} totals={totals} />
+      </div>
     </div>
   )
 }
 
-// Sankey Chart View
-function SankeyView({
+// Chart 1: Fund Flow Sankey
+function SankeyChart({
   budgets,
   draws,
   totals,
@@ -684,8 +589,6 @@ function SankeyView({
         const drawId = `Draw #${draw.draw_number}`
         nodes.push({ id: drawId, nodeColor: 'var(--success)' })
         
-        // For simplicity, connect all draws to all categories proportionally
-        // In a real implementation, you'd track which draw funded which category
         for (const [category, spent] of categories) {
           if (spent > 0) {
             const proportion = spent / totals.totalSpent
@@ -704,12 +607,12 @@ function SankeyView({
 
   if (sankeyData.nodes.length < 2 || sankeyData.links.length === 0) {
     return (
-      <div className="card-ios flex items-center justify-center" style={{ height: 400 }}>
+      <div className="card-ios flex items-center justify-center" style={{ height: 350 }}>
         <div className="text-center">
           <svg className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
           </svg>
-          <p style={{ color: 'var(--text-muted)' }}>No draw data available for chart</p>
+          <p style={{ color: 'var(--text-muted)' }}>No draw data available for flow chart</p>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Draw funds to see the flow visualization</p>
         </div>
       </div>
@@ -717,14 +620,14 @@ function SankeyView({
   }
 
   return (
-    <div className="card-ios p-0" style={{ height: 500 }}>
+    <div className="card-ios p-0" style={{ height: 380 }}>
       <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
         <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Fund Flow</h3>
         <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
           Loan → Categories → Draws
         </p>
       </div>
-      <div style={{ height: 450 }}>
+      <div style={{ height: 320 }}>
         <ResponsiveSankey
           data={sankeyData}
           margin={{ top: 20, right: 120, bottom: 20, left: 120 }}
@@ -767,3 +670,261 @@ function SankeyView({
   )
 }
 
+// Chart 2: Category Utilization Bars
+function CategoryUtilizationChart({
+  groupedBudgets,
+}: {
+  groupedBudgets: GroupedBudget[]
+}) {
+  const chartData = useMemo(() => {
+    return groupedBudgets
+      .filter(g => g.totalBudget > 0)
+      .map(g => ({
+        category: g.category.length > 15 ? g.category.substring(0, 12) + '...' : g.category,
+        fullCategory: g.category,
+        spent: g.totalSpent,
+        remaining: Math.max(0, g.totalBudget - g.totalSpent),
+        percentUsed: g.totalBudget > 0 ? (g.totalSpent / g.totalBudget) * 100 : 0,
+        isOverBudget: g.totalSpent > g.totalBudget,
+      }))
+      .sort((a, b) => b.percentUsed - a.percentUsed)
+  }, [groupedBudgets])
+
+  if (chartData.length === 0) {
+    return (
+      <div className="card-ios flex items-center justify-center" style={{ height: 350 }}>
+        <div className="text-center">
+          <p style={{ color: 'var(--text-muted)' }}>No budget data available</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="card-ios p-0" style={{ height: 350 }}>
+      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Category Utilization</h3>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          Budget usage by NAHB category
+        </p>
+      </div>
+      <div style={{ height: 290 }}>
+        <ResponsiveBar
+          data={chartData}
+          keys={['spent', 'remaining']}
+          indexBy="category"
+          margin={{ top: 10, right: 20, bottom: 50, left: 100 }}
+          padding={0.3}
+          layout="horizontal"
+          valueScale={{ type: 'linear' }}
+          indexScale={{ type: 'band', round: true }}
+          colors={({ id, data }) => {
+            if (id === 'spent') {
+              return data.isOverBudget ? 'var(--error)' : data.percentUsed > 80 ? 'var(--warning)' : 'var(--accent)'
+            }
+            return 'var(--bg-hover)'
+          }}
+          borderRadius={2}
+          axisTop={null}
+          axisRight={null}
+          axisBottom={{
+            tickSize: 0,
+            tickPadding: 5,
+            format: (value) => `$${(Number(value) / 1000).toFixed(0)}k`,
+          }}
+          axisLeft={{
+            tickSize: 0,
+            tickPadding: 8,
+          }}
+          enableLabel={false}
+          tooltip={({ id, value, indexValue, data }) => (
+            <div
+              style={{
+                background: 'var(--bg-card)',
+                padding: '8px 12px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border)',
+                boxShadow: 'var(--elevation-2)',
+              }}
+            >
+              <div className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+                {data.fullCategory}
+              </div>
+              <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                {id === 'spent' ? 'Spent' : 'Remaining'}: {formatCurrency(value)}
+              </div>
+              <div className="text-xs" style={{ color: data.isOverBudget ? 'var(--error)' : 'var(--text-muted)' }}>
+                {data.percentUsed.toFixed(1)}% utilized
+              </div>
+            </div>
+          )}
+          theme={{
+            background: 'transparent',
+            axis: {
+              ticks: {
+                text: { fill: 'var(--text-muted)', fontSize: 10 }
+              },
+            },
+            grid: {
+              line: { stroke: 'var(--border-subtle)', strokeDasharray: '4 4' }
+            }
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
+// Chart 3: Spending Velocity Timeline
+function SpendingVelocityChart({
+  draws,
+  totals,
+}: {
+  draws: DrawRequest[]
+  totals: { totalBudget: number; totalSpent: number }
+}) {
+  const chartData = useMemo(() => {
+    // Get funded draws sorted by date
+    const fundedDraws = draws
+      .filter(d => d.status === 'funded' && d.funded_at)
+      .sort((a, b) => new Date(a.funded_at!).getTime() - new Date(b.funded_at!).getTime())
+    
+    if (fundedDraws.length === 0) return []
+    
+    // Calculate cumulative spending
+    let cumulative = 0
+    const actualSpending = fundedDraws.map(draw => {
+      cumulative += draw.total_amount || 0
+      return {
+        x: formatDate(draw.funded_at),
+        y: cumulative,
+      }
+    })
+    
+    // Calculate expected linear burn rate
+    const firstDate = new Date(fundedDraws[0].funded_at!)
+    const lastDate = fundedDraws.length > 1 
+      ? new Date(fundedDraws[fundedDraws.length - 1].funded_at!) 
+      : new Date()
+    const totalDays = Math.max(1, (lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24))
+    const dailyBurnRate = totals.totalBudget / Math.max(totalDays, 180) // Assume 6 month project minimum
+    
+    const expectedBurn = fundedDraws.map((draw, idx) => {
+      const daysSinceStart = (new Date(draw.funded_at!).getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)
+      return {
+        x: formatDate(draw.funded_at),
+        y: dailyBurnRate * daysSinceStart,
+      }
+    })
+    
+    return [
+      { id: 'Actual Spend', data: actualSpending },
+      { id: 'Expected Pace', data: expectedBurn },
+    ]
+  }, [draws, totals.totalBudget])
+
+  if (chartData.length === 0 || chartData[0].data.length === 0) {
+    return (
+      <div className="card-ios flex items-center justify-center" style={{ height: 350 }}>
+        <div className="text-center">
+          <svg className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+          </svg>
+          <p style={{ color: 'var(--text-muted)' }}>No spending history available</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Draw funds to see velocity chart</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="card-ios p-0" style={{ height: 350 }}>
+      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Spending Velocity</h3>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          Actual vs expected burn rate
+        </p>
+      </div>
+      <div style={{ height: 290 }}>
+        <ResponsiveLine
+          data={chartData}
+          margin={{ top: 20, right: 20, bottom: 50, left: 70 }}
+          xScale={{ type: 'point' }}
+          yScale={{ type: 'linear', min: 0, max: 'auto' }}
+          curve="monotoneX"
+          axisTop={null}
+          axisRight={null}
+          axisBottom={{
+            tickSize: 0,
+            tickPadding: 8,
+            tickRotation: -45,
+          }}
+          axisLeft={{
+            tickSize: 0,
+            tickPadding: 8,
+            format: (value) => `$${(Number(value) / 1000).toFixed(0)}k`,
+          }}
+          enableGridX={false}
+          enableGridY={true}
+          colors={['var(--accent)', 'var(--text-muted)']}
+          lineWidth={3}
+          pointSize={8}
+          pointColor={{ from: 'color' }}
+          pointBorderWidth={2}
+          pointBorderColor={{ from: 'serieColor' }}
+          enableArea={true}
+          areaOpacity={0.1}
+          useMesh={true}
+          legends={[
+            {
+              anchor: 'top-right',
+              direction: 'row',
+              justify: false,
+              translateX: 0,
+              translateY: -15,
+              itemsSpacing: 20,
+              itemDirection: 'left-to-right',
+              itemWidth: 100,
+              itemHeight: 20,
+              itemOpacity: 0.75,
+              symbolSize: 10,
+              symbolShape: 'circle',
+            }
+          ]}
+          tooltip={({ point }) => (
+            <div
+              style={{
+                background: 'var(--bg-card)',
+                padding: '8px 12px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border)',
+                boxShadow: 'var(--elevation-2)',
+              }}
+            >
+              <div className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+                {point.serieId}
+              </div>
+              <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                {point.data.xFormatted}: {formatCurrency(Number(point.data.y))}
+              </div>
+            </div>
+          )}
+          theme={{
+            background: 'transparent',
+            axis: {
+              ticks: {
+                text: { fill: 'var(--text-muted)', fontSize: 10 }
+              },
+            },
+            grid: {
+              line: { stroke: 'var(--border-subtle)', strokeDasharray: '4 4' }
+            },
+            legends: {
+              text: { fill: 'var(--text-muted)', fontSize: 10 }
+            }
+          }}
+        />
+      </div>
+    </div>
+  )
+}

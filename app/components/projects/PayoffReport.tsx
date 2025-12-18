@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ResponsiveLine } from '@nivo/line'
+import { ResponsiveBar } from '@nivo/bar'
 import type { Project, DrawRequest } from '@/types/database'
 import type { ViewMode } from '@/app/components/ui/ViewModeSelector'
 import { supabase } from '@/lib/supabase'
@@ -11,23 +12,16 @@ import {
   calculatePayoffBreakdown,
   projectPayoffAtDate,
   generateProjectionData,
-  formatProjectionForNivo,
-  calculatePerDiem,
   type PayoffBreakdown,
   type ProjectionDataPoint,
 } from '@/lib/calculations'
 import {
   resolveEffectiveTerms,
-  calculateFeeRateAtMonth,
-  getMonthNumber,
-  getNextFeeIncreaseDate,
-  getDaysUntilNextFeeIncrease,
   getDaysToMaturity,
   getUrgencyLevel,
   getUrgencyColor,
   generateFeeSchedule,
   type LoanTerms,
-  DEFAULT_LOAN_TERMS,
 } from '@/lib/loanTerms'
 
 type DrawLineWithDate = {
@@ -42,6 +36,15 @@ type PayoffReportProps = {
   drawLines: DrawLineWithDate[]
   viewMode: ViewMode
   onLoanCompleted?: () => void
+  // Lifted state from parent (interactive controls moved to polymorphic header)
+  payoffDate?: string
+  onPayoffDateChange?: (date: string) => void
+  projectionDays?: number
+  onProjectionDaysChange?: (days: number) => void
+  whatIfDate?: string
+  onWhatIfDateChange?: (date: string) => void
+  customFeeStartDate?: string | null
+  onCustomFeeStartDateChange?: (date: string | null) => void
 }
 
 // =============================================================================
@@ -90,11 +93,24 @@ export function PayoffReport({
   drawLines,
   viewMode,
   onLoanCompleted,
+  payoffDate: externalPayoffDate,
+  onPayoffDateChange,
+  projectionDays: externalProjectionDays,
+  onProjectionDaysChange,
+  whatIfDate: externalWhatIfDate,
+  onWhatIfDateChange,
+  customFeeStartDate: externalCustomFeeStartDate,
+  onCustomFeeStartDateChange,
 }: PayoffReportProps) {
+  // Use external state if provided, otherwise use internal state
+  const [internalPayoffDate, setInternalPayoffDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  )
+  const payoffDate = externalPayoffDate ?? internalPayoffDate
+  const setPayoffDate = onPayoffDateChange ?? setInternalPayoffDate
+  
   // Auto-derive loan start date from first funded draw
-  // Fee clock starts when the first draw is funded
   const autoLoanStartDate = useMemo(() => {
-    // Find the first funded draw (sorted by funded_at date)
     const fundedDraws = draws
       .filter(d => d.status === 'funded' && d.funded_at)
       .sort((a, b) => new Date(a.funded_at!).getTime() - new Date(b.funded_at!).getTime())
@@ -105,29 +121,13 @@ export function PayoffReport({
     return null
   }, [draws])
   
-  // State for payoff calculations
-  const [payoffDate, setPayoffDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  )
+  // State for payoff completion
   const [payoffAmount, setPayoffAmount] = useState<string>('')
   const [payoffApproved, setPayoffApproved] = useState(false)
   const [completing, setCompleting] = useState(false)
   
-  // State for interactive calculator
-  const [projectionDays, setProjectionDays] = useState(30)
-  const [whatIfDate, setWhatIfDate] = useState<string>('')
-  
-  // State for user-adjustable fee clock start date (defaults to auto-derived)
-  const [customFeeStartDate, setCustomFeeStartDate] = useState<string | null>(null)
-  
   // Effective fee start date: user override > auto-derived from first funded draw
-  const effectiveFeeStartDate = useMemo(() => {
-    if (customFeeStartDate) return customFeeStartDate
-    return autoLoanStartDate
-  }, [customFeeStartDate, autoLoanStartDate])
-  
-  // Flag to indicate if using auto-derived date
-  const isAutoFeeStartDate = !customFeeStartDate && autoLoanStartDate !== null
+  const effectiveFeeStartDate = externalCustomFeeStartDate ?? autoLoanStartDate
   
   // Resolve loan terms
   const terms = useMemo(() => {
@@ -176,40 +176,6 @@ export function PayoffReport({
     return generateFeeSchedule(new Date(effectiveFeeStartDate), 18, terms)
   }, [effectiveFeeStartDate, terms])
   
-  // Days until next fee increase
-  const daysUntilFeeIncrease = useMemo(() => {
-    if (!effectiveFeeStartDate) return null
-    return getDaysUntilNextFeeIncrease(
-      new Date(effectiveFeeStartDate),
-      new Date(),
-      terms
-    )
-  }, [effectiveFeeStartDate, terms])
-  
-  // What-If calculation
-  const whatIfPayoff = useMemo(() => {
-    if (!whatIfDate || !effectiveFeeStartDate) return null
-    return projectPayoffAtDate(
-      currentPayoff,
-      new Date(whatIfDate),
-      new Date(effectiveFeeStartDate),
-      terms
-    )
-  }, [whatIfDate, currentPayoff, effectiveFeeStartDate, terms])
-  
-  // Projection slider calculation
-  const projectedPayoff = useMemo(() => {
-    if (!effectiveFeeStartDate) return null
-    const futureDate = new Date()
-    futureDate.setDate(futureDate.getDate() + projectionDays)
-    return projectPayoffAtDate(
-      currentPayoff,
-      futureDate,
-      new Date(effectiveFeeStartDate),
-      terms
-    )
-  }, [projectionDays, currentPayoff, effectiveFeeStartDate, terms])
-  
   // Handle loan completion
   const handleCompleteLoan = async () => {
     if (!payoffApproved) return
@@ -246,7 +212,6 @@ export function PayoffReport({
     }
   }
   
-  // Render based on view mode
   // Check if we have an effective fee start date
   const noFeeStartDate = !effectiveFeeStartDate
   
@@ -273,40 +238,21 @@ export function PayoffReport({
           payoff={currentPayoff}
           payoffDate={payoffDate}
           setPayoffDate={setPayoffDate}
-          terms={terms}
-          effectiveFeeStartDate={effectiveFeeStartDate}
-          customFeeStartDate={customFeeStartDate}
-          setCustomFeeStartDate={setCustomFeeStartDate}
-          isAutoFeeStartDate={isAutoFeeStartDate}
-        />
-      )}
-      
-      {viewMode === 'cards' && (
-        <PayoffCalculatorView
-          project={project}
-          currentPayoff={currentPayoff}
-          projectedPayoff={projectedPayoff}
-          whatIfPayoff={whatIfPayoff}
-          projectionDays={projectionDays}
-          setProjectionDays={setProjectionDays}
-          whatIfDate={whatIfDate}
-          setWhatIfDate={setWhatIfDate}
           daysToMaturity={daysToMaturity}
           urgencyLevel={urgencyLevel}
           urgencyColor={urgencyColor}
-          daysUntilFeeIncrease={daysUntilFeeIncrease}
-          feeSchedule={feeSchedule}
-          terms={terms}
         />
       )}
       
       {viewMode === 'chart' && (
-        <PayoffChartView
+        <ChartDashboard
           project={project}
           projectionData={projectionData}
           currentPayoff={currentPayoff}
           terms={terms}
           effectiveFeeStartDate={effectiveFeeStartDate}
+          feeSchedule={feeSchedule}
+          drawLines={drawLines}
         />
       )}
       
@@ -337,21 +283,17 @@ function PayoffStatementView({
   payoff,
   payoffDate,
   setPayoffDate,
-  terms,
-  effectiveFeeStartDate,
-  customFeeStartDate,
-  setCustomFeeStartDate,
-  isAutoFeeStartDate,
+  daysToMaturity,
+  urgencyLevel,
+  urgencyColor,
 }: {
   project: Project
   payoff: PayoffBreakdown
   payoffDate: string
   setPayoffDate: (date: string) => void
-  terms: LoanTerms
-  effectiveFeeStartDate: string | null
-  customFeeStartDate: string | null
-  setCustomFeeStartDate: (date: string | null) => void
-  isAutoFeeStartDate: boolean
+  daysToMaturity: number | null
+  urgencyLevel: string
+  urgencyColor: string
 }) {
   return (
     <div className="card-ios">
@@ -376,6 +318,27 @@ function PayoffStatementView({
           />
         </div>
       </div>
+      
+      {/* Urgency Banner */}
+      {daysToMaturity !== null && daysToMaturity <= 30 && (
+        <div 
+          className="mb-6 p-3 rounded-lg flex items-center gap-3"
+          style={{ 
+            background: urgencyLevel === 'critical' ? 'var(--error-muted)' : 'var(--warning-muted)',
+            border: `1px solid ${urgencyColor}`
+          }}
+        >
+          <svg className="w-5 h-5" style={{ color: urgencyColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span style={{ color: 'var(--text-primary)' }}>
+            {daysToMaturity < 0 
+              ? `Loan matured ${Math.abs(daysToMaturity)} days ago`
+              : `Maturity in ${daysToMaturity} days`
+            }
+          </span>
+        </div>
+      )}
       
       {/* Loan Info */}
       <div className="grid grid-cols-2 gap-4 mb-6 p-4 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
@@ -409,51 +372,6 @@ function PayoffStatementView({
           </div>
           <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
             {formatDate(project.maturity_date)}
-          </div>
-        </div>
-      </div>
-      
-      {/* Fee Clock Start Date - Adjustable */}
-      <div className="mb-6 p-4 rounded-lg" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)' }}>
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                Fee Clock Start Date
-              </span>
-              {isAutoFeeStartDate && (
-                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--success-muted)', color: 'var(--success)' }}>
-                  Auto-detected
-                </span>
-              )}
-              {customFeeStartDate && (
-                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--warning-muted)', color: 'var(--warning)' }}>
-                  Custom
-                </span>
-              )}
-            </div>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              The fee clock starts when the first draw is funded. Adjust if needed for fee escalation calculations.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={effectiveFeeStartDate || ''}
-              onChange={(e) => setCustomFeeStartDate(e.target.value || null)}
-              className="input text-sm"
-              style={{ background: 'var(--bg-secondary)', width: '150px' }}
-            />
-            {customFeeStartDate && (
-              <button
-                onClick={() => setCustomFeeStartDate(null)}
-                className="text-xs px-2 py-1 rounded"
-                style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}
-                title="Reset to auto-detected date"
-              >
-                Reset
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -547,382 +465,26 @@ function PayoffStatementView({
 }
 
 // =============================================================================
-// VIEW 2: INTERACTIVE CALCULATOR (Cards Mode)
+// VIEW 2: CHART DASHBOARD (Chart Mode) - 3 Visualizations
 // =============================================================================
 
-function PayoffCalculatorView({
-  project,
-  currentPayoff,
-  projectedPayoff,
-  whatIfPayoff,
-  projectionDays,
-  setProjectionDays,
-  whatIfDate,
-  setWhatIfDate,
-  daysToMaturity,
-  urgencyLevel,
-  urgencyColor,
-  daysUntilFeeIncrease,
-  feeSchedule,
-  terms,
-}: {
-  project: Project
-  currentPayoff: PayoffBreakdown
-  projectedPayoff: PayoffBreakdown | null
-  whatIfPayoff: PayoffBreakdown | null
-  projectionDays: number
-  setProjectionDays: (days: number) => void
-  whatIfDate: string
-  setWhatIfDate: (date: string) => void
-  daysToMaturity: number | null
-  urgencyLevel: string
-  urgencyColor: string
-  daysUntilFeeIncrease: number | null
-  feeSchedule: ReturnType<typeof generateFeeSchedule>
-  terms: LoanTerms
-}) {
-  // Calculate fee impact of waiting
-  const feeImpact = useMemo(() => {
-    if (!projectedPayoff) return 0
-    return projectedPayoff.financeFee - currentPayoff.financeFee
-  }, [projectedPayoff, currentPayoff])
-  
-  const interestImpact = useMemo(() => {
-    if (!projectedPayoff) return 0
-    return projectedPayoff.accruedInterest - currentPayoff.accruedInterest
-  }, [projectedPayoff, currentPayoff])
-  
-  return (
-    <div className="space-y-6">
-      {/* Top Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          label="Total Payoff"
-          value={formatCurrencyWhole(currentPayoff.totalPayoff)}
-          color="var(--accent)"
-        />
-        <StatCard
-          label="Per Diem"
-          value={formatCurrency(currentPayoff.perDiem)}
-          subtitle="/day"
-          color="var(--info)"
-        />
-        <StatCard
-          label="Current Fee Rate"
-          value={currentPayoff.feeRatePct}
-          badge={currentPayoff.isExtension ? 'Extension' : undefined}
-          badgeColor={currentPayoff.isExtension ? 'var(--error)' : undefined}
-          color={currentPayoff.isExtension ? 'var(--error)' : 'var(--text-primary)'}
-        />
-        <StatCard
-          label="Days to Maturity"
-          value={daysToMaturity !== null ? daysToMaturity.toString() : '—'}
-          color={urgencyColor}
-          badge={urgencyLevel !== 'normal' ? urgencyLevel : undefined}
-          badgeColor={urgencyColor}
-        />
-      </div>
-      
-      {/* Fee Tracker */}
-      <div className="card-ios">
-        <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-          Fee Escalation Tracker
-        </h3>
-        
-        {/* Fee Progress Bar */}
-        <div className="mb-4">
-          <div className="flex justify-between text-sm mb-2">
-            <span style={{ color: 'var(--text-muted)' }}>Month {currentPayoff.monthNumber} of loan</span>
-            <span style={{ color: 'var(--text-primary)' }}>
-              {daysUntilFeeIncrease !== null ? `${daysUntilFeeIncrease} days until next increase` : 'N/A'}
-            </span>
-          </div>
-          <div className="relative h-3 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
-            <motion.div
-              className="absolute inset-y-0 left-0 rounded-full"
-              style={{ 
-                background: currentPayoff.isExtension 
-                  ? 'linear-gradient(90deg, var(--warning), var(--error))' 
-                  : 'linear-gradient(90deg, var(--success), var(--warning))'
-              }}
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min((currentPayoff.monthNumber / 18) * 100, 100)}%` }}
-              transition={{ duration: 0.8, ease: 'easeOut' }}
-            />
-            {/* Extension marker */}
-            <div 
-              className="absolute top-0 bottom-0 w-0.5"
-              style={{ left: `${(12 / 18) * 100}%`, background: 'var(--error)' }}
-            />
-          </div>
-          <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-            <span>Month 1</span>
-            <span style={{ color: 'var(--error)' }}>Month 13 (Extension)</span>
-            <span>Month 18</span>
-          </div>
-        </div>
-        
-        {/* Fee Schedule Preview */}
-        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 mt-4">
-          {feeSchedule.slice(0, 12).map((entry) => (
-            <div
-              key={entry.month}
-              className="text-center p-2 rounded-lg transition-colors"
-              style={{
-                background: entry.month === currentPayoff.monthNumber 
-                  ? 'var(--accent-muted)' 
-                  : entry.isExtensionMonth 
-                    ? 'var(--error-muted)'
-                    : 'var(--bg-hover)',
-                border: entry.month === currentPayoff.monthNumber 
-                  ? '2px solid var(--accent)' 
-                  : '1px solid transparent',
-              }}
-            >
-              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>M{entry.month}</div>
-              <div 
-                className="text-sm font-medium"
-                style={{ 
-                  color: entry.isExtensionMonth 
-                    ? 'var(--error)' 
-                    : entry.month === currentPayoff.monthNumber 
-                      ? 'var(--accent)' 
-                      : 'var(--text-primary)' 
-                }}
-              >
-                {entry.feeRatePct}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      
-      {/* Interest Projection Slider */}
-      <div className="card-ios">
-        <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-          Interest Projection
-        </h3>
-        
-        <div className="flex items-center gap-6">
-          <div className="flex-1">
-            <label className="block text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
-              Project payoff in <strong>{projectionDays}</strong> days
-            </label>
-            <input
-              type="range"
-              min={1}
-              max={180}
-              value={projectionDays}
-              onChange={(e) => setProjectionDays(parseInt(e.target.value))}
-              className="w-full"
-              style={{ accentColor: 'var(--accent)' }}
-            />
-            <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              <span>1 day</span>
-              <span>90 days</span>
-              <span>180 days</span>
-            </div>
-          </div>
-          
-          {projectedPayoff && (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="text-center p-3 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
-                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Additional Interest</div>
-                <div className="font-semibold" style={{ color: 'var(--warning)' }}>
-                  +{formatCurrency(interestImpact)}
-                </div>
-              </div>
-              <div className="text-center p-3 rounded-lg" style={{ background: 'var(--accent-muted)' }}>
-                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Projected Payoff</div>
-                <div className="font-semibold" style={{ color: 'var(--accent)' }}>
-                  {formatCurrencyWhole(projectedPayoff.totalPayoff)}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-      
-      {/* What-If Calculator */}
-      <div className="card-ios">
-        <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-          What-If Scenario
-        </h3>
-        
-        <div className="flex items-end gap-4">
-          <div className="flex-1 max-w-xs">
-            <label className="block text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
-              If payoff date is...
-            </label>
-            <input
-              type="date"
-              value={whatIfDate}
-              onChange={(e) => setWhatIfDate(e.target.value)}
-              className="input w-full"
-              style={{ background: 'var(--bg-secondary)' }}
-              min={new Date().toISOString().split('T')[0]}
-            />
-          </div>
-          
-          {whatIfPayoff && (
-            <div className="flex-1 grid grid-cols-3 gap-3">
-              <div className="text-center p-3 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
-                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Fee Rate</div>
-                <div className="font-semibold" style={{ color: whatIfPayoff.isExtension ? 'var(--error)' : 'var(--text-primary)' }}>
-                  {whatIfPayoff.feeRatePct}
-                </div>
-              </div>
-              <div className="text-center p-3 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
-                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Interest</div>
-                <div className="font-semibold" style={{ color: 'var(--warning)' }}>
-                  {formatCurrency(whatIfPayoff.accruedInterest)}
-                </div>
-              </div>
-              <div className="text-center p-3 rounded-lg" style={{ background: 'var(--success-muted)' }}>
-                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Total Payoff</div>
-                <div className="font-semibold" style={{ color: 'var(--success)' }}>
-                  {formatCurrencyWhole(whatIfPayoff.totalPayoff)}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-        
-        {/* Comparison with today */}
-        {whatIfPayoff && (
-          <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Compared to today: 
-              <span className="ml-2 font-medium" style={{ color: whatIfPayoff.totalPayoff > currentPayoff.totalPayoff ? 'var(--error)' : 'var(--success)' }}>
-                {whatIfPayoff.totalPayoff > currentPayoff.totalPayoff ? '+' : ''}
-                {formatCurrency(whatIfPayoff.totalPayoff - currentPayoff.totalPayoff)}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-      
-      {/* Smart Insights */}
-      <div className="card-ios p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-secondary)' }}>
-          <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <svg className="w-5 h-5" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-            </svg>
-            Smart Insights
-          </h3>
-        </div>
-        <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-          {/* Best payoff window */}
-          {currentPayoff.monthNumber <= 6 && (
-            <InsightRow
-              type="success"
-              title="Optimal Payoff Window"
-              message={`You're in the base fee period (${formatRate(terms.baseFee)}). Fee escalation begins month 7.`}
-            />
-          )}
-          
-          {/* Extension warning */}
-          {currentPayoff.monthNumber >= 11 && currentPayoff.monthNumber < 13 && (
-            <InsightRow
-              type="warning"
-              title="Extension Fee Approaching"
-              message={`Month 13 triggers a ${formatRate(terms.extensionFeeRate)} extension fee. Consider payoff before then.`}
-            />
-          )}
-          
-          {/* In extension */}
-          {currentPayoff.isExtension && (
-            <InsightRow
-              type="error"
-              title="Extension Fee Active"
-              message={`Fee rate increases ${formatRate(terms.postExtensionEscalation)} each month. Current rate: ${currentPayoff.feeRatePct}`}
-            />
-          )}
-          
-          {/* Maturity warning */}
-          {daysToMaturity !== null && daysToMaturity <= 30 && daysToMaturity > 0 && (
-            <InsightRow
-              type="warning"
-              title="Maturity Approaching"
-              message={`Loan matures in ${daysToMaturity} days on ${formatDate(project.maturity_date)}.`}
-            />
-          )}
-          
-          {/* Past maturity */}
-          {daysToMaturity !== null && daysToMaturity < 0 && (
-            <InsightRow
-              type="error"
-              title="Past Maturity"
-              message={`Loan matured ${Math.abs(daysToMaturity)} days ago. Additional fees may apply.`}
-            />
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// =============================================================================
-// VIEW 3: FEE + INTEREST CHART (Chart Mode)
-// =============================================================================
-
-function PayoffChartView({
+function ChartDashboard({
   project,
   projectionData,
   currentPayoff,
   terms,
   effectiveFeeStartDate,
+  feeSchedule,
+  drawLines,
 }: {
   project: Project
   projectionData: ProjectionDataPoint[]
   currentPayoff: PayoffBreakdown
   terms: LoanTerms
   effectiveFeeStartDate: string | null
+  feeSchedule: ReturnType<typeof generateFeeSchedule>
+  drawLines: DrawLineWithDate[]
 }) {
-  // Format data for Nivo
-  const chartData = useMemo(() => {
-    const feeRateData = projectionData.map(d => ({
-      x: d.date,
-      y: d.feeRatePct,
-    }))
-    
-    const interestData = projectionData.map(d => ({
-      x: d.date,
-      y: d.cumulativeInterest,
-    }))
-    
-    const payoffData = projectionData.map(d => ({
-      x: d.date,
-      y: d.totalPayoff,
-    }))
-    
-    return [
-      { id: 'Fee Rate (%)', data: feeRateData },
-    ]
-  }, [projectionData])
-  
-  // Separate chart for dollar amounts
-  const dollarChartData = useMemo(() => {
-    const interestData = projectionData.map(d => ({
-      x: d.date,
-      y: d.cumulativeInterest,
-    }))
-    
-    const payoffData = projectionData.map(d => ({
-      x: d.date,
-      y: d.totalPayoff,
-    }))
-    
-    return [
-      { id: 'Interest', data: interestData },
-      { id: 'Total Payoff', data: payoffData },
-    ]
-  }, [projectionData])
-  
-  // Find current month index for marker
-  const currentMonthIndex = projectionData.findIndex(d => d.isCurrentMonth)
-  
   // Empty state check
   if (projectionData.length === 0 || !effectiveFeeStartDate) {
     return (
@@ -937,265 +499,390 @@ function PayoffChartView({
       </div>
     )
   }
-  
+
   return (
     <div className="space-y-6">
-      {/* Fee Rate Chart */}
-      <div className="card-ios">
-        <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-          Fee Rate Escalation
-        </h3>
-        <div style={{ height: 200 }}>
-          <ResponsiveLine
-            data={chartData}
-            margin={{ top: 20, right: 30, bottom: 50, left: 50 }}
-            xScale={{ type: 'point' }}
-            yScale={{ type: 'linear', min: 0, max: 'auto', stacked: false }}
-            curve="stepAfter"
-            axisTop={null}
-            axisRight={null}
-            axisBottom={{
-              tickSize: 5,
-              tickPadding: 5,
-              tickRotation: -45,
-              legend: 'Month',
-              legendOffset: 40,
-              legendPosition: 'middle',
-            }}
-            axisLeft={{
-              tickSize: 5,
-              tickPadding: 5,
-              tickRotation: 0,
-              legend: 'Fee Rate (%)',
-              legendOffset: -40,
-              legendPosition: 'middle',
-              format: v => `${v}%`,
-            }}
-            enableGridX={false}
-            enableGridY={true}
-            colors={['var(--warning)']}
-            lineWidth={3}
-            pointSize={0}
-            enableArea={true}
-            areaOpacity={0.15}
-            useMesh={true}
-            enableSlices="x"
-            sliceTooltip={({ slice }) => (
+      {/* Row 1: Fee Escalation Timeline (Full Width) */}
+      <FeeEscalationChart 
+        feeSchedule={feeSchedule} 
+        currentMonthNumber={currentPayoff.monthNumber}
+        terms={terms}
+      />
+      
+      {/* Row 2: Payoff Projection + What-If Comparison */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <PayoffProjectionChart 
+          projectionData={projectionData}
+          project={project}
+        />
+        <WhatIfComparisonChart 
+          currentPayoff={currentPayoff}
+          effectiveFeeStartDate={effectiveFeeStartDate}
+          terms={terms}
+        />
+      </div>
+    </div>
+  )
+}
+
+// Chart 1: Fee Escalation Timeline
+function FeeEscalationChart({
+  feeSchedule,
+  currentMonthNumber,
+  terms,
+}: {
+  feeSchedule: ReturnType<typeof generateFeeSchedule>
+  currentMonthNumber: number
+  terms: LoanTerms
+}) {
+  const chartData = useMemo(() => {
+    return [{
+      id: 'Fee Rate',
+      data: feeSchedule.map(entry => ({
+        x: `M${entry.month}`,
+        y: entry.feeRate * 100,
+        isExtension: entry.isExtensionMonth,
+        isCurrent: entry.month === currentMonthNumber,
+      }))
+    }]
+  }, [feeSchedule, currentMonthNumber])
+
+  if (feeSchedule.length === 0) return null
+
+  return (
+    <div className="card-ios p-0" style={{ height: 280 }}>
+      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Fee Escalation Timeline</h3>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          Finance fee rate progression over 18 months
+        </p>
+      </div>
+      <div style={{ height: 220 }}>
+        <ResponsiveLine
+          data={chartData}
+          margin={{ top: 20, right: 30, bottom: 40, left: 50 }}
+          xScale={{ type: 'point' }}
+          yScale={{ type: 'linear', min: 0, max: 'auto' }}
+          curve="stepAfter"
+          axisTop={null}
+          axisRight={null}
+          axisBottom={{
+            tickSize: 0,
+            tickPadding: 8,
+          }}
+          axisLeft={{
+            tickSize: 0,
+            tickPadding: 8,
+            format: v => `${v}%`,
+          }}
+          enableGridX={false}
+          enableGridY={true}
+          colors={['var(--warning)']}
+          lineWidth={3}
+          pointSize={0}
+          enableArea={true}
+          areaOpacity={0.15}
+          useMesh={true}
+          tooltip={({ point }) => {
+            const data = point.data as any
+            return (
               <div
                 className="p-2 rounded-lg shadow-lg"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
               >
-                {slice.points.map(point => (
-                  <div key={point.id} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ background: point.serieColor }} />
-                    <span style={{ color: 'var(--text-primary)' }}>
-                      {point.data.xFormatted}: {point.data.yFormatted}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-            theme={{
-              axis: {
-                ticks: {
-                  text: { fill: 'var(--text-muted)', fontSize: 11 },
-                },
-                legend: {
-                  text: { fill: 'var(--text-secondary)', fontSize: 12 },
-                },
-              },
-              grid: {
-                line: { stroke: 'var(--border-subtle)', strokeWidth: 1 },
-              },
-              crosshair: {
-                line: { stroke: 'var(--accent)', strokeWidth: 1, strokeDasharray: '6 6' },
-              },
-            }}
-            markers={[
-              // Extension fee marker
-              {
-                axis: 'x',
-                value: projectionData.find(d => d.isExtensionMonth)?.date || '',
-                lineStyle: { stroke: 'var(--error)', strokeWidth: 2, strokeDasharray: '4 4' },
-                legend: 'Extension',
-                legendPosition: 'top',
-                textStyle: { fill: 'var(--error)', fontSize: 10 },
-              },
-              // Current month marker
-              ...(currentMonthIndex >= 0 ? [{
-                axis: 'x' as const,
-                value: projectionData[currentMonthIndex]?.date || '',
-                lineStyle: { stroke: 'var(--accent)', strokeWidth: 2 },
-                legend: 'Today',
-                legendPosition: 'top' as const,
-                textStyle: { fill: 'var(--accent)', fontSize: 10 },
-              }] : []),
-            ]}
-          />
-        </div>
-      </div>
-      
-      {/* Interest & Payoff Chart */}
-      <div className="card-ios">
-        <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-          Interest & Total Payoff Projection
-        </h3>
-        <div style={{ height: 280 }}>
-          <ResponsiveLine
-            data={dollarChartData}
-            margin={{ top: 20, right: 30, bottom: 50, left: 70 }}
-            xScale={{ type: 'point' }}
-            yScale={{ type: 'linear', min: 0, max: 'auto', stacked: false }}
-            curve="monotoneX"
-            axisTop={null}
-            axisRight={null}
-            axisBottom={{
-              tickSize: 5,
-              tickPadding: 5,
-              tickRotation: -45,
-              legend: 'Month',
-              legendOffset: 40,
-              legendPosition: 'middle',
-            }}
-            axisLeft={{
-              tickSize: 5,
-              tickPadding: 5,
-              tickRotation: 0,
-              legend: 'Amount ($)',
-              legendOffset: -60,
-              legendPosition: 'middle',
-              format: v => `$${(v / 1000).toFixed(0)}k`,
-            }}
-            enableGridX={false}
-            enableGridY={true}
-            colors={['var(--warning)', 'var(--accent)']}
-            lineWidth={2}
-            pointSize={0}
-            enableArea={true}
-            areaOpacity={0.1}
-            useMesh={true}
-            enableSlices="x"
-            legends={[
-              {
-                anchor: 'top-right',
-                direction: 'row',
-                justify: false,
-                translateX: 0,
-                translateY: -20,
-                itemsSpacing: 20,
-                itemDirection: 'left-to-right',
-                itemWidth: 80,
-                itemHeight: 20,
-                itemOpacity: 0.75,
-                symbolSize: 12,
-                symbolShape: 'circle',
-                symbolBorderColor: 'rgba(0, 0, 0, .5)',
-                effects: [
-                  {
-                    on: 'hover',
-                    style: { itemBackground: 'rgba(0, 0, 0, .03)', itemOpacity: 1 },
-                  },
-                ],
-              },
-            ]}
-            sliceTooltip={({ slice }) => (
-              <div
-                className="p-3 rounded-lg shadow-lg"
-                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
-              >
-                <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
-                  {slice.points[0]?.data.xFormatted}
+                <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Month {String(point.data.x).replace('M', '')}
                 </div>
-                {slice.points.map(point => (
-                  <div key={point.id} className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ background: point.serieColor }} />
-                      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                        {point.serieId}:
-                      </span>
-                    </div>
-                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                      ${Number(point.data.y).toLocaleString()}
-                    </span>
-                  </div>
-                ))}
+                <div className="text-sm" style={{ color: data.isExtension ? 'var(--error)' : 'var(--warning)' }}>
+                  Fee Rate: {point.data.yFormatted}%
+                  {data.isExtension && ' (Extension)'}
+                </div>
               </div>
-            )}
-            theme={{
-              axis: {
-                ticks: {
-                  text: { fill: 'var(--text-muted)', fontSize: 11 },
-                },
-                legend: {
-                  text: { fill: 'var(--text-secondary)', fontSize: 12 },
-                },
+            )
+          }}
+          markers={[
+            // Extension marker at month 13
+            {
+              axis: 'x',
+              value: 'M13',
+              lineStyle: { stroke: 'var(--error)', strokeWidth: 2, strokeDasharray: '4 4' },
+              legend: 'Extension',
+              legendPosition: 'top',
+              textStyle: { fill: 'var(--error)', fontSize: 10 },
+            },
+            // Current month marker
+            {
+              axis: 'x',
+              value: `M${currentMonthNumber}`,
+              lineStyle: { stroke: 'var(--accent)', strokeWidth: 2 },
+              legend: 'Now',
+              legendPosition: 'top',
+              textStyle: { fill: 'var(--accent)', fontSize: 10 },
+            },
+          ]}
+          theme={{
+            background: 'transparent',
+            axis: {
+              ticks: {
+                text: { fill: 'var(--text-muted)', fontSize: 10 }
               },
-              grid: {
-                line: { stroke: 'var(--border-subtle)', strokeWidth: 1 },
-              },
-              legends: {
-                text: { fill: 'var(--text-secondary)', fontSize: 11 },
-              },
-            }}
-            markers={[
-              // Current month marker
-              ...(currentMonthIndex >= 0 ? [{
-                axis: 'x' as const,
-                value: projectionData[currentMonthIndex]?.date || '',
-                lineStyle: { stroke: 'var(--accent)', strokeWidth: 2 },
-                legend: 'Today',
-                legendPosition: 'top' as const,
-                textStyle: { fill: 'var(--accent)', fontSize: 10 },
-              }] : []),
-              // Maturity marker
-              ...(project.loan_term_months ? [{
-                axis: 'x' as const,
-                value: projectionData[project.loan_term_months - 1]?.date || '',
-                lineStyle: { stroke: 'var(--warning)', strokeWidth: 2, strokeDasharray: '4 4' },
-                legend: 'Maturity',
-                legendPosition: 'top' as const,
-                textStyle: { fill: 'var(--warning)', fontSize: 10 },
-              }] : []),
-            ]}
-          />
-        </div>
+            },
+            grid: {
+              line: { stroke: 'var(--border-subtle)', strokeDasharray: '4 4' }
+            },
+          }}
+        />
       </div>
+    </div>
+  )
+}
+
+// Chart 2: Payoff Projection Over Time
+function PayoffProjectionChart({
+  projectionData,
+  project,
+}: {
+  projectionData: ProjectionDataPoint[]
+  project: Project
+}) {
+  const chartData = useMemo(() => {
+    const interestLine = projectionData.map(d => ({
+      x: d.date,
+      y: d.cumulativeInterest,
+    }))
+    
+    const payoffLine = projectionData.map(d => ({
+      x: d.date,
+      y: d.totalPayoff,
+    }))
+    
+    return [
+      { id: 'Interest', data: interestLine },
+      { id: 'Total Payoff', data: payoffLine },
+    ]
+  }, [projectionData])
+
+  const currentIdx = projectionData.findIndex(d => d.isCurrentMonth)
+
+  return (
+    <div className="card-ios p-0" style={{ height: 320 }}>
+      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Payoff Projection</h3>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          Interest and total payoff growth over time
+        </p>
+      </div>
+      <div style={{ height: 260 }}>
+        <ResponsiveLine
+          data={chartData}
+          margin={{ top: 20, right: 20, bottom: 50, left: 70 }}
+          xScale={{ type: 'point' }}
+          yScale={{ type: 'linear', min: 0, max: 'auto' }}
+          curve="monotoneX"
+          axisTop={null}
+          axisRight={null}
+          axisBottom={{
+            tickSize: 0,
+            tickPadding: 8,
+            tickRotation: -45,
+          }}
+          axisLeft={{
+            tickSize: 0,
+            tickPadding: 8,
+            format: (v) => `$${(Number(v) / 1000).toFixed(0)}k`,
+          }}
+          enableGridX={false}
+          enableGridY={true}
+          colors={['var(--warning)', 'var(--accent)']}
+          lineWidth={2}
+          pointSize={0}
+          enableArea={true}
+          areaOpacity={0.1}
+          useMesh={true}
+          legends={[
+            {
+              anchor: 'top-right',
+              direction: 'row',
+              translateX: 0,
+              translateY: -15,
+              itemsSpacing: 20,
+              itemDirection: 'left-to-right',
+              itemWidth: 80,
+              itemHeight: 20,
+              itemOpacity: 0.75,
+              symbolSize: 10,
+              symbolShape: 'circle',
+            }
+          ]}
+          tooltip={({ point }) => (
+            <div
+              className="p-3 rounded-lg shadow-lg"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
+            >
+              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+                {point.data.xFormatted}
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ background: point.serieColor }} />
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{point.serieId}:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {formatCurrencyWhole(Number(point.data.y))}
+                </span>
+              </div>
+            </div>
+          )}
+          markers={[
+            ...(currentIdx >= 0 ? [{
+              axis: 'x' as const,
+              value: projectionData[currentIdx]?.date || '',
+              lineStyle: { stroke: 'var(--accent)', strokeWidth: 2 },
+              legend: 'Today',
+              legendPosition: 'top' as const,
+              textStyle: { fill: 'var(--accent)', fontSize: 10 },
+            }] : []),
+          ]}
+          theme={{
+            background: 'transparent',
+            axis: {
+              ticks: {
+                text: { fill: 'var(--text-muted)', fontSize: 10 }
+              },
+            },
+            grid: {
+              line: { stroke: 'var(--border-subtle)', strokeDasharray: '4 4' }
+            },
+            legends: {
+              text: { fill: 'var(--text-muted)', fontSize: 10 }
+            }
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
+// Chart 3: What-If Date Comparison
+function WhatIfComparisonChart({
+  currentPayoff,
+  effectiveFeeStartDate,
+  terms,
+}: {
+  currentPayoff: PayoffBreakdown
+  effectiveFeeStartDate: string
+  terms: LoanTerms
+}) {
+  // Calculate payoff at different future dates
+  const comparisonData = useMemo(() => {
+    const intervals = [0, 7, 14, 30, 60, 90]
+    const baseDate = new Date()
+    
+    return intervals.map(days => {
+      const futureDate = new Date(baseDate)
+      futureDate.setDate(futureDate.getDate() + days)
       
-      {/* Legend / Key Dates */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="card-ios text-center">
-          <div className="text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
-            Current Month
-          </div>
-          <div className="text-lg font-bold" style={{ color: 'var(--accent)' }}>
-            Month {currentPayoff.monthNumber}
-          </div>
-          <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Fee: {currentPayoff.feeRatePct}
-          </div>
-        </div>
-        <div className="card-ios text-center">
-          <div className="text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
-            Extension Month
-          </div>
-          <div className="text-lg font-bold" style={{ color: 'var(--error)' }}>
-            Month 13
-          </div>
-          <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Fee: {formatRate(terms.extensionFeeRate)}
-          </div>
-        </div>
-        <div className="card-ios text-center">
-          <div className="text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
-            Maturity
-          </div>
-          <div className="text-lg font-bold" style={{ color: 'var(--warning)' }}>
-            Month {project.loan_term_months || 12}
-          </div>
-          <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            {formatDate(project.maturity_date)}
-          </div>
-        </div>
+      const projected = projectPayoffAtDate(
+        currentPayoff,
+        futureDate,
+        new Date(effectiveFeeStartDate),
+        terms
+      )
+      
+      return {
+        label: days === 0 ? 'Today' : `+${days}d`,
+        days,
+        principal: projected.principalBalance,
+        interest: projected.accruedInterest,
+        fees: projected.financeFee + projected.documentFee,
+        total: projected.totalPayoff,
+        delta: projected.totalPayoff - currentPayoff.totalPayoff,
+      }
+    })
+  }, [currentPayoff, effectiveFeeStartDate, terms])
+
+  return (
+    <div className="card-ios p-0" style={{ height: 320 }}>
+      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>What-If Comparison</h3>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          Payoff amount at different dates
+        </p>
+      </div>
+      <div style={{ height: 260 }}>
+        <ResponsiveBar
+          data={comparisonData}
+          keys={['principal', 'interest', 'fees']}
+          indexBy="label"
+          margin={{ top: 20, right: 20, bottom: 50, left: 70 }}
+          padding={0.3}
+          groupMode="stacked"
+          valueScale={{ type: 'linear' }}
+          indexScale={{ type: 'band', round: true }}
+          colors={['var(--text-muted)', 'var(--warning)', 'var(--accent)']}
+          borderRadius={2}
+          axisTop={null}
+          axisRight={null}
+          axisBottom={{
+            tickSize: 0,
+            tickPadding: 8,
+          }}
+          axisLeft={{
+            tickSize: 0,
+            tickPadding: 8,
+            format: (v) => `$${(Number(v) / 1000).toFixed(0)}k`,
+          }}
+          enableLabel={false}
+          legends={[
+            {
+              dataFrom: 'keys',
+              anchor: 'top-right',
+              direction: 'row',
+              translateX: 0,
+              translateY: -15,
+              itemsSpacing: 10,
+              itemWidth: 60,
+              itemHeight: 20,
+              itemDirection: 'left-to-right',
+              itemOpacity: 0.75,
+              symbolSize: 10,
+              symbolShape: 'circle',
+            }
+          ]}
+          tooltip={({ id, value, indexValue, data }) => (
+            <div
+              className="p-3 rounded-lg shadow-lg"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
+            >
+              <div className="font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+                {indexValue}
+              </div>
+              <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                {id}: {formatCurrencyWhole(value)}
+              </div>
+              <div className="text-sm font-semibold mt-1" style={{ color: 'var(--accent)' }}>
+                Total: {formatCurrencyWhole(data.total)}
+              </div>
+              {data.delta > 0 && (
+                <div className="text-xs mt-1" style={{ color: 'var(--error)' }}>
+                  +{formatCurrencyWhole(data.delta)} vs today
+                </div>
+              )}
+            </div>
+          )}
+          theme={{
+            background: 'transparent',
+            axis: {
+              ticks: {
+                text: { fill: 'var(--text-muted)', fontSize: 10 }
+              },
+            },
+            grid: {
+              line: { stroke: 'var(--border-subtle)', strokeDasharray: '4 4' }
+            },
+            legends: {
+              text: { fill: 'var(--text-muted)', fontSize: 10 }
+            }
+          }}
+        />
       </div>
     </div>
   )
@@ -1226,17 +913,20 @@ function CompleteLoanSection({
   completing: boolean
   onComplete: () => void
 }) {
-  const displayAmount = payoffAmount || payoff.totalPayoff.toFixed(2)
-  
   return (
     <div 
       className="card-ios"
       style={{ borderLeft: '4px solid var(--success)' }}
     >
       <div className="mb-4">
-        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Complete Loan</h3>
+        <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+          <svg className="w-5 h-5" style={{ color: 'var(--success)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Complete Loan
+        </h3>
         <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-          Record payoff to mark loan as paid and move to historic
+          Record payoff to mark loan as paid and transition to historic status
         </p>
       </div>
       
@@ -1327,112 +1017,3 @@ function CompleteLoanSection({
     </div>
   )
 }
-
-// =============================================================================
-// HELPER COMPONENTS
-// =============================================================================
-
-function StatCard({
-  label,
-  value,
-  color,
-  subtitle,
-  badge,
-  badgeColor,
-}: {
-  label: string
-  value: string
-  color: string
-  subtitle?: string
-  badge?: string
-  badgeColor?: string
-}) {
-  return (
-    <div className="card-ios">
-      <div className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
-        {label}
-      </div>
-      <div className="flex items-baseline gap-1">
-        <motion.span
-          key={value}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-xl font-bold"
-          style={{ color }}
-        >
-          {value}
-        </motion.span>
-        {subtitle && (
-          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{subtitle}</span>
-        )}
-      </div>
-      {badge && (
-        <span
-          className="inline-block text-xs px-1.5 py-0.5 rounded-full mt-1"
-          style={{
-            background: `${badgeColor}20` || 'var(--bg-hover)',
-            color: badgeColor || 'var(--text-muted)',
-          }}
-        >
-          {badge}
-        </span>
-      )}
-    </div>
-  )
-}
-
-function InsightRow({
-  type,
-  title,
-  message,
-}: {
-  type: 'success' | 'warning' | 'error' | 'info'
-  title: string
-  message: string
-}) {
-  const colors = {
-    success: { bg: 'var(--success-muted)', icon: 'var(--success)' },
-    warning: { bg: 'var(--warning-muted)', icon: 'var(--warning)' },
-    error: { bg: 'var(--error-muted)', icon: 'var(--error)' },
-    info: { bg: 'var(--info-muted)', icon: 'var(--info)' },
-  }
-  
-  const icons = {
-    success: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-    warning: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-      </svg>
-    ),
-    error: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-    info: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-  }
-  
-  return (
-    <div className="px-4 py-3 flex items-start gap-3">
-      <div
-        className="p-1 rounded-full flex-shrink-0"
-        style={{ background: colors[type].bg }}
-      >
-        <div style={{ color: colors[type].icon }}>{icons[type]}</div>
-      </div>
-      <div>
-        <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{title}</div>
-        <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>{message}</div>
-      </div>
-    </div>
-  )
-}
-
