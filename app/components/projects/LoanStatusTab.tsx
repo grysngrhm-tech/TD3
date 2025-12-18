@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Project, Budget, DrawRequest, DrawRequestLine, LifecycleStage } from '@/types/database'
@@ -39,6 +39,14 @@ export function LoanStatusTab({
   const [activeReport, setActiveReport] = useState<ReportType>('budget')
   const [viewMode, setViewMode] = useState<ViewMode>('table')
   const [detailPanelContent, setDetailPanelContent] = useState<DetailPanelContent>(null)
+  
+  // Payoff interactive state (lifted for shared access between header and report)
+  const [payoffDate, setPayoffDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  )
+  const [projectionDays, setProjectionDays] = useState(30)
+  const [whatIfDate, setWhatIfDate] = useState<string>('')
+  const [customFeeStartDate, setCustomFeeStartDate] = useState<string | null>(null)
 
   const formatCurrency = (amount: number | null) => {
     if (amount === null || amount === undefined) return '—'
@@ -287,7 +295,7 @@ export function LoanStatusTab({
         />
       </div>
 
-      {/* Polymorphic Loan Details Tile */}
+      {/* Polymorphic Loan Details Tile - Expandable Accordion */}
       <PolymorphicLoanDetails
         project={project}
         budgets={budgets}
@@ -295,6 +303,15 @@ export function LoanStatusTab({
         drawLines={drawLinesForAmort}
         activeReport={activeReport}
         anomalies={anomalies}
+        // Payoff interactive controls (lifted state)
+        payoffDate={payoffDate}
+        onPayoffDateChange={setPayoffDate}
+        projectionDays={projectionDays}
+        onProjectionDaysChange={setProjectionDays}
+        whatIfDate={whatIfDate}
+        onWhatIfDateChange={setWhatIfDate}
+        customFeeStartDate={customFeeStartDate}
+        onCustomFeeStartDateChange={setCustomFeeStartDate}
       />
 
       {/* Dynamic Report Area */}
@@ -350,6 +367,15 @@ export function LoanStatusTab({
               drawLines={drawLinesForAmort}
               viewMode={viewMode}
               onLoanCompleted={onDrawImported}
+              // Lifted state from parent
+              payoffDate={payoffDate}
+              onPayoffDateChange={setPayoffDate}
+              projectionDays={projectionDays}
+              onProjectionDaysChange={setProjectionDays}
+              whatIfDate={whatIfDate}
+              onWhatIfDateChange={setWhatIfDate}
+              customFeeStartDate={customFeeStartDate}
+              onCustomFeeStartDateChange={setCustomFeeStartDate}
             />
           </motion.div>
         )}
