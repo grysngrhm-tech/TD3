@@ -10,6 +10,7 @@ import { DrawStatusSelector } from '@/app/components/ui/DrawStatusSelector'
 import { DrawFilterSidebar } from '@/app/components/ui/DrawFilterSidebar'
 import { DrawStatsBar } from '@/app/components/ui/DrawStatsBar'
 import { FundAllModal } from '@/app/components/draws/FundAllModal'
+import { FundingReport } from '@/app/components/draws/FundingReport'
 import { useNavigation } from '@/app/context/NavigationContext'
 
 type DrawStatus = 'all' | 'review' | 'staged' | 'pending_wire'
@@ -52,6 +53,8 @@ function StagingDashboardContent() {
   
   // Bookkeeper modal state (for confirming wire batches)
   const [selectedBatch, setSelectedBatch] = useState<WireBatchWithDetails | null>(null)
+  const [showFundingReport, setShowFundingReport] = useState(false)
+  const [fundingDate, setFundingDate] = useState(() => new Date().toISOString().split('T')[0])
   const [wireReference, setWireReference] = useState('')
   const [fundingNotes, setFundingNotes] = useState('')
   const [isFunding, setIsFunding] = useState(false)
@@ -335,6 +338,7 @@ function StagingDashboardContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'fund',
+          funded_at: new Date(fundingDate).toISOString(),
           wire_reference: wireReference || null,
           notes: fundingNotes || null,
           funded_by: 'bookkeeper'
@@ -347,6 +351,8 @@ function StagingDashboardContent() {
       }
 
       setSelectedBatch(null)
+      setShowFundingReport(false)
+      setFundingDate(new Date().toISOString().split('T')[0])
       setWireReference('')
       setFundingNotes('')
       await loadData()
@@ -645,10 +651,15 @@ function StagingDashboardContent() {
                             </div>
                             <div className="space-y-1 text-sm">
                               {builder.stagedDraws.map(draw => (
-                                <div key={draw.id} className="flex justify-between" style={{ color: 'var(--text-muted)' }}>
-                                  <span>{draw.project?.project_code || draw.project?.name} - Draw #{draw.draw_number}</span>
+                                <a 
+                                  key={draw.id} 
+                                  href={`/draws/${draw.id}`}
+                                  className="flex justify-between py-1 px-2 -mx-2 rounded hover:opacity-80 transition-opacity"
+                                  style={{ color: 'var(--text-muted)' }}
+                                >
+                                  <span className="hover:underline">{draw.project?.project_code || draw.project?.name} - Draw #{draw.draw_number}</span>
                                   <span>{formatCurrency(draw.total_amount)}</span>
-                                </div>
+                                </a>
                               ))}
                             </div>
                           </div>
@@ -680,13 +691,13 @@ function StagingDashboardContent() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             style={{ background: 'rgba(0,0,0,0.5)' }}
-            onClick={() => setSelectedBatch(null)}
+            onClick={() => { setSelectedBatch(null); setShowFundingReport(false); }}
           >
             <motion.div
               initial={{ scale: 0.95 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.95 }}
-              className="card max-w-lg w-full max-h-[90vh] overflow-y-auto"
+              className="card max-w-2xl w-full max-h-[90vh] overflow-y-auto"
               onClick={e => e.stopPropagation()}
             >
               <div className="p-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -696,11 +707,11 @@ function StagingDashboardContent() {
                       Wire Batch Confirmation
                     </h3>
                     <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                      Batch #{selectedBatch.id.slice(0, 8).toUpperCase()}
+                      Batch #{selectedBatch.id.slice(0, 8).toUpperCase()} • {selectedBatch.builder?.company_name}
                     </p>
                   </div>
                   <button
-                    onClick={() => setSelectedBatch(null)}
+                    onClick={() => { setSelectedBatch(null); setShowFundingReport(false); }}
                     className="p-2 rounded-lg hover:opacity-70"
                     style={{ color: 'var(--text-muted)' }}
                   >
@@ -709,123 +720,187 @@ function StagingDashboardContent() {
                     </svg>
                   </button>
                 </div>
-              </div>
-
-              <div className="p-4 space-y-4">
-                {/* Wire Details */}
-                <div className="p-4 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
-                  <h4 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
-                    {selectedBatch.builder?.company_name}
-                  </h4>
-                  <dl className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <dt style={{ color: 'var(--text-muted)' }}>Bank</dt>
-                      <dd className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                        {selectedBatch.builder?.bank_name || 'N/A'}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt style={{ color: 'var(--text-muted)' }}>Routing</dt>
-                      <dd className="font-mono" style={{ color: 'var(--text-primary)' }}>
-                        {selectedBatch.builder?.bank_routing_number || 'N/A'}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt style={{ color: 'var(--text-muted)' }}>Account</dt>
-                      <dd className="font-mono" style={{ color: 'var(--text-primary)' }}>
-                        {maskAccountNumber(selectedBatch.builder?.bank_account_number)}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-
-                {/* Draws */}
-                <div>
-                  <h4 className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                    Draws Included ({selectedBatch.draws?.length || 0})
-                  </h4>
-                  <div className="space-y-1 text-sm">
-                    {selectedBatch.draws?.map(draw => (
-                      <div key={draw.id} className="flex justify-between p-2 rounded" style={{ background: 'var(--bg-secondary)' }}>
-                        <span style={{ color: 'var(--text-secondary)' }}>
-                          {draw.project?.project_code || draw.project?.name} - Draw #{draw.draw_number}
-                        </span>
-                        <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                          {formatCurrency(draw.total_amount)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Total */}
-                <div className="flex justify-between items-center pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Total Amount</span>
-                  <span className="text-2xl font-bold" style={{ color: 'var(--accent)' }}>
-                    {formatCurrency(selectedBatch.total_amount)}
-                  </span>
-                </div>
-
-                {/* Wire Reference Input */}
-                <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
-                    Wire Reference # (optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={wireReference}
-                    onChange={(e) => setWireReference(e.target.value)}
-                    placeholder="Bank confirmation number"
-                    className="input w-full"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
-                    Notes (optional)
-                  </label>
-                  <textarea
-                    value={fundingNotes}
-                    onChange={(e) => setFundingNotes(e.target.value)}
-                    placeholder="Any additional notes..."
-                    className="input w-full"
-                    rows={2}
-                  />
-                </div>
-
-                {fundingError && (
-                  <p className="text-sm p-2 rounded" style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)' }}>
-                    {fundingError}
-                  </p>
-                )}
-              </div>
-
-              <div className="p-4 border-t flex justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
-                <div className="flex gap-2">
-                  <a
-                    href={`/api/wire-batches/${selectedBatch.id}/report`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-secondary text-sm"
+                
+                {/* View toggle */}
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={() => setShowFundingReport(false)}
+                    className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${!showFundingReport ? 'font-medium' : ''}`}
+                    style={{ 
+                      background: !showFundingReport ? 'var(--accent)' : 'var(--bg-secondary)',
+                      color: !showFundingReport ? 'white' : 'var(--text-muted)'
+                    }}
+                  >
+                    Confirm Wire
+                  </button>
+                  <button
+                    onClick={() => setShowFundingReport(true)}
+                    className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${showFundingReport ? 'font-medium' : ''}`}
+                    style={{ 
+                      background: showFundingReport ? 'var(--accent)' : 'var(--bg-secondary)',
+                      color: showFundingReport ? 'white' : 'var(--text-muted)'
+                    }}
                   >
                     View Report
-                  </a>
-                  <button
-                    onClick={() => handleCancelBatch(selectedBatch.id)}
-                    className="btn-secondary text-sm"
-                    style={{ color: 'var(--error)' }}
-                  >
-                    Cancel Batch
                   </button>
                 </div>
-                <button
-                  onClick={handleMarkAsFunded}
-                  disabled={isFunding}
-                  className="btn-primary"
-                >
-                  {isFunding ? 'Processing...' : 'Mark as Funded ✓'}
-                </button>
               </div>
+
+              {showFundingReport ? (
+                <div className="p-4">
+                  <FundingReport batch={selectedBatch} />
+                </div>
+              ) : (
+                <>
+                  <div className="p-4 space-y-4">
+                    {/* Wire Details */}
+                    <div className="p-4 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
+                      <h4 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
+                        Wire Destination
+                      </h4>
+                      <dl className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
+                        <div>
+                          <dt style={{ color: 'var(--text-muted)' }}>Bank</dt>
+                          <dd className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                            {selectedBatch.builder?.bank_name || 'N/A'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt style={{ color: 'var(--text-muted)' }}>Account Name</dt>
+                          <dd className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                            {selectedBatch.builder?.bank_account_name || 'N/A'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt style={{ color: 'var(--text-muted)' }}>Routing</dt>
+                          <dd className="font-mono" style={{ color: 'var(--text-primary)' }}>
+                            {selectedBatch.builder?.bank_routing_number || 'N/A'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt style={{ color: 'var(--text-muted)' }}>Account</dt>
+                          <dd className="font-mono" style={{ color: 'var(--text-primary)' }}>
+                            {maskAccountNumber(selectedBatch.builder?.bank_account_number)}
+                          </dd>
+                        </div>
+                      </dl>
+                    </div>
+
+                    {/* Draws */}
+                    <div>
+                      <h4 className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                        Draws Included ({selectedBatch.draws?.length || 0})
+                      </h4>
+                      <div className="space-y-1 text-sm">
+                        {selectedBatch.draws?.map(draw => (
+                          <a 
+                            key={draw.id} 
+                            href={`/draws/${draw.id}`}
+                            className="flex justify-between p-2 rounded hover:opacity-80 transition-opacity" 
+                            style={{ background: 'var(--bg-secondary)' }}
+                          >
+                            <span style={{ color: 'var(--text-secondary)' }}>
+                              {draw.project?.project_code || draw.project?.name} - Draw #{draw.draw_number}
+                            </span>
+                            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                              {formatCurrency(draw.total_amount)}
+                            </span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Total */}
+                    <div className="flex justify-between items-center pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                      <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Total Wire Amount</span>
+                      <span className="text-2xl font-bold font-mono" style={{ color: 'var(--success)' }}>
+                        {formatCurrency(selectedBatch.total_amount)}
+                      </span>
+                    </div>
+
+                    {/* Funding Date */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                        Funded Date *
+                      </label>
+                      <input
+                        type="date"
+                        value={fundingDate}
+                        onChange={(e) => setFundingDate(e.target.value)}
+                        className="input w-full"
+                      />
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                        Date the wire was sent (used for amortization calculations)
+                      </p>
+                    </div>
+
+                    {/* Wire Reference Input */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                        Wire Reference # (optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={wireReference}
+                        onChange={(e) => setWireReference(e.target.value)}
+                        placeholder="Bank confirmation number"
+                        className="input w-full"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                        Notes (optional)
+                      </label>
+                      <textarea
+                        value={fundingNotes}
+                        onChange={(e) => setFundingNotes(e.target.value)}
+                        placeholder="Any additional notes..."
+                        className="input w-full"
+                        rows={2}
+                      />
+                    </div>
+
+                    {fundingError && (
+                      <p className="text-sm p-2 rounded" style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)' }}>
+                        {fundingError}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="p-4 border-t flex justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <button
+                      onClick={() => handleCancelBatch(selectedBatch.id)}
+                      className="btn-secondary text-sm"
+                      style={{ color: 'var(--error)' }}
+                    >
+                      Cancel Batch
+                    </button>
+                    <button
+                      onClick={handleMarkAsFunded}
+                      disabled={isFunding}
+                      className="btn-primary flex items-center gap-2"
+                    >
+                      {isFunding ? (
+                        <>
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Mark as Funded
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
             </motion.div>
           </motion.div>
         )}

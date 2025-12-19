@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Builder, DrawRequest, Project } from '@/types/database'
 
@@ -18,14 +19,16 @@ type FundAllModalProps = {
 }
 
 /**
- * FundAllModal - Modal for funding all staged draws for a builder
+ * FundAllModal - Modal for submitting staged draws to pending wire
+ * 
+ * This creates a wire batch with status 'pending' and moves draws to 'pending_wire'.
+ * The bookkeeper will then confirm the wire from the pending wire section.
  * 
  * Features:
  * - Shows builder info and list of staged draws
- * - Date picker for selecting funded date (defaults to today)
- * - Wire reference input (optional)
- * - Notes input (optional)
- * - Creates wire batch and marks draws as funded
+ * - Shows builder banking details (partially masked)
+ * - Creates wire batch in pending status
+ * - Redirects to staging page with batch highlighted
  */
 export function FundAllModal({
   isOpen,
@@ -35,13 +38,8 @@ export function FundAllModal({
   totalAmount,
   onSuccess
 }: FundAllModalProps) {
-  const [fundedDate, setFundedDate] = useState(() => {
-    // Default to today's date in YYYY-MM-DD format
-    return new Date().toISOString().split('T')[0]
-  })
-  const [wireReference, setWireReference] = useState('')
-  const [notes, setNotes] = useState('')
-  const [isFunding, setIsFunding] = useState(false)
+  const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
   const formatCurrency = (amount: number) => {
@@ -53,10 +51,15 @@ export function FundAllModal({
     }).format(amount)
   }
 
-  const handleFund = async () => {
+  const maskAccountNumber = (num: string | null): string => {
+    if (!num) return '****'
+    return '****' + num.slice(-4)
+  }
+
+  const handleSubmitForWire = async () => {
     if (stagedDraws.length === 0) return
 
-    setIsFunding(true)
+    setIsSubmitting(true)
     setError('')
 
     try {
@@ -64,36 +67,37 @@ export function FundAllModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'submit_for_wire',
           builder_id: builder.id,
-          draw_ids: stagedDraws.map(d => d.id),
-          funded_at: new Date(fundedDate).toISOString(),
-          wire_reference: wireReference || undefined,
-          notes: notes || undefined
+          draw_ids: stagedDraws.map(d => d.id)
         })
       })
 
       const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to fund draws')
+        throw new Error(result.error || 'Failed to submit for funding')
       }
 
-      // Success - close modal and trigger refresh
+      // Success - close modal, trigger refresh, and navigate to staging with batch highlighted
       onClose()
       onSuccess()
+      
+      // Navigate to staging page with the new batch highlighted
+      if (result.batch_id) {
+        router.push(`/staging?status=pending_wire&batch=${result.batch_id}`)
+      }
 
     } catch (err: any) {
-      setError(err.message || 'Failed to fund draws')
+      setError(err.message || 'Failed to submit for funding')
     } finally {
-      setIsFunding(false)
+      setIsSubmitting(false)
     }
   }
 
   const handleClose = () => {
-    if (!isFunding) {
+    if (!isSubmitting) {
       setError('')
-      setWireReference('')
-      setNotes('')
       onClose()
     }
   }
@@ -125,7 +129,7 @@ export function FundAllModal({
           >
             <div>
               <h2 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
-                Fund All Staged Draws
+                Submit for Wire Funding
               </h2>
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                 {builder.company_name}
@@ -133,7 +137,7 @@ export function FundAllModal({
             </div>
             <button
               onClick={handleClose}
-              disabled={isFunding}
+              disabled={isSubmitting}
               className="p-2 rounded-lg hover:opacity-70 transition-opacity"
               style={{ color: 'var(--text-muted)' }}
             >
@@ -161,7 +165,7 @@ export function FundAllModal({
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
             >
               <div className="flex justify-between items-center mb-3">
-                <span style={{ color: 'var(--text-muted)' }}>Draws to fund</span>
+                <span style={{ color: 'var(--text-muted)' }}>Draws to submit</span>
                 <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                   {stagedDraws.length}
                 </span>
@@ -175,6 +179,44 @@ export function FundAllModal({
                   {formatCurrency(totalAmount)}
                 </span>
               </div>
+            </div>
+
+            {/* Banking Details */}
+            <div 
+              className="p-4 rounded-lg"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+            >
+              <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>
+                Wire Destination
+              </h3>
+              <dl className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <dt style={{ color: 'var(--text-muted)' }}>Bank</dt>
+                  <dd className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {builder.bank_name || 'Not provided'}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt style={{ color: 'var(--text-muted)' }}>Routing</dt>
+                  <dd className="font-mono" style={{ color: 'var(--text-primary)' }}>
+                    {builder.bank_routing_number || 'N/A'}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt style={{ color: 'var(--text-muted)' }}>Account</dt>
+                  <dd className="font-mono" style={{ color: 'var(--text-primary)' }}>
+                    {maskAccountNumber(builder.bank_account_number)}
+                  </dd>
+                </div>
+                {builder.bank_account_name && (
+                  <div className="flex justify-between">
+                    <dt style={{ color: 'var(--text-muted)' }}>Account Name</dt>
+                    <dd style={{ color: 'var(--text-primary)' }}>
+                      {builder.bank_account_name}
+                    </dd>
+                  </div>
+                )}
+              </dl>
             </div>
 
             {/* Draw list */}
@@ -212,50 +254,18 @@ export function FundAllModal({
               </div>
             </div>
 
-            {/* Date picker */}
-            <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-                Funded Date *
-              </label>
-              <input
-                type="date"
-                value={fundedDate}
-                onChange={e => setFundedDate(e.target.value)}
-                className="input w-full"
-                disabled={isFunding}
-              />
-              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                Select the date the wire was sent (for amortization calculations)
+            {/* Info message */}
+            <div 
+              className="p-3 rounded-lg text-sm flex items-start gap-2"
+              style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--accent)' }}
+            >
+              <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p>
+                This will send the funding report to the bookkeeper. The draws will move to 
+                "Pending Wire" status until the bookkeeper confirms the wire has been sent.
               </p>
-            </div>
-
-            {/* Wire reference */}
-            <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-                Wire Reference (Optional)
-              </label>
-              <input
-                type="text"
-                value={wireReference}
-                onChange={e => setWireReference(e.target.value)}
-                placeholder="e.g., Wire #12345"
-                className="input w-full"
-                disabled={isFunding}
-              />
-            </div>
-
-            {/* Notes */}
-            <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-                Notes (Optional)
-              </label>
-              <textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="Add any notes about this funding..."
-                className="input w-full h-20 resize-none"
-                disabled={isFunding}
-              />
             </div>
           </div>
 
@@ -266,30 +276,30 @@ export function FundAllModal({
           >
             <button
               onClick={handleClose}
-              disabled={isFunding}
+              disabled={isSubmitting}
               className="btn-secondary"
             >
               Cancel
             </button>
             <button
-              onClick={handleFund}
-              disabled={isFunding || stagedDraws.length === 0}
+              onClick={handleSubmitForWire}
+              disabled={isSubmitting || stagedDraws.length === 0}
               className="btn-primary flex items-center gap-2"
             >
-              {isFunding ? (
+              {isSubmitting ? (
                 <>
                   <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Funding...
+                  Submitting...
                 </>
               ) : (
                 <>
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                   </svg>
-                  Fund All ({stagedDraws.length} draws)
+                  Submit for Funding
                 </>
               )}
             </button>
@@ -299,4 +309,3 @@ export function FundAllModal({
     </AnimatePresence>
   )
 }
-
