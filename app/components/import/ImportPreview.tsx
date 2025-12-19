@@ -166,6 +166,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
   const [importSuccess, setImportSuccess] = useState(false) // Track success state for UI feedback
   const [importedCount, setImportedCount] = useState<number | null>(null) // Track actual items imported from N8N
   const [processingMessage, setProcessingMessage] = useState<string>('') // Contextual processing message
+  const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null) // Countdown timer for processing
   const [error, setError] = useState<string | null>(null)
   
   // Builder and project selection state
@@ -246,6 +247,20 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       setDeleteExistingBudget(false)
     }
   }, [selectedProjectId, importType])
+  
+  // Countdown timer effect - decrements every second while importing
+  useEffect(() => {
+    if (countdownSeconds === null || countdownSeconds <= 0) return
+    
+    const timer = setInterval(() => {
+      setCountdownSeconds(prev => {
+        if (prev === null || prev <= 1) return 0
+        return prev - 1
+      })
+    }, 1000)
+    
+    return () => clearInterval(timer)
+  }, [countdownSeconds])
   
   // Auto-fetch next draw number when project is selected (for draw imports)
   useEffect(() => {
@@ -686,7 +701,12 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
         const categoryCount = categoryValues.length
         setProcessingMessage(`Classifying ${categoryCount} categories with AI...`)
         
+        // Estimate processing time: ~1.1 sec per category, rounded up to nearest 30 seconds
+        const estimatedSeconds = Math.ceil((categoryCount * 1.1) / 30) * 30
+        setCountdownSeconds(estimatedSeconds)
+        
         console.log('[Budget Import] Sending', categoryCount, 'categories to N8N for project:', selectedProjectId)
+        console.log('[Budget Import] Estimated processing time:', estimatedSeconds, 'seconds')
         
         const response = await fetch(webhookUrl, {
           method: 'POST',
@@ -728,6 +748,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       // N8N has now confirmed the budget was successfully imported to Supabase.
       
       setProcessingMessage('') // Clear processing message
+      setCountdownSeconds(null) // Clear countdown
       setImporting(false)
       setImportSuccess(true)
       
@@ -747,6 +768,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Import failed')
       setProcessingMessage('') // Clear processing message on error
+      setCountdownSeconds(null) // Clear countdown on error
       setImporting(false) // Only reset on error, success path closes modal
     }
   }, [data, file, mappings, importType, selectedProjectId, drawNumber, invoiceFiles, rowRangeAnalysis, deleteExistingBudget, existingBudgetCount, onClose, onSuccess])
@@ -766,6 +788,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     setImportSuccess(false)
     setImportedCount(null)
     setProcessingMessage('')
+    setCountdownSeconds(null)
     setSelectedBuilderId('')
     setProjects([])
     setSelectedProjectId('')
@@ -1013,6 +1036,14 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                     <>
                       <div className="animate-spin rounded-full h-3 w-3 border-2 border-t-transparent border-white" />
                       {processingMessage || 'Processing...'}
+                      {countdownSeconds !== null && countdownSeconds > 0 && (
+                        <span className="ml-2 tabular-nums opacity-80">
+                          ~{Math.floor(countdownSeconds / 60)}:{String(countdownSeconds % 60).padStart(2, '0')}
+                        </span>
+                      )}
+                      {countdownSeconds === 0 && (
+                        <span className="ml-2 opacity-80">Almost done...</span>
+                      )}
                     </>
                   ) : importSuccess ? (
                     <>
