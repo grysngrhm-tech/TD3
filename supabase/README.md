@@ -70,8 +70,8 @@ draw_requests
 
 draw_request_lines
 ├── id (UUID, PK)
-├── draw_request_id (UUID, FK → draw_requests)
-├── budget_id (UUID, FK → budgets)  -- NULL if unmatched
+├── draw_request_id (UUID, FK → draw_requests, ON DELETE CASCADE)
+├── budget_id (UUID, FK → budgets, ON DELETE SET NULL)  -- NULL if unmatched
 ├── amount_requested (DECIMAL)
 ├── amount_approved (DECIMAL)
 ├── matched_invoice_amount (DECIMAL)
@@ -84,6 +84,10 @@ draw_request_lines
 ├── flags (TEXT)                -- JSON array: NO_BUDGET_MATCH, OVER_BUDGET, etc.
 ├── notes (TEXT)                -- Original category if unmatched
 └── created_at
+
+NOTE: budget_id uses ON DELETE SET NULL (not CASCADE) to preserve draw line items
+when budgets are reimported. This protects historical funded draw records.
+Application logic additionally prevents deletion of budgets with funded draws.
 
 wire_batches
 ├── id (UUID, PK)
@@ -303,15 +307,29 @@ INSERT INTO budgets (
 )
 ```
 
-### Delete All Budgets for Project (Used Before Re-Import)
+### Delete Unprotected Budgets for Project (Used Before Re-Import)
 
 ```sql
-DELETE FROM budgets WHERE project_id = $project_id
+-- First, identify protected budgets (those with funded/pending_wire draws)
+WITH protected_budgets AS (
+  SELECT DISTINCT b.id
+  FROM budgets b
+  JOIN draw_request_lines drl ON drl.budget_id = b.id
+  JOIN draw_requests dr ON dr.id = drl.draw_request_id
+  WHERE b.project_id = $project_id
+    AND dr.status IN ('funded', 'pending_wire')
+)
+-- Then delete only unprotected budgets
+DELETE FROM budgets 
+WHERE project_id = $project_id
+  AND id NOT IN (SELECT id FROM protected_budgets);
 ```
 
 This is used by:
-1. **ImportPreview** - When "Replace existing budget" checkbox is checked
+1. **ImportPreview** - When "Replace existing budget" checkbox is checked (excludes protected budgets)
 2. **BudgetEditor** - When "Clear All" button is clicked
+
+**Note:** Budgets with funded draws are protected and cannot be deleted. The application shows a warning listing protected categories.
 
 ### Get Categories with Subcategories (For Dropdowns)
 

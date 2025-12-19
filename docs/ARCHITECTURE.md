@@ -114,7 +114,10 @@ TD3 implements a comprehensive draw request workflow that handles the entire pro
 │             │     │             │     │             │     │             │     │             │
 │ Upload Draw │     │ User Review │     │ Ready to    │     │ Bookkeeper  │     │ Wire Sent   │
 │ & Invoices  │     │ & Edit      │     │ Fund        │     │ Processing  │     │             │
-└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+└─────────────┘     └─────────────┘     └──────┬──────┘     └─────────────┘     └─────────────┘
+                           ▲                    │
+                           │    Unstage         │
+                           └────────────────────┘
 ```
 
 ### Draw Status Values
@@ -122,9 +125,30 @@ TD3 implements a comprehensive draw request workflow that handles the entire pro
 | Status | Description | User Action |
 |--------|-------------|-------------|
 | `review` | Draw created, awaiting user review | Edit amounts, assign categories, attach invoices |
-| `staged` | Draw approved, grouped with builder's other draws | None - waiting for other draws |
-| `pending_wire` | All builder draws approved, sent to bookkeeper | Bookkeeper processes wire |
-| `funded` | Wire sent, draw complete | Locked - no further edits |
+| `staged` | Draw approved, grouped with builder's other draws | Can be unstaged back to review |
+| `pending_wire` | All builder draws approved, sent to bookkeeper | Bookkeeper enters wire reference and funding date |
+| `funded` | Wire sent, draw complete | Locked - budget spend amounts updated |
+
+### Draw Funding Workflow
+
+1. **Stage for Funding** (from draw review page)
+   - Status changes from `review` → `staged`
+   - Draw appears in "Staged by Builder" section of staging dashboard
+
+2. **Unstage Draw** (from draw review page, if staged)
+   - Status changes from `staged` → `review`
+   - Draw returns to editable state
+
+3. **Fund All** (from Staged by Builder tile)
+   - Creates a `wire_batch` with status `pending`
+   - All staged draws for builder change to `pending_wire`
+   - Draws move to "Pending Wire Confirmation" section
+
+4. **Confirm Wire** (from Pending Wire Confirmation)
+   - Bookkeeper enters funding date and wire reference
+   - `wire_batch` status changes to `funded`
+   - All draws in batch change to `funded`
+   - Budget `spent_amount` and `remaining_amount` updated for each draw line
 
 ### Key Features
 
@@ -658,9 +682,22 @@ The system uses 16 major categories with 118 subcategories, including "Other" ca
 | Status | Description | Next Status |
 |--------|-------------|-------------|
 | `review` | Draw uploaded, awaiting user review | staged |
-| `staged` | User approved, waiting for other builder draws | pending_wire |
+| `staged` | User approved, waiting for other builder draws | pending_wire (via Fund All) or review (via Unstage) |
 | `pending_wire` | All builder draws ready, sent to bookkeeper | funded |
-| `funded` | Wire sent, draw locked | (terminal) |
+| `funded` | Wire sent, budget spend recorded, draw locked | (terminal) |
+
+### Budget Protection on Reimport
+
+When budgets are reimported with "Replace existing budget" checked:
+
+| Condition | Behavior |
+|-----------|----------|
+| Budget has funded draws | **Protected** - Cannot be deleted, warning shown to user |
+| Budget has pending_wire draws | **Protected** - Cannot be deleted |
+| Budget has only draft/review/staged draws | Deleted - Draw lines become "unmatched" (budget_id set to NULL) |
+| Budget has no draws | Deleted |
+
+**Foreign Key Constraint:** `draw_request_lines.budget_id` uses `ON DELETE SET NULL` to preserve draw lines when their budget is deleted. Protected budgets with funded draws are never deleted by application logic.
 
 ### Default Term Sheet
 
@@ -914,7 +951,7 @@ detectAnomalies(budgets, drawLines, project): Anomaly[]
 
 ## Enhanced Financial Reports
 
-TD3 includes three comprehensive financial report types, accessible via a 3-way toggle on the loan status page.
+TD3 includes three comprehensive financial report types, accessible via a 3-way toggle on the loan status page. Each report offers Table and Chart views (simplified from previous 3-view system).
 
 ### Report Toggle System
 
@@ -923,6 +960,7 @@ TD3 includes three comprehensive financial report types, accessible via a 3-way 
 │  [  Budget  ] [  Amortization  ] [  Payoff  ]               │
 │       ▼                                                      │
 │  Three independent reports with polymorphic stats tile       │
+│  Each with [Table] [Chart] view toggle                       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -938,14 +976,11 @@ Multi-view budget analysis with intelligent features:
 - Sparkline trend charts per budget line
 - Click-to-drill-down for detailed view
 
-**Cards View:**
-- Summary cards with key metrics per category
-- Visual progress indicators
-- Anomaly badges for flagged items
-
-**Chart View:**
-- Sankey diagram showing budget flow from categories to draws
-- Visual representation of budget allocation and spending
+**Chart View (3-Chart Dashboard):**
+- **Sankey Diagram**: Budget flow from categories to draws, ordered by construction sequence (cost code prefix) with chronological draw ordering
+- **Category Utilization**: Horizontal bar chart with budget limit markers showing remaining vs spent per category
+- **Spending Velocity**: Line chart showing cumulative spending over time with trend indicators
+- Each chart includes an info tooltip explaining what it shows
 
 ### 2. Amortization Table
 
@@ -960,73 +995,48 @@ Multi-view budget analysis with intelligent features:
   - Total interest (cumulative compound)
   - Principal (sum of draws)
   - Total balance (principal + interest)
-- Row types distinguished visually:
-  - Draw rows: Numbered badge with draw icon
-  - Month-end rows: Calendar icon with subtle background
-  - Current row: Clock icon
-  - Payoff row: Checkmark with success highlight
-- Summary header with:
-  - Principal (sum of draws)
-  - Total Interest (compound)
-  - Total Balance
-  - Per Diem (on total balance)
-  - Total Payoff
+- Row types distinguished visually
+- Summary header with key metrics
 
-**Cards View:**
-- Summary metric cards for quick reference
-- Principal, Total Interest, Total Balance, Per Diem
-- Draw count and max balance indicators
-
-**Chart View:**
-- Timeline bar chart showing draws and interest accrual
-- Visual zones for fee escalation periods
+**Chart View (3-Chart Dashboard):**
+- **Balance Growth**: Line chart showing principal, total interest, and total balance over time, including document and finance fees
+- **Draw Timeline**: Bar chart showing draw amounts by date
+- **Interest Analysis**: Donut chart breaking down Principal, Interest, Finance Fee, and Document Fee components
+- Each chart includes an info tooltip explaining what it shows
 
 ### 3. Payoff Report
 
-Three-view interactive payoff system:
+Interactive payoff system with credits and title company integration:
 
-**View 1: Payoff Statement**
+**Table View (Payoff Statement):**
 - Professional payoff letter format
 - Principal balance
 - Accrued interest (with days)
 - Finance fee (with current rate)
 - Document fee
-- Credits
+- **Credits section**: Manage adjustments that reduce payoff
 - Total payoff amount
-- Good-through date
-- Per diem for additional days
+- Good-through date with per diem
 - "Complete Loan" functionality for historic transition
+- **Title Company Report Generator**: Generate professional payoff letters
 
-**View 2: What-If Calculator**
-- Interactive date selector
-- Real-time payoff projections
-- Days until selected date
-- Additional interest calculation
-- New fee rate if different
-- Projected total
-- Quick-select buttons (7 days, 14 days, 30 days, End of Month)
-
-**View 3: Fee & Interest Projection Chart**
-- Nivo line chart with three data series:
-  - Fee Rate (% over time)
-  - Cumulative Interest ($ over time)
-  - Total Payoff ($ over time)
-- Interactive tooltip with exact values
-- Visual markers for:
-  - Current month (highlighted)
-  - Extension month (month 13)
-  - Actual vs projected data
-- 18-month projection window
+**Chart View (3-Chart Dashboard):**
+- **Fee Escalation**: Line chart showing fee rate progression over loan term
+- **Payoff Projection**: Area chart showing principal, interest, and total payoff over 18 months
+- **What-If Comparison**: Side-by-side comparison of today's payoff vs custom future date with adjustable date picker
+- Each chart includes an info tooltip explaining what it shows
 
 ### Polymorphic Loan Details
 
-The stats tile above reports adapts based on active report:
+The stats tile above reports is now an expandable accordion that adapts based on active report:
 
-| Report | Stats Displayed |
-|--------|-----------------|
-| **Budget** | Budget Total, Total Spent, Remaining, % Complete, Anomaly Count |
-| **Amortization** | Principal, Total Interest, Total Balance, Per Diem, Days Outstanding, Current Fee Rate |
-| **Payoff** | Estimated Payoff, Principal, Accrued Interest, Per Diem, Fee Rate, Days to Maturity |
+| Report | Collapsed Stats | Expanded Content |
+|--------|-----------------|------------------|
+| **Budget** | Budget Total, Total Spent, Remaining, % Complete | Anomaly details, category breakdown |
+| **Amortization** | Principal, Total Interest, Total Balance, Per Diem | Fee rate schedule, days outstanding |
+| **Payoff** | Estimated Payoff, Principal, Accrued Interest | Credits list, fee breakdown, days to maturity |
+
+The tile can be expanded/collapsed with a click, providing progressive disclosure of detailed information.
 
 ### View Mode Persistence
 
@@ -1088,12 +1098,16 @@ Stage-specific metrics with visual elements:
 ### ImportPreview Features
 
 - **Auto-Delete Checkbox**: Option to replace existing budget on upload
+- **Protected Budget Warning**: Shows which categories have funded draws and cannot be deleted
+- **Smart Budget Merge**: Duplicate categories are merged into protected budgets instead of creating duplicates
 - **Existing Budget Detection**: Shows count of existing items when project selected
 - **Project Selection**: Cascading builder → project dropdowns for draw imports
 - **Sheet Selection**: Choose which Excel sheet to import from multi-sheet workbooks
 - **Real-time Stats**: Shows row count and total amount before submission
 - **Auto-Deselect Columns**: Selecting a new category/amount column auto-deselects previous
 - **Invoice Upload**: Drag-drop invoice files with thumbnail preview (draw imports)
+- **Processing Countdown Timer**: Adaptive countdown based on category count with animated task messages
+- **N8N Response Validation**: Verifies import success before closing modal and navigating
 
 ### Fuzzy Matching Algorithm
 
@@ -1226,10 +1240,14 @@ type DrawImportPayload = {
 NEXT_PUBLIC_SUPABASE_URL=https://[project-id].supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
-# n8n Webhook URLs
-NEXT_PUBLIC_N8N_BUDGET_WEBHOOK=https://grysngrhm.app.n8n.cloud/webhook/budget-import
-NEXT_PUBLIC_N8N_DRAW_WEBHOOK=https://grysngrhm.app.n8n.cloud/webhook/draw-import
+# n8n Webhook URLs (self-hosted instance)
+NEXT_PUBLIC_N8N_BUDGET_WEBHOOK=https://n8n.srv1208741.hstgr.cloud/webhook/budget-import
+NEXT_PUBLIC_N8N_DRAW_WEBHOOK=https://n8n.srv1208741.hstgr.cloud/webhook/td3-draw-process
 ```
+
+### N8N Self-Hosted Instance
+
+TD3 uses a self-hosted n8n instance at `https://n8n.srv1208741.hstgr.cloud/` for workflow automation. This replaces the previous n8n Cloud instance and removes execution limits.
 
 ---
 
@@ -1325,3 +1343,15 @@ NEXT_PUBLIC_N8N_DRAW_WEBHOOK=https://grysngrhm.app.n8n.cloud/webhook/draw-import
 ### Category Dropdown Not Showing Correct Value After Import
 - **Cause:** AI returned category with code prefix (e.g., "0800 – Plumbing") instead of just name
 - **Solution:** Updated AI prompt to return only names without codes; BudgetEditor uses ID-based matching
+
+### Draw Lines Missing After Budget Reimport
+- **Cause:** Budget deletion cascaded to draw_request_lines
+- **Solution:** FK constraint changed to `ON DELETE SET NULL`. Budgets with funded draws are now protected from deletion. Non-funded draw lines become "unmatched" rather than deleted.
+
+### Budget Import Shows "Invalid Response from N8N"
+- **Cause:** N8N workflow error (often model incompatibility)
+- **Solution:** Check N8N execution logs. Ensure OpenAI node uses `gpt-4o` model (not gpt-5.x which doesn't support temperature parameter)
+
+### Budget Import Countdown Shows NaN
+- **Cause:** Zero valid categories leading to division by zero
+- **Solution:** Minimum countdown is 10 seconds; safeguards prevent NaN in progress calculations
