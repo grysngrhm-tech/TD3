@@ -914,7 +914,8 @@ export function fileToBase64(file: File): Promise<string> {
 /**
  * Prepare column data for export to n8n webhook
  * Extracts only the user-selected columns (category + amount)
- * Optionally filters to only rows within the specified row range
+ * Filters to only rows within the specified row range that have valid data
+ * (non-empty category AND non-zero amount - matching handleImport filtering)
  * The 'type' field tells the n8n workflow how to interpret the data
  */
 export function prepareColumnExport(
@@ -944,6 +945,7 @@ export function prepareColumnExport(
   const endRow = options.rowRange?.endRow ?? data.rows.length - 1
   
   // Extract values from selected columns within row range
+  // Only include rows with valid category AND non-zero amount
   const categoryValues: string[] = []
   const amountValues: (number | null)[] = []
   
@@ -952,8 +954,15 @@ export function prepareColumnExport(
     const catValue = row[categoryCol.columnIndex]
     const amtValue = row[amountCol.columnIndex]
     
-    categoryValues.push(catValue ? String(catValue).trim() : '')
-    amountValues.push(parseAmount(amtValue))
+    const category = catValue ? String(catValue).trim() : ''
+    const amount = parseAmount(amtValue)
+    
+    // Filter: only include rows with valid category and non-zero amount
+    // This ensures the export matches what handleImport counts and what the user sees
+    if (category && amount && amount > 0) {
+      categoryValues.push(category)
+      amountValues.push(amount)
+    }
   }
   
   return {
@@ -974,7 +983,7 @@ export function prepareColumnExport(
     metadata: {
       fileName: options.fileName,
       sheetName: data.sheetName,
-      totalRows: categoryValues.length  // Now reflects filtered count
+      totalRows: categoryValues.length  // Reflects filtered valid row count
     }
   }
 }
