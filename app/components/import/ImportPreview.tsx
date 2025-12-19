@@ -60,12 +60,14 @@ const DRAW_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_DRAW_WEBHOOK || ''
 
 // Exaggerated task messages for the processing animation
 const PROCESSING_TASKS = [
-  "Analyzing budget structure...",
-  "Consulting construction oracle...",
-  "Cross-referencing NAHB codes...",
-  "Validating cost allocations...",
-  "Optimizing category mappings...",
-  "Applying finishing touches...",
+  "Parsing your spreadsheet with laser focus...",
+  "Waking up the construction cost oracle...",
+  "Teaching AI about lumber and drywall...",
+  "Cross-referencing against sacred NAHB codes...",
+  "Validating every dollar and cent carefully...",
+  "Matching categories with surgical precision...",
+  "Double-checking the math one more time...",
+  "Applying the finishing touches with care...",
 ]
 
 // Levenshtein distance for fuzzy string matching
@@ -1035,11 +1037,11 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
             {/* Compact Footer */}
             {step === 'preview' && (
               <div className="flex items-center justify-between px-4 py-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                {/* Left side: Back button or animated task status */}
+                {/* Left side: Back button or spacer when importing */}
                 {importing && initialCountdown !== null && countdownSeconds !== null ? (
-                  <div className="flex items-center gap-3 flex-1 mr-4 overflow-hidden">
-                    {/* Animated task message */}
-                    <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-end gap-3 flex-1 mr-4">
+                    {/* Animated task message - pushed right, next to timer */}
+                    <div className="min-w-0 max-w-[280px]">
                       <AnimatePresence mode="wait">
                         {(() => {
                           // Calculate bounded task index once for both key and content
@@ -1052,11 +1054,11 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                           return (
                             <motion.div
                               key={taskIndex}
-                              initial={{ opacity: 0, y: 8 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -8 }}
+                              initial={{ opacity: 0, x: 10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: -10 }}
                               transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                              className="text-xs truncate"
+                              className="text-xs text-right"
                               style={{ color: 'var(--text-muted)' }}
                             >
                               {PROCESSING_TASKS[taskIndex]}
