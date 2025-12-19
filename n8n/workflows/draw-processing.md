@@ -1,6 +1,6 @@
 # Draw Processing N8N Workflow
 
-This document describes how to set up the draw processing workflow in n8n Cloud.
+This document describes how to set up the draw processing workflow in the self-hosted n8n instance.
 
 ## Workflow Overview
 
@@ -12,7 +12,7 @@ The draw processing workflow receives **post-creation** draw request data from T
 
 ## Webhook Endpoint
 
-**URL:** `https://grysngrhm.app.n8n.cloud/webhook/td3-draw-process`
+**URL:** `https://n8n.srv1208741.hstgr.cloud/webhook/td3-draw-process`
 **Method:** POST
 
 ## Input Payload (Enriched)

@@ -12,7 +12,7 @@ Build and integrate the `td3-draw-process` N8N workflow that performs AI-powered
 ## Your Tasks
 
 ### 1. Build N8N Workflow
-Create workflow at `https://grysngrhm.app.n8n.cloud/webhook/td3-draw-process`:
+Create workflow at `https://n8n.srv1208741.hstgr.cloud/webhook/td3-draw-process`:
 - Fetch invoices from Supabase Storage for the draw
 - Use OpenAI to match invoices to draw lines using category context
 - Update `draw_request_lines` with: `invoice_file_url`, `invoice_vendor_name`, `matched_invoice_amount`, `confidence_score`, `flags`
@@ -56,6 +56,6 @@ Wire up `rerunInvoiceMatching()` in `/draws/[id]/page.tsx` to call the N8N webho
 - `DUPLICATE_INVOICE` - Invoice used in previous draw
 
 ## Environment
-- N8N Cloud: `https://grysngrhm.app.n8n.cloud`
+- N8N (Self-Hosted): `https://n8n.srv1208741.hstgr.cloud`
 - Supabase project: `zekbemqgvupzmukpntog`
 - OpenAI model: `gpt-4o-mini`

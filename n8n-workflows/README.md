@@ -1,6 +1,6 @@
 # TD3 n8n Workflows
 
-This directory contains workflow definitions for n8n Cloud integration.
+This directory contains workflow definitions for self-hosted n8n integration.
 
 ## Implementation Status
 
@@ -26,9 +26,9 @@ Two-stage AI invoice processing workflow that:
 
 ## Setup Instructions
 
-### 1. Import Workflow to n8n Cloud
+### 1. Import Workflow to n8n
 
-1. Log in to your n8n Cloud instance
+1. Log in to your n8n instance
 2. Go to **Workflows** → **Import from File**
 3. Select `td3-invoice-process.json`
 4. The workflow will be created in inactive state
@@ -44,7 +44,7 @@ The workflow requires an **OpenAI API** credential:
 
 ### 3. Set Environment Variables
 
-In n8n Cloud settings, add the following environment variable:
+In n8n settings, add the following environment variable:
 
 ```
 TD3_API_URL=https://your-td3-deployment.vercel.app
@@ -55,7 +55,7 @@ Replace with your actual TD3 deployment URL. For local development, use:
 TD3_API_URL=http://localhost:3000
 ```
 
-**Note**: For local development, n8n Cloud cannot reach `localhost`. You'll need to use a tunnel service like ngrok or deploy to a public URL.
+**Note**: For local development, the self-hosted n8n cannot reach `localhost`. You'll need to use a tunnel service like ngrok or deploy to a public URL.
 
 ### 4. Activate the Workflow
 
@@ -96,7 +96,7 @@ TD3_API_URL=http://localhost:3000
 
 Once active, the workflow webhook is available at:
 ```
-https://grysngrhm.app.n8n.cloud/webhook/td3-invoice-process
+https://n8n.srv1208741.hstgr.cloud/webhook/td3-invoice-process
 ```
 
 ### Request Payload
