@@ -14,7 +14,7 @@ Construction lending operations create two persistent challenges that compound a
 
 ### Everything Lives in Too Many Places
 
-Right now, understanding the state of a single loan requires checking multiple sources: the budget spreadsheet someone emailed last month, approval threads buried in inboxes, handwritten notes from phone calls, and whatever the latest version of "the master tracker" happens to be.
+Right now, understanding the state of a single loan requires checking multiple sources: the budget or draw spreadsheet that someone emailed last month, approval threads buried in inboxes, handwritten sticky notes from phone calls, and whatever information someone is keeping track of in their head happens to be.
 
 This fragmentation creates real problems:
 
@@ -23,7 +23,7 @@ This fragmentation creates real problems:
 - **Reporting takes hours.** Compiling a simple portfolio status means pulling data from multiple places, re-keying numbers, and hoping nothing got missed.
 - **Audits are painful.** When we need to show our work, piecing together the timeline of a loan means detective work, not documentation.
 
-A small team can hold all this in their heads—until they can't. The system doesn't scale down gracefully, and it definitely doesn't scale up.
+A small team can hold all this in their heads, until they can't. The system doesn't scale down gracefully, and it definitely doesn't scale up.
 
 ### Too Much Time on Repetitive Work
 

@@ -159,6 +159,8 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importSuccess, setImportSuccess] = useState(false) // Track success state for UI feedback
+  const [importedCount, setImportedCount] = useState<number | null>(null) // Track actual items imported from N8N
+  const [processingMessage, setProcessingMessage] = useState<string>('') // Contextual processing message
   const [error, setError] = useState<string | null>(null)
   
   // Builder and project selection state
@@ -663,33 +665,58 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
           rowRange: rowRangeAnalysis ? { startRow: rowRangeAnalysis.startRow, endRow: rowRangeAnalysis.endRow } : undefined
         })
         
+        // Count categories being sent for user feedback
+        const categoryCount = categoryValues.length
+        setProcessingMessage(`Classifying ${categoryCount} categories with AI...`)
+        
         const response = await fetch(webhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(exportData)
         })
         
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(`Webhook failed (${response.status}): ${errorText}`)
+        // Read and validate the response body from N8N
+        const responseText = await response.text()
+        let n8nResult: { success?: boolean; imported?: number; message?: string; error?: string } = {}
+        
+        try {
+          n8nResult = JSON.parse(responseText)
+        } catch {
+          // If response isn't JSON, treat as error
+          if (!response.ok) {
+            throw new Error(`Webhook failed (${response.status}): ${responseText}`)
+          }
+          // If response.ok but not JSON, assume success with no details
+          n8nResult = { success: true }
+        }
+        
+        // Check the success field from N8N
+        if (!response.ok || n8nResult.success === false) {
+          throw new Error(n8nResult.error || n8nResult.message || `Import failed (${response.status})`)
+        }
+        
+        // Store the imported count for display
+        if (n8nResult.imported !== undefined) {
+          setImportedCount(n8nResult.imported)
         }
       }
       
       // Success - show confirmation before closing
-      // For budget imports, the N8N webhook processes asynchronously, so data won't be 
-      // immediately available. We show a success state briefly before closing.
+      // N8N has now confirmed the budget was successfully imported to Supabase.
       
+      setProcessingMessage('') // Clear processing message
       setImporting(false)
       setImportSuccess(true)
       
-      // Show success state briefly so user sees clear feedback
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Show success state so user sees clear feedback with imported count
+      await new Promise(resolve => setTimeout(resolve, 1500))
       
       // Close modal - the useEffect cleanup will handle state reset
       onClose()
       onSuccess?.(createdDrawId)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Import failed')
+      setProcessingMessage('') // Clear processing message on error
       setImporting(false) // Only reset on error, success path closes modal
     }
   }, [data, file, mappings, importType, selectedProjectId, drawNumber, invoiceFiles, rowRangeAnalysis, deleteExistingBudget, existingBudgetCount, onClose, onSuccess])
@@ -707,6 +734,8 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     setError(null)
     setImporting(false)
     setImportSuccess(false)
+    setImportedCount(null)
+    setProcessingMessage('')
     setSelectedBuilderId('')
     setProjects([])
     setSelectedProjectId('')
@@ -953,14 +982,14 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                   {importing ? (
                     <>
                       <div className="animate-spin rounded-full h-3 w-3 border-2 border-t-transparent border-white" />
-                      Processing...
+                      {processingMessage || 'Processing...'}
                     </>
                   ) : importSuccess ? (
                     <>
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
-                      Submitted Successfully
+                      {importedCount !== null ? `Imported ${importedCount} items` : 'Submitted Successfully'}
                     </>
                   ) : (
                     <>Submit {formatNumber(stats?.rowsWithCategory || 0)} Items</>
