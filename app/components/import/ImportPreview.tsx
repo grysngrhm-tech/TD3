@@ -1041,27 +1041,28 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                     {/* Animated task message */}
                     <div className="flex-1 min-w-0">
                       <AnimatePresence mode="wait">
-                        <motion.div
-                          key={initialCountdown > 0 
-                            ? Math.floor(((initialCountdown - countdownSeconds) / initialCountdown) * PROCESSING_TASKS.length)
+                        {(() => {
+                          // Calculate bounded task index once for both key and content
+                          const taskIndex = initialCountdown > 0
+                            ? Math.min(
+                                Math.max(0, Math.floor(((initialCountdown - countdownSeconds) / initialCountdown) * PROCESSING_TASKS.length)),
+                                PROCESSING_TASKS.length - 1
+                              )
                             : 0
-                          }
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -8 }}
-                          transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                          className="text-xs truncate"
-                          style={{ color: 'var(--text-muted)' }}
-                        >
-                          {PROCESSING_TASKS[
-                            initialCountdown > 0
-                              ? Math.min(
-                                  Math.max(0, Math.floor(((initialCountdown - countdownSeconds) / initialCountdown) * PROCESSING_TASKS.length)),
-                                  PROCESSING_TASKS.length - 1
-                                )
-                              : 0
-                          ]}
-                        </motion.div>
+                          return (
+                            <motion.div
+                              key={taskIndex}
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -8 }}
+                              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                              className="text-xs truncate"
+                              style={{ color: 'var(--text-muted)' }}
+                            >
+                              {PROCESSING_TASKS[taskIndex]}
+                            </motion.div>
+                          )
+                        })()}
                       </AnimatePresence>
                     </div>
                     
