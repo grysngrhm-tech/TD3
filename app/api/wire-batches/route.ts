@@ -7,6 +7,82 @@ const supabaseAdmin = createClient(
 )
 
 /**
+ * Update budget spent amounts when a draw is funded
+ * This ensures progress budget reports accurately reflect spending
+ */
+async function updateBudgetSpendForDraw(drawId: string, actor: string) {
+  try {
+    // Fetch all draw lines with their budgets
+    const { data: lines, error: linesError } = await supabaseAdmin
+      .from('draw_request_lines')
+      .select('id, budget_id, amount_requested')
+      .eq('draw_request_id', drawId)
+
+    if (linesError) {
+      console.error('Error fetching draw lines:', linesError)
+      return
+    }
+
+    for (const line of (lines || [])) {
+      if (!line.budget_id || !line.amount_requested) continue
+
+      // Get current budget values
+      const { data: budget, error: budgetError } = await supabaseAdmin
+        .from('budgets')
+        .select('id, spent_amount, remaining_amount, current_amount')
+        .eq('id', line.budget_id)
+        .single()
+
+      if (budgetError || !budget) {
+        console.error(`Error fetching budget ${line.budget_id}:`, budgetError)
+        continue
+      }
+
+      // Calculate new values
+      const currentSpent = budget.spent_amount || 0
+      const currentRemaining = budget.remaining_amount ?? (budget.current_amount - currentSpent)
+      const newSpent = currentSpent + line.amount_requested
+      const newRemaining = currentRemaining - line.amount_requested
+
+      // Update budget
+      const { error: updateError } = await supabaseAdmin
+        .from('budgets')
+        .update({
+          spent_amount: newSpent,
+          remaining_amount: newRemaining
+        })
+        .eq('id', line.budget_id)
+
+      if (updateError) {
+        console.error(`Error updating budget ${line.budget_id}:`, updateError)
+        continue
+      }
+
+      // Log audit event for budget update
+      await supabaseAdmin.from('audit_events').insert({
+        entity_type: 'budget',
+        entity_id: line.budget_id,
+        action: 'spend_recorded',
+        actor,
+        old_data: { 
+          spent_amount: currentSpent, 
+          remaining_amount: currentRemaining 
+        },
+        new_data: { 
+          spent_amount: newSpent, 
+          remaining_amount: newRemaining,
+          draw_request_id: drawId,
+          draw_line_id: line.id,
+          amount: line.amount_requested
+        }
+      })
+    }
+  } catch (error) {
+    console.error('Error updating budget spend:', error)
+  }
+}
+
+/**
  * POST - Create wire batch
  * 
  * Supports two actions:
@@ -282,6 +358,9 @@ async function handleDirectFund(
         wire_batch_id: batch.id 
       }
     })
+
+    // Update budget spent amounts for each draw line
+    await updateBudgetSpendForDraw(draw.id, 'user')
   }
 
   // Log wire batch funded event
