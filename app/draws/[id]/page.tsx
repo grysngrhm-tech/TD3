@@ -70,6 +70,7 @@ export default function DrawDetailPage() {
   
   // Actions
   const [isStaging, setIsStaging] = useState(false)
+  const [isUnstaging, setIsUnstaging] = useState(false)
   const [actionError, setActionError] = useState('')
 
   useEffect(() => {
@@ -550,6 +551,39 @@ export default function DrawDetailPage() {
     }
   }
 
+  // Unstage draw - return to review status
+  const handleUnstageDraw = async () => {
+    if (!confirm('Remove this draw from staging? It will go back to review status.')) return
+
+    setIsUnstaging(true)
+    setActionError('')
+
+    try {
+      const { error } = await supabase
+        .from('draw_requests')
+        .update({ status: 'review' })
+        .eq('id', drawId)
+
+      if (error) throw error
+
+      // Log audit event
+      await supabase.from('audit_events').insert({
+        entity_type: 'draw_request',
+        entity_id: drawId,
+        action: 'unstaged',
+        actor: 'user',
+        old_data: { status: 'staged' },
+        new_data: { status: 'review' }
+      })
+
+      await loadDrawRequest()
+    } catch (err: any) {
+      setActionError(err.message || 'Failed to unstage draw')
+    } finally {
+      setIsUnstaging(false)
+    }
+  }
+
   // Reject draw
   const handleReject = async () => {
     if (!confirm('Are you sure you want to reject this draw request?')) return
@@ -995,6 +1029,32 @@ export default function DrawDetailPage() {
                       </a>
                     </div>
                   )}
+                  <button
+                    onClick={handleUnstageDraw}
+                    disabled={isUnstaging}
+                    className="w-full mt-3 py-2 px-4 rounded-lg border text-sm font-medium hover:opacity-80 disabled:opacity-50"
+                    style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                  >
+                    {isUnstaging ? 'Unstaging...' : 'Unstage Draw'}
+                  </button>
+                </div>
+              )}
+
+              {draw.status === 'pending_wire' && (
+                <div className="text-center py-4">
+                  <svg className="w-12 h-12 mx-auto mb-2" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="font-medium" style={{ color: 'var(--warning)' }}>Pending Wire</p>
+                  <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                    Awaiting bookkeeper confirmation
+                  </p>
+                  <a 
+                    href={`/staging?status=pending_wire${draw.wire_batch_id ? `&batch=${draw.wire_batch_id}` : ''}`}
+                    className="btn-primary w-full text-sm mt-3"
+                  >
+                    View Wire Batch
+                  </a>
                 </div>
               )}
               
