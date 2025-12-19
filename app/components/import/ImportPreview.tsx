@@ -1042,7 +1042,10 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                     <div className="flex-1 min-w-0">
                       <AnimatePresence mode="wait">
                         <motion.div
-                          key={Math.floor(((initialCountdown - countdownSeconds) / initialCountdown) * PROCESSING_TASKS.length)}
+                          key={initialCountdown > 0 
+                            ? Math.floor(((initialCountdown - countdownSeconds) / initialCountdown) * PROCESSING_TASKS.length)
+                            : 0
+                          }
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -8 }}
@@ -1050,10 +1053,14 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                           className="text-xs truncate"
                           style={{ color: 'var(--text-muted)' }}
                         >
-                          {PROCESSING_TASKS[Math.min(
-                            Math.floor(((initialCountdown - countdownSeconds) / initialCountdown) * PROCESSING_TASKS.length),
-                            PROCESSING_TASKS.length - 1
-                          )]}
+                          {PROCESSING_TASKS[
+                            initialCountdown > 0
+                              ? Math.min(
+                                  Math.max(0, Math.floor(((initialCountdown - countdownSeconds) / initialCountdown) * PROCESSING_TASKS.length)),
+                                  PROCESSING_TASKS.length - 1
+                                )
+                              : 0
+                          ]}
                         </motion.div>
                       </AnimatePresence>
                     </div>
