@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Project, Budget, LifecycleStage, Builder, Lender } from '@/types/database'
-import { ImportPreview } from '@/app/components/import/ImportPreview'
+import { ImportPreview, type BudgetImportResult } from '@/app/components/import/ImportPreview'
 import { DocumentUploadSection } from './DocumentUploadSection'
 import { BudgetEditor } from './BudgetEditor'
 import { toast } from '@/app/components/ui/Toast'
@@ -994,16 +994,20 @@ export function OriginationTab({
           <ImportPreview
             isOpen={showBudgetImport}
             onClose={() => setShowBudgetImport(false)}
-            onSuccess={() => {
+            onSuccess={(result) => {
               setShowBudgetImport(false)
+              // N8N processing is synchronous - budget is already in Supabase when onSuccess is called
+              const budgetResult = result as BudgetImportResult | undefined
+              const countMsg = budgetResult?.importedCount 
+                ? `${budgetResult.importedCount} budget items imported.` 
+                : 'Budget has been imported.'
               toast({
                 type: 'success',
-                title: 'Budget Import Started',
-                message: 'Your budget is being processed. This typically takes 5-10 seconds.'
+                title: 'Budget Imported',
+                message: countMsg
               })
-              // Staged refresh to catch N8N processing - first attempt after 3s, second after 8s
-              setTimeout(() => onBudgetImported?.(), 3000)
-              setTimeout(() => onBudgetImported?.(), 8000)
+              // Refresh immediately - data is already in Supabase
+              onBudgetImported?.()
             }}
             importType="budget"
             preselectedProjectId={project.id}

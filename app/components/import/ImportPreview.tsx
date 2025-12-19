@@ -31,10 +31,15 @@ type Project = {
   builder?: Builder | null
 }
 
+// Result type for budget imports
+export type BudgetImportResult = {
+  importedCount: number
+}
+
 type ImportPreviewProps = {
   isOpen: boolean
   onClose: () => void
-  onSuccess?: (drawId?: string) => void  // Optional callback - passes drawId for draw imports
+  onSuccess?: (result?: string | BudgetImportResult) => void  // drawId for draws, BudgetImportResult for budgets
   importType: 'budget' | 'draw'
   preselectedProjectId?: string  // Pre-select a project when importing from project page
   preselectedBuilderId?: string  // Pre-select a builder
@@ -463,6 +468,8 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     
     // Track created draw ID for callback (draw imports only)
     let createdDrawId: string | undefined = undefined
+    // Track imported count for callback (budget imports only)
+    let budgetImportedCount: number | undefined = undefined
     
     try {
       // Get mapped columns
@@ -639,11 +646,21 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
         // === BUDGET IMPORT: Use existing webhook flow ===
         const webhookUrl = BUDGET_WEBHOOK_URL
         
+        // Validate webhook URL is configured and looks valid
         if (!webhookUrl) {
-          setError('Budget import webhook URL not configured. Set NEXT_PUBLIC_N8N_BUDGET_WEBHOOK in environment.')
+          setError('Budget import webhook URL not configured. Set NEXT_PUBLIC_N8N_BUDGET_WEBHOOK in environment variables (Vercel dashboard for production).')
           setImporting(false)
           return
         }
+        
+        if (!webhookUrl.startsWith('http')) {
+          console.error('[Budget Import] Invalid webhook URL:', webhookUrl)
+          setError('Budget import webhook URL is invalid. It should start with https://')
+          setImporting(false)
+          return
+        }
+        
+        console.log('[Budget Import] Using webhook URL:', webhookUrl)
         
         // Delete existing budget if checkbox is checked
         if (deleteExistingBudget && existingBudgetCount > 0) {
@@ -669,11 +686,15 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
         const categoryCount = categoryValues.length
         setProcessingMessage(`Classifying ${categoryCount} categories with AI...`)
         
+        console.log('[Budget Import] Sending', categoryCount, 'categories to N8N for project:', selectedProjectId)
+        
         const response = await fetch(webhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(exportData)
         })
+        
+        console.log('[Budget Import] N8N response status:', response.status)
         
         // Read and validate the response body from N8N
         const responseText = await response.text()
@@ -681,23 +702,25 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
         
         try {
           n8nResult = JSON.parse(responseText)
-        } catch {
-          // If response isn't JSON, treat as error
-          if (!response.ok) {
-            throw new Error(`Webhook failed (${response.status}): ${responseText}`)
-          }
-          // If response.ok but not JSON, assume success with no details
-          n8nResult = { success: true }
+          console.log('[Budget Import] N8N response:', n8nResult)
+        } catch (parseError) {
+          // N8N always returns JSON - if we can't parse it, something is wrong
+          console.error('[Budget Import] Failed to parse N8N response as JSON:', responseText.substring(0, 500))
+          throw new Error(`Invalid response from N8N webhook. Expected JSON but got: ${responseText.substring(0, 100)}...`)
         }
         
         // Check the success field from N8N
         if (!response.ok || n8nResult.success === false) {
-          throw new Error(n8nResult.error || n8nResult.message || `Import failed (${response.status})`)
+          const errorMsg = n8nResult.error || n8nResult.message || `Import failed (${response.status})`
+          console.error('[Budget Import] N8N returned error:', errorMsg)
+          throw new Error(errorMsg)
         }
         
-        // Store the imported count for display
+        // Store the imported count for display and callback
         if (n8nResult.imported !== undefined) {
-          setImportedCount(n8nResult.imported)
+          budgetImportedCount = n8nResult.imported
+          setImportedCount(budgetImportedCount)
+          console.log('[Budget Import] Successfully imported', budgetImportedCount, 'budget items')
         }
       }
       
@@ -713,7 +736,14 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       
       // Close modal - the useEffect cleanup will handle state reset
       onClose()
-      onSuccess?.(createdDrawId)
+      
+      // Pass appropriate result based on import type
+      if (importType === 'draw') {
+        onSuccess?.(createdDrawId)
+      } else {
+        // For budget imports, pass the imported count
+        onSuccess?.(budgetImportedCount !== undefined ? { importedCount: budgetImportedCount } : undefined)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Import failed')
       setProcessingMessage('') // Clear processing message on error
