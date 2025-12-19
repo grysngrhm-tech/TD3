@@ -202,6 +202,15 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
   // Budget replacement state (for budget imports)
   const [deleteExistingBudget, setDeleteExistingBudget] = useState(false)
   const [existingBudgetCount, setExistingBudgetCount] = useState<number>(0)
+  
+  // Protected budgets - budgets with funded/pending_wire draws that cannot be deleted
+  type ProtectedBudget = {
+    id: string
+    category: string | null
+    builder_category_raw: string | null
+    funded_amount: number
+  }
+  const [protectedBudgets, setProtectedBudgets] = useState<ProtectedBudget[]>([])
 
   // Fetch builders when modal opens
   useEffect(() => {
@@ -258,6 +267,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     } else {
       setExistingBudgetCount(0)
       setDeleteExistingBudget(false)
+      setProtectedBudgets([])
     }
   }, [selectedProjectId, importType])
   
@@ -301,6 +311,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
   
   const checkExistingBudget = async (projectId: string) => {
     try {
+      // Get total budget count
       const { count, error } = await supabase
         .from('budgets')
         .select('*', { count: 'exact', head: true })
@@ -308,9 +319,69 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       
       if (error) throw error
       setExistingBudgetCount(count || 0)
+      
+      // Check for protected budgets (those with funded or pending_wire draws)
+      // We need to find budgets that have draw_request_lines linked to funded/pending_wire draw_requests
+      const { data: budgetsWithDraws, error: protectedError } = await supabase
+        .from('budgets')
+        .select(`
+          id,
+          category,
+          builder_category_raw,
+          draw_request_lines (
+            amount_requested,
+            draw_requests!inner (
+              status
+            )
+          )
+        `)
+        .eq('project_id', projectId)
+      
+      if (protectedError) {
+        console.error('Failed to check protected budgets:', protectedError)
+        setProtectedBudgets([])
+        return
+      }
+      
+      // Type definition for the query result
+      type BudgetWithDrawLines = {
+        id: string
+        category: string | null
+        builder_category_raw: string | null
+        draw_request_lines: Array<{
+          amount_requested: number
+          draw_requests: { status: string } | null
+        }>
+      }
+      
+      // Filter to budgets that have at least one funded or pending_wire draw
+      const protected_: ProtectedBudget[] = []
+      for (const budget of (budgetsWithDraws as BudgetWithDrawLines[] | null) || []) {
+        const fundedLines = (budget.draw_request_lines || []).filter((line) => {
+          const status = line.draw_requests?.status
+          return status === 'funded' || status === 'pending_wire'
+        })
+        
+        if (fundedLines.length > 0) {
+          const totalFunded = fundedLines.reduce((sum: number, line) => 
+            sum + (line.amount_requested || 0), 0
+          )
+          protected_.push({
+            id: budget.id,
+            category: budget.category,
+            builder_category_raw: budget.builder_category_raw,
+            funded_amount: totalFunded
+          })
+        }
+      }
+      
+      setProtectedBudgets(protected_)
+      console.log('[Budget Import] Found', protected_.length, 'protected budgets with funded draws')
+      
     } catch (err) {
       console.error('Failed to check existing budget:', err)
       setExistingBudgetCount(0)
+      setProtectedBudgets([])
     }
   }
   
@@ -690,17 +761,37 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
         
         console.log('[Budget Import] Using webhook URL:', webhookUrl)
         
-        // Delete existing budget if checkbox is checked
+        // Delete existing budget if checkbox is checked (excluding protected budgets)
         if (deleteExistingBudget && existingBudgetCount > 0) {
-          const { error: deleteError } = await supabase
-            .from('budgets')
-            .delete()
-            .eq('project_id', selectedProjectId)
+          // Get IDs of protected budgets that should NOT be deleted
+          const protectedBudgetIds = protectedBudgets.map(b => b.id)
           
-          if (deleteError) {
-            setError('Failed to delete existing budget: ' + deleteError.message)
-            setImporting(false)
-            return
+          if (protectedBudgetIds.length > 0) {
+            // Delete only unprotected budgets
+            console.log('[Budget Import] Preserving', protectedBudgetIds.length, 'protected budgets with funded draws')
+            const { error: deleteError } = await supabase
+              .from('budgets')
+              .delete()
+              .eq('project_id', selectedProjectId)
+              .not('id', 'in', `(${protectedBudgetIds.join(',')})`)
+            
+            if (deleteError) {
+              setError('Failed to delete existing budget: ' + deleteError.message)
+              setImporting(false)
+              return
+            }
+          } else {
+            // No protected budgets, delete all
+            const { error: deleteError } = await supabase
+              .from('budgets')
+              .delete()
+              .eq('project_id', selectedProjectId)
+            
+            if (deleteError) {
+              setError('Failed to delete existing budget: ' + deleteError.message)
+              setImporting(false)
+              return
+            }
           }
         }
         
@@ -756,6 +847,68 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
           setImportedCount(budgetImportedCount)
           console.log('[Budget Import] Successfully imported', budgetImportedCount, 'budget items')
         }
+        
+        // Smart merge: Handle duplicates between new imports and protected budgets
+        // This prevents duplicate budget lines when protected categories match newly imported ones
+        if (protectedBudgets.length > 0 && deleteExistingBudget) {
+          console.log('[Budget Import] Checking for duplicate categories with protected budgets...')
+          
+          // Fetch all current budgets for this project
+          const { data: allBudgets, error: fetchError } = await supabase
+            .from('budgets')
+            .select('id, nahb_category, nahb_subcategory, category, builder_category_raw, current_amount, original_amount')
+            .eq('project_id', selectedProjectId)
+          
+          if (!fetchError && allBudgets) {
+            // Group budgets by NAHB category + subcategory to find duplicates
+            const budgetsByCategory: Record<string, typeof allBudgets> = {}
+            for (const budget of allBudgets) {
+              const key = `${budget.nahb_category || ''}::${budget.nahb_subcategory || ''}`
+              if (!budgetsByCategory[key]) budgetsByCategory[key] = []
+              budgetsByCategory[key].push(budget)
+            }
+            
+            // Find categories with duplicates (more than one budget line)
+            const protectedIds = new Set(protectedBudgets.map(b => b.id))
+            for (const [key, budgets] of Object.entries(budgetsByCategory)) {
+              if (budgets.length <= 1) continue
+              
+              // Check if one is protected and others are new
+              const protectedInGroup = budgets.filter(b => protectedIds.has(b.id))
+              const newInGroup = budgets.filter(b => !protectedIds.has(b.id))
+              
+              if (protectedInGroup.length > 0 && newInGroup.length > 0) {
+                // Merge: sum new amounts into protected budget, then delete the new ones
+                const totalNewAmount = newInGroup.reduce((sum, b) => sum + (b.current_amount || 0), 0)
+                const protectedBudget = protectedInGroup[0]
+                
+                console.log(`[Budget Import] Merging ${newInGroup.length} new budget(s) into protected category "${key}"`)
+                
+                // Update the protected budget with combined amount
+                await supabase
+                  .from('budgets')
+                  .update({ 
+                    current_amount: (protectedBudget.current_amount || 0) + totalNewAmount,
+                    original_amount: (protectedBudget.original_amount || 0) + totalNewAmount
+                  })
+                  .eq('id', protectedBudget.id)
+                
+                // Delete the duplicate new budgets
+                for (const newBudget of newInGroup) {
+                  await supabase
+                    .from('budgets')
+                    .delete()
+                    .eq('id', newBudget.id)
+                }
+                
+                // Adjust the imported count
+                budgetImportedCount = Math.max(0, (budgetImportedCount || 0) - newInGroup.length)
+              }
+            }
+            
+            setImportedCount(budgetImportedCount)
+          }
+        }
       }
       
       // Success - show confirmation before closing
@@ -787,7 +940,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       setInitialCountdown(null) // Clear initial countdown on error
       setImporting(false) // Only reset on error, success path closes modal
     }
-  }, [data, file, mappings, importType, selectedProjectId, drawNumber, invoiceFiles, rowRangeAnalysis, deleteExistingBudget, existingBudgetCount, onClose, onSuccess])
+  }, [data, file, mappings, importType, selectedProjectId, drawNumber, invoiceFiles, rowRangeAnalysis, deleteExistingBudget, existingBudgetCount, protectedBudgets, onClose, onSuccess])
 
   const handleReset = () => {
     setStep('upload')
@@ -810,6 +963,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     setProjects([])
     setSelectedProjectId('')
     setDrawNumber(1)
+    setProtectedBudgets([])
     setInvoiceFiles([])
     setDeleteExistingBudget(false)
     setExistingBudgetCount(0)
@@ -948,6 +1102,48 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                         </>
                       )}
                     </div>
+                    
+                    {/* Protected budgets warning - shows when replace is checked and there are protected budgets */}
+                    {importType === 'budget' && deleteExistingBudget && protectedBudgets.length > 0 && (
+                      <div 
+                        className="px-4 py-3 border-b flex items-start gap-3"
+                        style={{ 
+                          borderColor: 'var(--border-subtle)', 
+                          background: 'rgba(245, 158, 11, 0.1)'
+                        }}
+                      >
+                        <svg className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium" style={{ color: 'var(--warning)' }}>
+                            {protectedBudgets.length} budget categor{protectedBudgets.length === 1 ? 'y' : 'ies'} cannot be replaced
+                          </p>
+                          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                            These categories have funded draws and will be preserved:
+                          </p>
+                          <ul className="mt-2 space-y-1">
+                            {protectedBudgets.slice(0, 5).map((budget) => (
+                              <li key={budget.id} className="text-xs flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--warning)' }} />
+                                <span className="font-medium">{budget.builder_category_raw || budget.category || 'Unknown'}</span>
+                                <span style={{ color: 'var(--text-muted)' }}>
+                                  (${budget.funded_amount.toLocaleString()} funded)
+                                </span>
+                              </li>
+                            ))}
+                            {protectedBudgets.length > 5 && (
+                              <li className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                ...and {protectedBudgets.length - 5} more
+                              </li>
+                            )}
+                          </ul>
+                          <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                            New budget data will be added alongside these protected categories.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                     
                     {/* Compact Info Bar */}
                     <div className="flex items-center gap-2 px-4 py-2 border-b text-xs" style={{ borderColor: 'var(--border-subtle)' }}>
