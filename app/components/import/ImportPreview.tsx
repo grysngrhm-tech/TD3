@@ -58,6 +58,16 @@ type ImportStats = {
 const BUDGET_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_BUDGET_WEBHOOK || ''
 const DRAW_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_DRAW_WEBHOOK || ''
 
+// Exaggerated task messages for the processing animation
+const PROCESSING_TASKS = [
+  "Analyzing budget structure...",
+  "Consulting construction oracle...",
+  "Cross-referencing NAHB codes...",
+  "Validating cost allocations...",
+  "Optimizing category mappings...",
+  "Applying finishing touches...",
+]
+
 // Levenshtein distance for fuzzy string matching
 function levenshteinDistance(a: string, b: string): number {
   const matrix: number[][] = []
@@ -167,6 +177,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
   const [importedCount, setImportedCount] = useState<number | null>(null) // Track actual items imported from N8N
   const [processingMessage, setProcessingMessage] = useState<string>('') // Contextual processing message
   const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null) // Countdown timer for processing
+  const [initialCountdown, setInitialCountdown] = useState<number | null>(null) // Track initial total for progress calculation
   const [error, setError] = useState<string | null>(null)
   
   // Builder and project selection state
@@ -701,9 +712,10 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
         const categoryCount = categoryValues.length
         setProcessingMessage(`Classifying ${categoryCount} categories with AI...`)
         
-        // Estimate processing time: ~1.1 sec per category, rounded up to nearest 30 seconds
-        const estimatedSeconds = Math.ceil((categoryCount * 1.1) / 30) * 30
+        // Estimate processing time: ~1.1 sec per category, rounded up to nearest 10 seconds
+        const estimatedSeconds = Math.ceil((categoryCount * 1.1) / 10) * 10
         setCountdownSeconds(estimatedSeconds)
+        setInitialCountdown(estimatedSeconds)
         
         console.log('[Budget Import] Sending', categoryCount, 'categories to N8N for project:', selectedProjectId)
         console.log('[Budget Import] Estimated processing time:', estimatedSeconds, 'seconds')
@@ -749,6 +761,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       
       setProcessingMessage('') // Clear processing message
       setCountdownSeconds(null) // Clear countdown
+      setInitialCountdown(null) // Clear initial countdown
       setImporting(false)
       setImportSuccess(true)
       
@@ -769,6 +782,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       setError(err instanceof Error ? err.message : 'Import failed')
       setProcessingMessage('') // Clear processing message on error
       setCountdownSeconds(null) // Clear countdown on error
+      setInitialCountdown(null) // Clear initial countdown on error
       setImporting(false) // Only reset on error, success path closes modal
     }
   }, [data, file, mappings, importType, selectedProjectId, drawNumber, invoiceFiles, rowRangeAnalysis, deleteExistingBudget, existingBudgetCount, onClose, onSuccess])
@@ -789,6 +803,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     setImportedCount(null)
     setProcessingMessage('')
     setCountdownSeconds(null)
+    setInitialCountdown(null)
     setSelectedBuilderId('')
     setProjects([])
     setSelectedProjectId('')
@@ -1020,13 +1035,70 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
             {/* Compact Footer */}
             {step === 'preview' && (
               <div className="flex items-center justify-between px-4 py-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                <button onClick={handleReset} disabled={importing || importSuccess} className="px-4 py-2 text-sm rounded-ios-sm" style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)' }}>
-                  Back
-                </button>
+                {/* Left side: Back button or animated task status */}
+                {importing && initialCountdown !== null && countdownSeconds !== null ? (
+                  <div className="flex items-center gap-3 flex-1 mr-4 overflow-hidden">
+                    {/* Animated task message */}
+                    <div className="flex-1 min-w-0">
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={Math.floor(((initialCountdown - countdownSeconds) / initialCountdown) * PROCESSING_TASKS.length)}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                          className="text-xs truncate"
+                          style={{ color: 'var(--text-muted)' }}
+                        >
+                          {PROCESSING_TASKS[Math.min(
+                            Math.floor(((initialCountdown - countdownSeconds) / initialCountdown) * PROCESSING_TASKS.length),
+                            PROCESSING_TASKS.length - 1
+                          )]}
+                        </motion.div>
+                      </AnimatePresence>
+                    </div>
+                    
+                    {/* Countdown timer pill */}
+                    <motion.div
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-full shrink-0"
+                      style={{ 
+                        background: 'var(--accent-muted)',
+                        border: '1px solid var(--accent-400)'
+                      }}
+                    >
+                      <div 
+                        className="w-1.5 h-1.5 rounded-full animate-pulse"
+                        style={{ background: 'var(--accent)' }}
+                      />
+                      <span 
+                        className="text-xs font-mono font-medium tabular-nums"
+                        style={{ color: 'var(--accent-700)' }}
+                      >
+                        {countdownSeconds > 0 
+                          ? `${Math.floor(countdownSeconds / 60)}:${String(countdownSeconds % 60).padStart(2, '0')}`
+                          : 'Finishing...'
+                        }
+                      </span>
+                    </motion.div>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={handleReset} 
+                    disabled={importing || importSuccess} 
+                    className="px-4 py-2 text-sm rounded-ios-sm transition-colors" 
+                    style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)' }}
+                  >
+                    Back
+                  </button>
+                )}
+                
+                {/* Submit button */}
                 <button
                   onClick={handleImport}
                   disabled={!canImport || importing || importSuccess}
-                  className="px-4 py-2 text-sm rounded-ios-sm font-medium disabled:opacity-50 flex items-center gap-2 transition-all"
+                  className="px-4 py-2 text-sm rounded-ios-sm font-medium disabled:opacity-50 flex items-center gap-2 transition-all shrink-0"
                   style={{ 
                     background: importSuccess ? 'var(--success)' : canImport ? 'var(--accent)' : 'var(--bg-card)', 
                     color: importSuccess || canImport ? 'white' : 'var(--text-muted)' 
@@ -1035,15 +1107,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                   {importing ? (
                     <>
                       <div className="animate-spin rounded-full h-3 w-3 border-2 border-t-transparent border-white" />
-                      {processingMessage || 'Processing...'}
-                      {countdownSeconds !== null && countdownSeconds > 0 && (
-                        <span className="ml-2 tabular-nums opacity-80">
-                          ~{Math.floor(countdownSeconds / 60)}:{String(countdownSeconds % 60).padStart(2, '0')}
-                        </span>
-                      )}
-                      {countdownSeconds === 0 && (
-                        <span className="ml-2 opacity-80">Almost done...</span>
-                      )}
+                      Processing...
                     </>
                   ) : importSuccess ? (
                     <>
