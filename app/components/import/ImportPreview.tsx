@@ -158,6 +158,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
   const [stats, setStats] = useState<ImportStats | null>(null)
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [importSuccess, setImportSuccess] = useState(false) // Track success state for UI feedback
   const [error, setError] = useState<string | null>(null)
   
   // Builder and project selection state
@@ -674,14 +675,22 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
         }
       }
       
-      // Success - close modal and trigger refresh
-      handleReset()
+      // Success - show confirmation before closing
+      // For budget imports, the N8N webhook processes asynchronously, so data won't be 
+      // immediately available. We show a success state briefly before closing.
+      
+      setImporting(false)
+      setImportSuccess(true)
+      
+      // Show success state briefly so user sees clear feedback
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // Close modal - the useEffect cleanup will handle state reset
       onClose()
       onSuccess?.(createdDrawId)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Import failed')
-    } finally {
-      setImporting(false)
+      setImporting(false) // Only reset on error, success path closes modal
     }
   }, [data, file, mappings, importType, selectedProjectId, drawNumber, invoiceFiles, rowRangeAnalysis, deleteExistingBudget, existingBudgetCount, onClose, onSuccess])
 
@@ -697,6 +706,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     setUserOverrodeRowRange(false)
     setError(null)
     setImporting(false)
+    setImportSuccess(false)
     setSelectedBuilderId('')
     setProjects([])
     setSelectedProjectId('')
@@ -928,19 +938,29 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
             {/* Compact Footer */}
             {step === 'preview' && (
               <div className="flex items-center justify-between px-4 py-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                <button onClick={handleReset} disabled={importing} className="px-4 py-2 text-sm rounded-ios-sm" style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)' }}>
+                <button onClick={handleReset} disabled={importing || importSuccess} className="px-4 py-2 text-sm rounded-ios-sm" style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)' }}>
                   Back
                 </button>
                 <button
                   onClick={handleImport}
-                  disabled={!canImport || importing}
-                  className="px-4 py-2 text-sm rounded-ios-sm font-medium disabled:opacity-50 flex items-center gap-2"
-                  style={{ background: canImport ? 'var(--accent)' : 'var(--bg-card)', color: canImport ? 'white' : 'var(--text-muted)' }}
+                  disabled={!canImport || importing || importSuccess}
+                  className="px-4 py-2 text-sm rounded-ios-sm font-medium disabled:opacity-50 flex items-center gap-2 transition-all"
+                  style={{ 
+                    background: importSuccess ? 'var(--success)' : canImport ? 'var(--accent)' : 'var(--bg-card)', 
+                    color: importSuccess || canImport ? 'white' : 'var(--text-muted)' 
+                  }}
                 >
                   {importing ? (
                     <>
                       <div className="animate-spin rounded-full h-3 w-3 border-2 border-t-transparent border-white" />
-                      Submitting...
+                      Processing...
+                    </>
+                  ) : importSuccess ? (
+                    <>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Submitted Successfully
                     </>
                   ) : (
                     <>Submit {formatNumber(stats?.rowsWithCategory || 0)} Items</>

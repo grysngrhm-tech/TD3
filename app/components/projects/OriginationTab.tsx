@@ -998,10 +998,12 @@ export function OriginationTab({
               setShowBudgetImport(false)
               toast({
                 type: 'success',
-                title: 'Budget Submitted',
-                message: 'Budget sent for processing. Refresh in a moment to see updates.'
+                title: 'Budget Import Started',
+                message: 'Your budget is being processed. This typically takes 5-10 seconds.'
               })
-              onBudgetImported?.()
+              // Staged refresh to catch N8N processing - first attempt after 3s, second after 8s
+              setTimeout(() => onBudgetImported?.(), 3000)
+              setTimeout(() => onBudgetImported?.(), 8000)
             }}
             importType="budget"
             preselectedProjectId={project.id}
