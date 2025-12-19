@@ -350,16 +350,19 @@ TD3 is in active use and continuous development. The system is functional for da
 - ✅ **Cascading Dropdowns for Unmatched Lines** — NAHB Category → Budget selectors
 - ✅ **Invoice Upload & Preview** — Drag-drop with thumbnail gallery and modal viewer
 - ✅ **AI Invoice Processing** — Two-stage extraction and matching with confidence scores
-- ✅ **Enhanced Financial Reports** — Three-way toggle between Budget, Amortization, and Payoff
-- ✅ **Progress Budget Report** — Table/Cards/Chart views with Sankey diagram and sparklines
-- ✅ **Amortization Table** — Draw-by-draw interest accrual tracking
-- ✅ **Enhanced Payoff Report** — Three-view interactive payoff (Statement, Calculator, Chart)
+- ✅ **Enhanced Financial Reports** — Two-view toggle (Table/Chart) for each report
+  - **Budget Report**: Sankey flow, Category Utilization with budget markers, Spending Velocity
+  - **Amortization Report**: Balance Growth, Draw Timeline, Interest Analysis donut chart
+  - **Payoff Report**: Fee Escalation, Payoff Projection, What-If Comparison with custom dates
+- ✅ **Chart Information Tooltips** — Each chart includes an info tooltip explaining the visualization
+- ✅ **Credits System (Payoff)** — Manage credits/adjustments that reduce payoff amounts
+- ✅ **Title Company Report Generator** — Professional payoff letter for title companies
 - ✅ **Standardized Loan Terms** — Hierarchical term resolution (Project > Lender > Default)
 - ✅ **Accurate Fee Calculation** — Precise fee escalation matching our formulas
-- ✅ **Interactive Payoff Calculator** — What-If scenarios with adjustable dates
+- ✅ **Interactive Payoff Calculator** — What-If scenarios with custom date picker
 - ✅ **Fee & Interest Projection Chart** — Visual projections over 18 months
 - ✅ **Anomaly Detection** — Automated flagging of spending spikes and variances
-- ✅ **Polymorphic Loan Details** — Context-aware stats that adapt to current view
+- ✅ **Polymorphic Loan Details** — Expandable accordion with context-aware stats
 - ✅ **Urgency Indicators** — Color-coded maturity warnings
 - ✅ **View Mode Persistence** — User preferences saved between sessions
 - ✅ **Report Detail Panel** — Slide-out panel for drill-down on any line item
@@ -381,17 +384,27 @@ TD3 is in active use and continuous development. The system is functional for da
   - Pending Review and Staged by Builder side-by-side
   - Smooth layout animations
 - ✅ **Light Mode Default** — Clean light theme with dark mode available
-- ✅ **Draw Funding Workflow** — Complete end-to-end funding flow
-  - Upload draw → Auto-redirect to review page
-  - Review & stage → Navigation to filtered staging dashboard
-  - Fund All modal with date picker and wire reference
-  - Wire batch creation with audit trail
-- ✅ **Fund All Modal** — One-click funding for all staged draws per builder
-  - Builder info and staged draws list
-  - Date picker for funded date
-  - Wire reference input
-  - Real-time total amount display
+- ✅ **Complete Draw Funding Workflow** — Multi-stage funding process
+  - `review` → `staged` → `pending_wire` → `funded`
+  - Unstage capability from draw review page
+  - Fund All creates wire batch and moves to Pending Wire Confirmation
+  - Bookkeeper marks as funded with wire reference and date
+  - Budget spend tracking automatically updates on funding
 - ✅ **Wire Batch System** — Grouped funding with complete tracking
+  - Builder-grouped wire batches
+  - Official funding report for bookkeepers
+  - Wire reference and funding date capture
+  - Full audit trail
+- ✅ **Budget Import with Countdown Timer** — Enhanced import experience
+  - Adaptive countdown based on category count (~1.1s per category)
+  - Animated task messages during processing
+  - Real-time N8N response validation
+  - Success/error feedback before navigation
+- ✅ **Protected Budget Data** — Funded draw data preservation
+  - Budgets with funded draws cannot be deleted
+  - Warning UI shows which categories are protected
+  - Smart merge for duplicate categories during reimport
+  - Non-funded draw lines become "unmatched" instead of deleted
 - ✅ **URL-Based Dashboard Filtering** — Deep-linking for specific views
 
 **In Active Development:**
