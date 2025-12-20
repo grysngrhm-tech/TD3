@@ -348,6 +348,22 @@ If n8n returns an error, the webapp will:
 | Supabase insert fails | Missing project_id | Ensure project exists first |
 | OpenAI timeout | Large payload | Reduce row count or split batches |
 | No matches found | Category mismatch | Check spelling, use fuzzy matching |
+| $0 categories not importing | Code node filtering | Ensure filter only excludes empty category names, not $0 amounts |
+| Invalid JSON response | Model error | Use `gpt-4o` model (not gpt-5.x which doesn't support temperature) |
+
+### Budget Import Filtering Rules
+
+The webapp pre-filters data before sending to N8N:
+
+**Budget Imports:**
+- **Include**: Any row with a valid category name (even if amount is $0, blank, or null)
+- **Exclude**: Rows with empty/blank category names
+- Rationale: $0 budget categories are valid placeholders for unfunded line items
+
+**Draw Imports:**
+- **Include**: Rows with valid category name AND positive amount
+- **Exclude**: Rows with empty category OR $0/blank amount
+- Rationale: A $0 draw request doesn't make sense
 
 ---
 

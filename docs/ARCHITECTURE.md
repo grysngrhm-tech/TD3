@@ -1108,6 +1108,7 @@ Stage-specific metrics with visual elements:
 - **Invoice Upload**: Drag-drop invoice files with thumbnail preview (draw imports)
 - **Processing Countdown Timer**: Adaptive countdown based on category count with animated task messages
 - **N8N Response Validation**: Verifies import success before closing modal and navigating
+- **$0/Blank Amount Support**: Budget imports include categories with $0 or blank amounts (placeholder line items)
 
 ### Fuzzy Matching Algorithm
 
@@ -1137,8 +1138,13 @@ function fuzzyMatchScore(input: string, target: string): number
 
 - **Unmatched Lines Section**: Warning banner with cascading dropdowns
 - **Cascading Category Assignment**:
-  - First dropdown: NAHB Categories (filtered to those with available budgets)
-  - Second dropdown: Budgets in selected category (excludes already-assigned)
+  - First dropdown: NAHB Categories (shows ALL categories, not just those with existing budgets)
+  - Second dropdown: If budgets exist → select from available budgets; If no budgets → select subcategory to create new
+- **Create New Budget Line**: When no budgets exist for a category:
+  - Select NAHB subcategory from dropdown
+  - Click "Create New" button to create budget line
+  - New budget is created with draw amount as initial budget
+  - Draw line is automatically assigned to new budget
 - **Inline Amount Editing**: Click to edit draw amounts
 - **Invoice Management**: Compact "Attach Invoices" button, "Re-run Invoice Matching"
 - **Status-Based Controls**: Stage for Funding, Reject buttons based on status
@@ -1355,3 +1361,11 @@ TD3 uses a self-hosted n8n instance at `https://n8n.srv1208741.hstgr.cloud/` for
 ### Budget Import Countdown Shows NaN
 - **Cause:** Zero valid categories leading to division by zero
 - **Solution:** Minimum countdown is 10 seconds; safeguards prevent NaN in progress calculations
+
+### $0 or Blank Budget Categories Not Importing
+- **Cause:** Regression in commit 371a984 that added `amount > 0` filtering
+- **Solution:** Fixed in `lib/spreadsheet.ts` - budget imports now only require valid category names; amounts can be $0, blank, or null. Draw imports still require positive amounts.
+
+### Unmatched Draw Categories Can't Be Assigned
+- **Cause:** No existing budget line for the category
+- **Solution:** Draw review page now allows creating new budget lines from unmatched categories using cascading NAHB Category → Subcategory dropdowns
