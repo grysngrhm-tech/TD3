@@ -88,8 +88,20 @@ export default function DrawDetailPage() {
 
   // Helper to check if invoice is currently being processed
   // Note: DB only allows status: 'pending', 'matched', 'rejected'
-  // We use flags='PROCESSING' to indicate active AI processing
-  const isInvoiceProcessing = (inv: any) => inv.status === 'pending' && inv.flags === 'PROCESSING'
+  // We store detailed processing state as JSON in invoice.flags (backwards compatible with legacy 'PROCESSING')
+  const getInvoiceStatusDetail = (flags: string | null): string | null => {
+    if (!flags) return null
+    if (flags === 'PROCESSING') return 'processing'
+    try {
+      const parsed = JSON.parse(flags)
+      return typeof parsed?.status_detail === 'string' ? parsed.status_detail : null
+    } catch {
+      return null
+    }
+  }
+
+  const isInvoiceProcessing = (inv: any) =>
+    inv.status === 'pending' && getInvoiceStatusDetail(inv.flags) === 'processing'
 
   // Auto-refresh when invoices are processing (poll every 3 seconds)
   useEffect(() => {
@@ -107,7 +119,7 @@ export default function DrawDetailPage() {
           setInvoices(updatedInvoices)
           
           // If no more processing invoices, also refresh lines to get updated matches
-          const stillProcessing = updatedInvoices.some((inv: any) => inv.status === 'pending' && inv.flags === 'PROCESSING')
+          const stillProcessing = updatedInvoices.some(isInvoiceProcessing)
           if (!stillProcessing) {
             loadDrawRequest()
           }

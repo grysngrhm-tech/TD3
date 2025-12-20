@@ -123,28 +123,68 @@ export async function POST(request: NextRequest) {
     
     // If we have a matched draw line, update it with invoice info
     if (matching?.matchedDrawLineId && extractedData) {
-      // Get the draw line to calculate variance
-      const { data: drawLine } = await supabaseAdmin
-        .from('draw_request_lines')
-        .select('amount_requested')
-        .eq('id', matching.matchedDrawLineId)
-        .single()
+      // Fetch invoice (for file URL/name) and draw line (for variance + flags merge)
+      const [{ data: invoiceRow }, { data: drawLine }] = await Promise.all([
+        supabaseAdmin
+          .from('invoices')
+          .select('file_url, file_path')
+          .eq('id', invoiceId)
+          .maybeSingle(),
+        supabaseAdmin
+          .from('draw_request_lines')
+          .select('amount_requested, flags')
+          .eq('id', matching.matchedDrawLineId)
+          .single()
+      ])
+
+      const parseLineFlags = (flagsStr: string | null): string[] => {
+        if (!flagsStr) return []
+        try {
+          const parsed = JSON.parse(flagsStr)
+          return Array.isArray(parsed) ? parsed : []
+        } catch {
+          // Backwards compatibility for old comma-separated storage
+          return flagsStr.split(',').map(s => s.trim()).filter(Boolean)
+        }
+      }
+
+      const existingFlags = parseLineFlags(drawLine?.flags ?? null)
       
       // Calculate variance between requested amount and invoice amount
       const variance = drawLine?.amount_requested 
         ? extractedData.amount - drawLine.amount_requested 
         : null
+
+      // Merge flags:
+      // - remove NO_INVOICE now that we have an attached invoice
+      // - add any matching-provided flags + computed flags for confidence/variance
+      const merged = new Set<string>(existingFlags.filter(f => f !== 'NO_INVOICE'))
+      for (const f of (matching.flags || [])) merged.add(f)
+      if (matching.confidenceScore < 0.7) merged.add('LOW_CONFIDENCE')
+
+      // If the invoice total is materially different from requested, flag it.
+      if (drawLine?.amount_requested && drawLine.amount_requested > 0) {
+        const pct = Math.abs(extractedData.amount - drawLine.amount_requested) / drawLine.amount_requested
+        if (pct > 0.10) merged.add('AMOUNT_MISMATCH')
+      }
+
+      const mergedFlags = Array.from(merged)
+      const invoiceFileName =
+        invoiceRow?.file_path ? invoiceRow.file_path.split('/').pop() || null : null
       
       const { error: lineUpdateError } = await supabaseAdmin
         .from('draw_request_lines')
         .update({
           invoice_file_id: invoiceId,
+          invoice_file_url: invoiceRow?.file_url || null,
+          invoice_file_name: invoiceFileName,
           invoice_vendor_name: extractedData.vendorName,
           invoice_number: extractedData.invoiceNumber,
           invoice_date: extractedData.invoiceDate,
           matched_invoice_amount: extractedData.amount,
           confidence_score: matching.confidenceScore,
           variance,
+          flags: mergedFlags.length > 0 ? JSON.stringify(mergedFlags) : null,
           // Also set budget_id if matching provided it
           ...(matching.matchedBudgetId && { budget_id: matching.matchedBudgetId })
         })

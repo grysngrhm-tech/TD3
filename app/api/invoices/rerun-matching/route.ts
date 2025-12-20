@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
         .single(),
       supabaseAdmin
         .from('budgets')
-        .select('id, category, nahb_category, budget_amount, drawn_to_date')
+        .select('id, category, nahb_category, current_amount, spent_amount')
         .eq('project_id', projectId),
       supabaseAdmin
         .from('draw_request_lines')
@@ -63,9 +63,10 @@ export async function POST(request: NextRequest) {
       id: b.id,
       category: b.category,
       nahbCategory: b.nahb_category,
-      budgetAmount: b.budget_amount || 0,
-      drawnToDate: b.drawn_to_date || 0,
-      remaining: (b.budget_amount || 0) - (b.drawn_to_date || 0)
+      // Canonical schema: current_amount/spent_amount (+ generated remaining_amount)
+      budgetAmount: b.current_amount || 0,
+      drawnToDate: b.spent_amount || 0,
+      remaining: (b.current_amount || 0) - (b.spent_amount || 0)
     }))
     
     // Format draw lines for n8n
