@@ -12,6 +12,8 @@ const supabaseAdmin = createClient(
  */
 async function updateBudgetSpendForDraw(drawId: string, actor: string) {
   try {
+    console.log(`[Budget Spend] Starting update for draw ${drawId}`)
+    
     // Fetch all draw lines with their budgets
     const { data: lines, error: linesError } = await supabaseAdmin
       .from('draw_request_lines')
@@ -19,12 +21,21 @@ async function updateBudgetSpendForDraw(drawId: string, actor: string) {
       .eq('draw_request_id', drawId)
 
     if (linesError) {
-      console.error('Error fetching draw lines:', linesError)
+      console.error('[Budget Spend] Error fetching draw lines:', linesError)
       return
     }
 
+    console.log(`[Budget Spend] Found ${lines?.length || 0} draw lines for draw ${drawId}`)
+
+    let updatedCount = 0
+    let skippedCount = 0
+    
     for (const line of (lines || [])) {
-      if (!line.budget_id || !line.amount_requested) continue
+      if (!line.budget_id || !line.amount_requested) {
+        console.log(`[Budget Spend] Skipping line ${line.id} - no budget_id or amount_requested`)
+        skippedCount++
+        continue
+      }
 
       // Get current budget values
       const { data: budget, error: budgetError } = await supabaseAdmin
@@ -54,9 +65,12 @@ async function updateBudgetSpendForDraw(drawId: string, actor: string) {
         .eq('id', line.budget_id)
 
       if (updateError) {
-        console.error(`Error updating budget ${line.budget_id}:`, updateError)
+        console.error(`[Budget Spend] Error updating budget ${line.budget_id}:`, updateError)
         continue
       }
+
+      console.log(`[Budget Spend] Updated budget ${line.budget_id}: spent ${currentSpent} → ${newSpent}, remaining ${currentRemaining} → ${newRemaining}`)
+      updatedCount++
 
       // Log audit event for budget update
       await supabaseAdmin.from('audit_events').insert({
@@ -77,8 +91,10 @@ async function updateBudgetSpendForDraw(drawId: string, actor: string) {
         }
       })
     }
+    
+    console.log(`[Budget Spend] Completed for draw ${drawId}: ${updatedCount} budgets updated, ${skippedCount} lines skipped (no budget match)`)
   } catch (error) {
-    console.error('Error updating budget spend:', error)
+    console.error('[Budget Spend] Fatal error updating budget spend:', error)
   }
 }
 
