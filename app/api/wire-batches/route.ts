@@ -17,7 +17,7 @@ async function updateBudgetSpendForDraw(drawId: string, actor: string) {
     // Fetch all draw lines with their budgets
     const { data: lines, error: linesError } = await supabaseAdmin
       .from('draw_request_lines')
-      .select('id, budget_id, amount_requested')
+      .select('id, budget_id, amount_requested, amount_approved')
       .eq('draw_request_id', drawId)
 
     if (linesError) {
@@ -31,8 +31,26 @@ async function updateBudgetSpendForDraw(drawId: string, actor: string) {
     let skippedCount = 0
     
     for (const line of (lines || [])) {
-      if (!line.budget_id || !line.amount_requested) {
-        console.log(`[Budget Spend] Skipping line ${line.id} - no budget_id or amount_requested`)
+      const amountToRecord = (line.amount_approved ?? line.amount_requested) || 0
+
+      if (!line.budget_id || amountToRecord <= 0) {
+        console.log(`[Budget Spend] Skipping line ${line.id} - no budget_id or zero amount`)
+        skippedCount++
+        continue
+      }
+
+      // Idempotency: don't double-count if this draw line was already recorded.
+      const { data: existingAudit } = await supabaseAdmin
+        .from('audit_events')
+        .select('id')
+        .eq('entity_type', 'budget')
+        .eq('entity_id', line.budget_id)
+        .eq('action', 'spend_recorded')
+        .contains('new_data', { draw_line_id: line.id })
+        .maybeSingle()
+
+      if (existingAudit) {
+        console.log(`[Budget Spend] Skipping line ${line.id} - already recorded`)
         skippedCount++
         continue
       }
@@ -40,7 +58,7 @@ async function updateBudgetSpendForDraw(drawId: string, actor: string) {
       // Get current budget values
       const { data: budget, error: budgetError } = await supabaseAdmin
         .from('budgets')
-        .select('id, spent_amount, remaining_amount, current_amount')
+        .select('id, spent_amount, current_amount')
         .eq('id', line.budget_id)
         .single()
 
@@ -51,16 +69,15 @@ async function updateBudgetSpendForDraw(drawId: string, actor: string) {
 
       // Calculate new values
       const currentSpent = budget.spent_amount || 0
-      const currentRemaining = budget.remaining_amount ?? (budget.current_amount - currentSpent)
-      const newSpent = currentSpent + line.amount_requested
-      const newRemaining = currentRemaining - line.amount_requested
+      const currentRemaining = budget.current_amount - currentSpent
+      const newSpent = currentSpent + amountToRecord
+      const newRemaining = budget.current_amount - newSpent
 
-      // Update budget
+      // Update budget: remaining_amount is a generated column in the schema, so don't write it.
       const { error: updateError } = await supabaseAdmin
         .from('budgets')
         .update({
-          spent_amount: newSpent,
-          remaining_amount: newRemaining
+          spent_amount: newSpent
         })
         .eq('id', line.budget_id)
 
@@ -79,15 +96,15 @@ async function updateBudgetSpendForDraw(drawId: string, actor: string) {
         action: 'spend_recorded',
         actor,
         old_data: { 
-          spent_amount: currentSpent, 
-          remaining_amount: currentRemaining 
+          spent_amount: currentSpent,
+          remaining_amount: currentRemaining
         },
         new_data: { 
-          spent_amount: newSpent, 
+          spent_amount: newSpent,
           remaining_amount: newRemaining,
           draw_request_id: drawId,
           draw_line_id: line.id,
-          amount: line.amount_requested
+          amount: amountToRecord
         }
       })
     }
