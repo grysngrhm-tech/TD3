@@ -945,7 +945,6 @@ export function prepareColumnExport(
   const endRow = options.rowRange?.endRow ?? data.rows.length - 1
   
   // Extract values from selected columns within row range
-  // Only include rows with valid category AND non-zero amount
   const categoryValues: string[] = []
   const amountValues: (number | null)[] = []
   
@@ -957,13 +956,29 @@ export function prepareColumnExport(
     const category = catValue ? String(catValue).trim() : ''
     const amount = parseAmount(amtValue)
     
-    // Filter: only include rows with valid category and non-zero amount
-    // This ensures the export matches what handleImport counts and what the user sees
-    if (category && amount && amount > 0) {
-      categoryValues.push(category)
-      amountValues.push(amount)
+    // Filter logic differs by import type:
+    // - Budgets: Include any row with a valid category (even if amount is $0)
+    //   A budget line with $0 is valid - it's a category placeholder or unfunded line
+    // - Draws: Require category AND amount > 0 (a $0 draw request doesn't make sense)
+    if (importType === 'budget') {
+      if (category) {
+        categoryValues.push(category)
+        amountValues.push(amount || 0)
+      }
+    } else {
+      // Draw import - require non-zero amount
+      if (category && amount && amount > 0) {
+        categoryValues.push(category)
+        amountValues.push(amount)
+      }
     }
   }
+  
+  // Debug logging to verify what's being exported
+  console.log(`[${importType.toUpperCase()} Export] Preparing ${categoryValues.length} categories from rows ${startRow}-${endRow}:`)
+  categoryValues.forEach((cat, i) => {
+    console.log(`  ${i + 1}. "${cat}" = $${amountValues[i]}`)
+  })
   
   return {
     type: importType,
