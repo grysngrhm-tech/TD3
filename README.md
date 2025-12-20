@@ -405,6 +405,17 @@ TD3 is in active use and continuous development. The system is functional for da
   - Warning UI shows which categories are protected
   - Smart merge for duplicate categories during reimport
   - Non-funded draw lines become "unmatched" instead of deleted
+- ✅ **$0/Blank Budget Amount Support** — Full support for placeholder categories
+  - Budget categories with $0 or blank amounts are imported correctly
+  - Allows unfunded or placeholder line items in budgets
+  - Only filters based on category name, not amount
+- ✅ **Create Budget Lines from Draw Review** — Dynamic budget expansion
+  - Unmatched draw categories can become new budget lines
+  - Cascading NAHB Category → Subcategory selection
+  - Creates budget with draw amount as initial budget
+- ✅ **Draw Budget Diagnostic Tools** — Troubleshooting endpoints
+  - GET `/api/draws/[id]/recalculate-budget` for diagnostics
+  - POST endpoint to manually recalculate budget spend
 - ✅ **URL-Based Dashboard Filtering** — Deep-linking for specific views
 
 **In Active Development:**
