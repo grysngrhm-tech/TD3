@@ -172,6 +172,9 @@ function findBestBudgetMatch(
 }
 
 export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselectedProjectId, preselectedBuilderId, initialFile }: ImportPreviewProps) {
+  const DEFAULT_PREVIEW_ROWS = 100
+  const MAX_AUTO_PREVIEW_ROWS = 2000
+
   const [step, setStep] = useState<'upload' | 'preview'>('upload')
   const [file, setFile] = useState<File | null>(null)
   const [initialFileProcessed, setInitialFileProcessed] = useState(false)
@@ -202,6 +205,10 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
   
   // Row range state with analysis for filtering which rows to import
   const [rowRangeAnalysis, setRowRangeAnalysis] = useState<RowRangeWithAnalysis | null>(null)
+
+  // Preview row rendering limit (adaptive based on sheet size)
+  const [maxRowsToDisplay, setMaxRowsToDisplay] = useState<number>(DEFAULT_PREVIEW_ROWS)
+  const [userOverrodeMaxRows, setUserOverrodeMaxRows] = useState(false)
   
   // Track if user has manually adjusted the row range (to preserve their selection)
   const [userOverrodeRowRange, setUserOverrodeRowRange] = useState(false)
@@ -236,6 +243,22 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       handleFileSelect(initialFile)
     }
   }, [isOpen, initialFile, initialFileProcessed, file])
+
+  // Adapt preview row count to the sheet size so long budgets are visible/editable.
+  useEffect(() => {
+    if (!data) {
+      setMaxRowsToDisplay(DEFAULT_PREVIEW_ROWS)
+      setUserOverrodeMaxRows(false)
+      return
+    }
+
+    // If the user already clicked "show all", don't shrink the view until sheet changes.
+    if (userOverrodeMaxRows) return
+
+    const totalRows = data.rows?.length || 0
+    const nextMax = Math.min(Math.max(DEFAULT_PREVIEW_ROWS, totalRows), MAX_AUTO_PREVIEW_ROWS)
+    setMaxRowsToDisplay(nextMax)
+  }, [data, userOverrodeMaxRows])
 
   // Set preselected builder after builders are loaded
   useEffect(() => {
@@ -1236,10 +1259,29 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                           onMappingChange={handleMappingChange}
                           onRowRangeChange={handleRowRangeChange}
                           onResetRowRange={handleResetRowRange}
-                          maxRows={100}
+                          maxRows={maxRowsToDisplay}
                         />
                       )}
                     </div>
+
+                    {/* If we cap large sheets, offer an explicit "show all" escape hatch */}
+                    {!loading && data && data.rows.length > maxRowsToDisplay && (
+                      <div className="mx-4 mb-2 flex items-center justify-between gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+                        <span>
+                          Showing {maxRowsToDisplay.toLocaleString()} of {data.rows.length.toLocaleString()} rows
+                        </span>
+                        <button
+                          type="button"
+                          className="underline"
+                          onClick={() => {
+                            setMaxRowsToDisplay(data.rows.length)
+                            setUserOverrodeMaxRows(true)
+                          }}
+                        >
+                          Show all rows (may be slow)
+                        </button>
+                      </div>
+                    )}
 
                     {error && (
                       <div className="mx-4 mb-2 p-2 rounded-ios-sm text-xs" style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)' }}>
