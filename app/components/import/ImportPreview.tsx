@@ -833,15 +833,27 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
         
         // Read and validate the response body from N8N
         const responseText = await response.text()
+        const contentType = response.headers.get('content-type') || ''
         let n8nResult: { success?: boolean; imported?: number; message?: string; error?: string } = {}
         
-        try {
-          n8nResult = JSON.parse(responseText)
-          console.log('[Budget Import] N8N response:', n8nResult)
-        } catch (parseError) {
-          // N8N always returns JSON - if we can't parse it, something is wrong
-          console.error('[Budget Import] Failed to parse N8N response as JSON:', responseText.substring(0, 500))
-          throw new Error(`Invalid response from N8N webhook. Expected JSON but got: ${responseText.substring(0, 100)}...`)
+        // n8n webhooks may return an empty body (200) even when the workflow runs asynchronously.
+        // Treat empty 2xx responses as "accepted" to avoid false-negative failures in the UI.
+        if (!responseText || responseText.trim().length === 0) {
+          if (!response.ok) {
+            throw new Error(`N8N webhook error (${response.status}) with empty response body`)
+          }
+          n8nResult = { success: true, message: 'Accepted by n8n (empty response body)' }
+          console.log('[Budget Import] N8N returned empty body; treating as accepted')
+        } else {
+          try {
+            n8nResult = JSON.parse(responseText)
+            console.log('[Budget Import] N8N response:', n8nResult)
+          } catch (parseError) {
+            console.error('[Budget Import] Failed to parse N8N response as JSON:', responseText.substring(0, 500))
+            throw new Error(
+              `Invalid response from N8N webhook. Expected JSON but got (${response.status}, ${contentType || 'unknown content-type'}): ${responseText.substring(0, 100)}...`
+            )
+          }
         }
         
         // Check the success field from N8N
