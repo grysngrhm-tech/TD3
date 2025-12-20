@@ -43,6 +43,17 @@ export async function validateDrawRequest(drawId: string): Promise<ValidationRes
       .select('*')
       .eq('draw_request_id', drawId)
 
+    const parseLineFlags = (flagsStr: string | null): string[] => {
+      if (!flagsStr) return []
+      try {
+        const parsed = JSON.parse(flagsStr)
+        return Array.isArray(parsed) ? parsed : []
+      } catch {
+        // Backwards compatibility for very old comma-separated storage
+        return flagsStr.split(',').map(s => s.trim()).filter(Boolean)
+      }
+    }
+
     // Check each line for validations
     for (const line of lines) {
       const budget = line.budgets
@@ -71,15 +82,9 @@ export async function validateDrawRequest(drawId: string): Promise<ValidationRes
       }
 
       // 3. Check variance flags from AI matching
-      if (line.flags) {
-        const flagList = line.flags.split(',')
-        if (flagList.includes('VARIANCE_OVER_1')) {
-          result.flags.push('VARIANCE_ALERT')
-        }
-        if (flagList.includes('NO_MATCHED_INVOICES')) {
-          result.flags.push('NO_INVOICE_MATCH')
-        }
-      }
+      const lineFlags = parseLineFlags(line.flags)
+      if (lineFlags.includes('AMOUNT_MISMATCH')) result.flags.push('VARIANCE_ALERT')
+      if (lineFlags.includes('NO_INVOICE')) result.flags.push('NO_INVOICE_MATCH')
 
       // 4. Check confidence score
       if (line.confidence_score !== null && line.confidence_score < 0.7) {
