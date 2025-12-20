@@ -120,22 +120,22 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    // Fetch invoice metadata once (used for line updates + NO_INVOICE recomputation)
+    const { data: invoiceMeta } = await supabaseAdmin
+      .from('invoices')
+      .select('draw_request_id, file_url, file_path')
+      .eq('id', invoiceId)
+      .maybeSingle()
     
     // If we have a matched draw line, update it with invoice info
     if (matching?.matchedDrawLineId && extractedData) {
-      // Fetch invoice (for file URL/name) and draw line (for variance + flags merge)
-      const [{ data: invoiceRow }, { data: drawLine }] = await Promise.all([
-        supabaseAdmin
-          .from('invoices')
-          .select('file_url, file_path')
-          .eq('id', invoiceId)
-          .maybeSingle(),
-        supabaseAdmin
-          .from('draw_request_lines')
-          .select('amount_requested, flags')
-          .eq('id', matching.matchedDrawLineId)
-          .single()
-      ])
+      // Fetch draw line (for variance + flags merge)
+      const { data: drawLine } = await supabaseAdmin
+        .from('draw_request_lines')
+        .select('amount_requested, flags')
+        .eq('id', matching.matchedDrawLineId)
+        .single()
 
       const parseLineFlags = (flagsStr: string | null): string[] => {
         if (!flagsStr) return []
@@ -170,13 +170,13 @@ export async function POST(request: NextRequest) {
 
       const mergedFlags = Array.from(merged)
       const invoiceFileName =
-        invoiceRow?.file_path ? invoiceRow.file_path.split('/').pop() || null : null
+        invoiceMeta?.file_path ? invoiceMeta.file_path.split('/').pop() || null : null
       
       const { error: lineUpdateError } = await supabaseAdmin
         .from('draw_request_lines')
         .update({
           invoice_file_id: invoiceId,
-          invoice_file_url: invoiceRow?.file_url || null,
+          invoice_file_url: invoiceMeta?.file_url || null,
           invoice_file_name: invoiceFileName,
           invoice_vendor_name: extractedData.vendorName,
           invoice_number: extractedData.invoiceNumber,
@@ -192,6 +192,67 @@ export async function POST(request: NextRequest) {
       
       if (lineUpdateError) {
         console.warn('Failed to update draw line with invoice:', lineUpdateError)
+      }
+    }
+
+    // Keep draw-line NO_INVOICE flags consistent in the draw review stage:
+    // - if the draw has invoices, any line with amount>0 and no invoice match should include NO_INVOICE
+    // - lines with an invoice match should not include NO_INVOICE
+    if (invoiceMeta?.draw_request_id) {
+      const drawRequestId = invoiceMeta.draw_request_id
+
+      const parseLineFlags = (flagsStr: string | null): string[] => {
+        if (!flagsStr) return []
+        try {
+          const parsed = JSON.parse(flagsStr)
+          return Array.isArray(parsed) ? parsed : []
+        } catch {
+          return flagsStr.split(',').map(s => s.trim()).filter(Boolean)
+        }
+      }
+
+      const { data: invoiceCountRows } = await supabaseAdmin
+        .from('invoices')
+        .select('id')
+        .eq('draw_request_id', drawRequestId)
+
+      const hasAnyInvoices = (invoiceCountRows?.length || 0) > 0
+
+      if (hasAnyInvoices) {
+        const { data: allLines } = await supabaseAdmin
+          .from('draw_request_lines')
+          .select('id, amount_requested, invoice_file_id, matched_invoice_amount, flags')
+          .eq('draw_request_id', drawRequestId)
+
+        const updates = []
+        for (const line of (allLines || [])) {
+          const amountRequested = line.amount_requested || 0
+          const hasInvoiceMatch = !!line.invoice_file_id || !!line.matched_invoice_amount
+          const shouldFlagNoInvoice = amountRequested > 0 && !hasInvoiceMatch
+
+          const currentFlags = parseLineFlags(line.flags ?? null)
+          const next = new Set<string>(currentFlags)
+
+          if (shouldFlagNoInvoice) next.add('NO_INVOICE')
+          else next.delete('NO_INVOICE')
+
+          const nextFlags = Array.from(next)
+          const changed =
+            currentFlags.length !== nextFlags.length ||
+            currentFlags.some(f => !next.has(f)) ||
+            nextFlags.some(f => !currentFlags.includes(f))
+
+          if (changed) {
+            updates.push({ id: line.id, flags: nextFlags.length > 0 ? JSON.stringify(nextFlags) : null })
+          }
+        }
+
+        for (const u of updates) {
+          await supabaseAdmin
+            .from('draw_request_lines')
+            .update({ flags: u.flags })
+            .eq('id', u.id)
+        }
       }
     }
     
