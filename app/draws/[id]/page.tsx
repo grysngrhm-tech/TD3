@@ -68,7 +68,7 @@ export default function DrawDetailPage() {
   const [nahbSubcategories, setNahbSubcategories] = useState<NahbSubcategory[]>([])
   const [selectedCategoryPerLine, setSelectedCategoryPerLine] = useState<Record<string, string>>({})
   const [selectedSubcategoryPerLine, setSelectedSubcategoryPerLine] = useState<Record<string, string>>({})
-  const [creatingBudgetForLine, setCreatingBudgetForLine] = useState<string | null>(null))
+  const [creatingBudgetForLine, setCreatingBudgetForLine] = useState<string | null>(null)
   
   // Actions
   const [isStaging, setIsStaging] = useState(false)
