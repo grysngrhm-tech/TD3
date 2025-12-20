@@ -67,6 +67,8 @@ export default function DrawDetailPage() {
   const [nahbCategories, setNahbCategories] = useState<NahbCategory[]>([])
   const [nahbSubcategories, setNahbSubcategories] = useState<NahbSubcategory[]>([])
   const [selectedCategoryPerLine, setSelectedCategoryPerLine] = useState<Record<string, string>>({})
+  const [selectedSubcategoryPerLine, setSelectedSubcategoryPerLine] = useState<Record<string, string>>({})
+  const [creatingBudgetForLine, setCreatingBudgetForLine] = useState<string | null>(null))
   
   // Actions
   const [isStaging, setIsStaging] = useState(false)
@@ -253,17 +255,9 @@ export default function DrawDetailPage() {
   // Get budgets that are already assigned to matched lines (to filter them out)
   const assignedBudgetIds = new Set(matchedLines.map(l => l.budget_id).filter(Boolean))
 
-  // Get available NAHB categories that have at least one unassigned budget
+  // Get ALL NAHB categories (for creating new budget lines)
   const getAvailableCategories = () => {
-    // Get budgets that are not already assigned
-    const availableBudgets = allBudgets.filter(b => !assignedBudgetIds.has(b.id))
-    
-    // Get unique NAHB categories from available budgets
-    const availableCategoryNames = new Set(
-      availableBudgets.map(b => b.nahb_category).filter(Boolean)
-    )
-    
-    return nahbCategories.filter(c => availableCategoryNames.has(c.name))
+    return nahbCategories
   }
 
   // Get available budgets for a selected category (filtered by category AND not already assigned)
@@ -276,12 +270,30 @@ export default function DrawDetailPage() {
     )
   }
 
+  // Get subcategories for a selected NAHB category
+  const getSubcategoriesForCategory = (categoryName: string | null) => {
+    if (!categoryName) return []
+    return nahbSubcategories.filter(s => s.category_name === categoryName)
+  }
+
   // Handle category selection for an unmatched line
   const handleCategorySelect = (lineId: string, categoryId: string) => {
-    const category = nahbCategories.find(c => c.id === categoryId)
     setSelectedCategoryPerLine(prev => ({
       ...prev,
       [lineId]: categoryId
+    }))
+    // Clear subcategory selection when category changes
+    setSelectedSubcategoryPerLine(prev => ({
+      ...prev,
+      [lineId]: ''
+    }))
+  }
+
+  // Handle subcategory selection for an unmatched line
+  const handleSubcategorySelect = (lineId: string, subcategoryId: string) => {
+    setSelectedSubcategoryPerLine(prev => ({
+      ...prev,
+      [lineId]: subcategoryId
     }))
   }
 
@@ -359,6 +371,102 @@ export default function DrawDetailPage() {
       console.error('Error assigning budget:', err)
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  // Create a new budget line and assign it to an unmatched draw line
+  const createBudgetAndAssign = async (lineId: string) => {
+    const line = lines.find(l => l.id === lineId)
+    if (!line || !draw?.project_id) return
+
+    const selectedCatId = selectedCategoryPerLine[lineId]
+    const selectedSubId = selectedSubcategoryPerLine[lineId]
+    
+    const category = nahbCategories.find(c => c.id === selectedCatId)
+    const subcategory = nahbSubcategories.find(s => s.id === selectedSubId)
+    
+    if (!category) {
+      setActionError('Please select an NAHB category')
+      return
+    }
+    if (!subcategory) {
+      setActionError('Please select a subcategory')
+      return
+    }
+
+    setCreatingBudgetForLine(lineId)
+    setActionError('')
+
+    try {
+      // Get original category from the line notes
+      const originalCategory = line.notes?.replace('Original category: ', '').replace(/^Fuzzy matched \(\d+%\): /, '') || subcategory.name
+
+      // Create new budget line
+      const { data: newBudget, error: budgetError } = await supabase
+        .from('budgets')
+        .insert({
+          project_id: draw.project_id,
+          category: subcategory.name,
+          nahb_category: category.name,
+          nahb_subcategory: subcategory.name,
+          cost_code: subcategory.cost_code || `${category.code}00`,
+          builder_category_raw: originalCategory,
+          original_amount: line.amount_requested,
+          current_amount: line.amount_requested,
+          spent_amount: 0,
+          remaining_amount: line.amount_requested
+        })
+        .select()
+        .single()
+
+      if (budgetError) throw budgetError
+
+      // Assign the new budget to the draw line
+      const { error: lineError } = await supabase
+        .from('draw_request_lines')
+        .update({ 
+          budget_id: newBudget.id,
+          flags: null,
+          notes: `Created new budget line: ${category.name} / ${subcategory.name}`
+        })
+        .eq('id', lineId)
+
+      if (lineError) throw lineError
+
+      // Log audit event
+      await supabase.from('audit_events').insert({
+        entity_type: 'budget',
+        entity_id: newBudget.id,
+        action: 'created_from_draw',
+        actor: 'user',
+        new_data: {
+          project_id: draw.project_id,
+          draw_request_id: draw.id,
+          draw_line_id: lineId,
+          nahb_category: category.name,
+          nahb_subcategory: subcategory.name,
+          amount: line.amount_requested
+        }
+      })
+
+      await loadDrawRequest()
+      
+      // Clear selections for this line
+      setSelectedCategoryPerLine(prev => {
+        const updated = { ...prev }
+        delete updated[lineId]
+        return updated
+      })
+      setSelectedSubcategoryPerLine(prev => {
+        const updated = { ...prev }
+        delete updated[lineId]
+        return updated
+      })
+    } catch (err: any) {
+      console.error('Error creating budget:', err)
+      setActionError(err.message || 'Failed to create budget line')
+    } finally {
+      setCreatingBudgetForLine(null)
     }
   }
 
@@ -733,8 +841,11 @@ export default function DrawDetailPage() {
                 {unmatchedLines.map((line) => {
                   const originalCategory = line.notes?.replace('Original category: ', '').replace(/^Fuzzy matched \(\d+%\): /, '') || 'Unknown Category'
                   const selectedCatId = selectedCategoryPerLine[line.id] || ''
+                  const selectedSubId = selectedSubcategoryPerLine[line.id] || ''
                   const selectedCategory = nahbCategories.find(c => c.id === selectedCatId)
                   const availableBudgets = getAvailableBudgetsForCategory(selectedCategory?.name || null)
+                  const availableSubcategories = getSubcategoriesForCategory(selectedCategory?.name || null)
+                  const isCreating = creatingBudgetForLine === line.id
                   
                   return (
                     <div key={line.id} className="p-4">
@@ -753,7 +864,7 @@ export default function DrawDetailPage() {
                       
                       {/* Cascading dropdowns */}
                       <div className="flex items-center gap-2">
-                        {/* Category dropdown */}
+                        {/* Category dropdown - shows ALL NAHB categories */}
                         <select
                           value={selectedCatId}
                           onChange={(e) => handleCategorySelect(line.id, e.target.value)}
@@ -763,7 +874,7 @@ export default function DrawDetailPage() {
                             color: 'var(--text-primary)', 
                             border: `1px solid ${!selectedCatId ? 'var(--warning)' : 'var(--border)'}`
                           }}
-                          disabled={isSaving}
+                          disabled={isSaving || isCreating}
                         >
                           <option value="">Category...</option>
                           {getAvailableCategories().map(c => (
@@ -773,28 +884,88 @@ export default function DrawDetailPage() {
                           ))}
                         </select>
                         
-                        {/* Budget/Subcategory dropdown - only enabled when category selected */}
-                        <select
-                          value=""
-                          onChange={(e) => e.target.value && assignBudgetToLine(line.id, e.target.value)}
-                          className="flex-1 px-3 py-2 rounded-lg text-sm"
-                          style={{ 
-                            background: 'var(--bg-secondary)', 
-                            color: 'var(--text-primary)', 
-                            border: `1px solid ${selectedCatId ? 'var(--warning)' : 'var(--border)'}`
-                          }}
-                          disabled={isSaving || !selectedCatId}
-                        >
-                          <option value="">
-                            {!selectedCatId ? 'Select category first...' : `Budget (${availableBudgets.length} available)...`}
-                          </option>
-                          {availableBudgets.map(b => (
-                            <option key={b.id} value={b.id}>
-                              {b.builder_category_raw || b.nahb_subcategory || b.category} – {formatCurrency(b.remaining_amount || 0)}
+                        {/* Second dropdown - shows existing budgets OR subcategories for new */}
+                        {availableBudgets.length > 0 ? (
+                          // Existing budgets available - show budget selector
+                          <select
+                            value=""
+                            onChange={(e) => e.target.value && assignBudgetToLine(line.id, e.target.value)}
+                            className="flex-1 px-3 py-2 rounded-lg text-sm"
+                            style={{ 
+                              background: 'var(--bg-secondary)', 
+                              color: 'var(--text-primary)', 
+                              border: `1px solid ${selectedCatId ? 'var(--warning)' : 'var(--border)'}`
+                            }}
+                            disabled={isSaving || !selectedCatId || isCreating}
+                          >
+                            <option value="">
+                              {!selectedCatId ? 'Select category first...' : `Budget (${availableBudgets.length} available)...`}
                             </option>
-                          ))}
-                        </select>
+                            {availableBudgets.map(b => (
+                              <option key={b.id} value={b.id}>
+                                {b.builder_category_raw || b.nahb_subcategory || b.category} – {formatCurrency(b.remaining_amount || 0)}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          // No existing budgets - show subcategory selector for creating new
+                          <>
+                            <select
+                              value={selectedSubId}
+                              onChange={(e) => handleSubcategorySelect(line.id, e.target.value)}
+                              className="flex-1 px-3 py-2 rounded-lg text-sm"
+                              style={{ 
+                                background: 'var(--bg-secondary)', 
+                                color: 'var(--text-primary)', 
+                                border: `1px solid ${selectedCatId && !selectedSubId ? 'var(--warning)' : 'var(--border)'}`
+                              }}
+                              disabled={isSaving || !selectedCatId || isCreating}
+                            >
+                              <option value="">
+                                {!selectedCatId ? 'Select category first...' : 'Select subcategory...'}
+                              </option>
+                              {availableSubcategories.map(s => (
+                                <option key={s.id} value={s.id}>
+                                  {s.name}
+                                </option>
+                              ))}
+                            </select>
+                            
+                            {/* Create New Budget button */}
+                            <button
+                              onClick={() => createBudgetAndAssign(line.id)}
+                              disabled={!selectedCatId || !selectedSubId || isSaving || isCreating}
+                              className="px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 whitespace-nowrap"
+                              style={{ 
+                                background: selectedCatId && selectedSubId ? 'var(--success)' : 'var(--bg-tertiary)',
+                                color: selectedCatId && selectedSubId ? 'white' : 'var(--text-muted)',
+                                opacity: (!selectedCatId || !selectedSubId || isSaving || isCreating) ? 0.5 : 1
+                              }}
+                            >
+                              {isCreating ? (
+                                <>
+                                  <div className="animate-spin w-3 h-3 border-2 border-white border-t-transparent rounded-full" />
+                                  Creating...
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                  </svg>
+                                  Create New
+                                </>
+                              )}
+                            </button>
+                          </>
+                        )}
                       </div>
+                      
+                      {/* Helper text when creating new budget */}
+                      {selectedCatId && availableBudgets.length === 0 && (
+                        <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                          No existing budget for this category. Select a subcategory to create a new budget line with {formatCurrency(line.amount_requested)}.
+                        </p>
+                      )}
                     </div>
                   )
                 })}
