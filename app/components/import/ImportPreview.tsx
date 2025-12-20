@@ -55,8 +55,15 @@ type ImportStats = {
 }
 
 // Get webhook URLs from environment
-const BUDGET_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_BUDGET_WEBHOOK || ''
-const DRAW_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_DRAW_WEBHOOK || ''
+// Prefer explicit full URLs, but allow deriving from a base webhook URL for simpler configuration.
+// Expected base form: https://<your-n8n-host>/webhook
+const N8N_BASE_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || ''
+const BUDGET_WEBHOOK_URL =
+  process.env.NEXT_PUBLIC_N8N_BUDGET_WEBHOOK ||
+  (N8N_BASE_WEBHOOK_URL ? `${N8N_BASE_WEBHOOK_URL}/budget-import` : '')
+const DRAW_WEBHOOK_URL =
+  process.env.NEXT_PUBLIC_N8N_DRAW_WEBHOOK ||
+  (N8N_BASE_WEBHOOK_URL ? `${N8N_BASE_WEBHOOK_URL}/td3-draw-process` : '')
 
 // Exaggerated task messages for the processing animation
 const PROCESSING_TASKS = [
@@ -747,7 +754,9 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
         
         // Validate webhook URL is configured and looks valid
         if (!webhookUrl) {
-          setError('Budget import webhook URL not configured. Set NEXT_PUBLIC_N8N_BUDGET_WEBHOOK in environment variables (Vercel dashboard for production).')
+          setError(
+            'Budget import webhook URL not configured. Set NEXT_PUBLIC_N8N_BUDGET_WEBHOOK (full URL) or NEXT_PUBLIC_N8N_WEBHOOK_URL (base URL) in environment variables.'
+          )
           setImporting(false)
           return
         }

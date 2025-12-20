@@ -69,7 +69,8 @@ export default function ProgressReportPage() {
         .from('draw_requests')
         .select('*')
         .eq('project_id', projectId)
-        .in('status', ['approved', 'paid'])
+        // Canonical status is 'funded'. Keep 'paid' for legacy rows.
+        .in('status', ['funded', 'paid'])
         .order('draw_number', { ascending: true })
 
       setDraws(drawsData || [])
