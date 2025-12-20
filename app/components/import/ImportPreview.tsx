@@ -801,12 +801,13 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
           rowRange: rowRangeAnalysis ? { startRow: rowRangeAnalysis.startRow, endRow: rowRangeAnalysis.endRow } : undefined
         })
         
-        // Count categories being sent for user feedback
-        const categoryCount = categoryValues.length
+        // Count categories being sent for user feedback - use actual export data count (includes $0 budgets)
+        const categoryCount = exportData.columns.category.values.length
         setProcessingMessage(`Classifying ${categoryCount} categories with AI...`)
         
         // Estimate processing time: ~1.1 sec per category, rounded up to nearest 10 seconds
-        const estimatedSeconds = Math.ceil((categoryCount * 1.1) / 10) * 10
+        // Ensure minimum 10 seconds even for small imports
+        const estimatedSeconds = Math.max(10, Math.ceil((categoryCount * 1.1) / 10) * 10)
         setCountdownSeconds(estimatedSeconds)
         setInitialCountdown(estimatedSeconds)
         

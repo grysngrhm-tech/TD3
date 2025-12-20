@@ -231,7 +231,11 @@ Exclude:
 - Header rows (like "Item", "Description", "Category")
 - Total/subtotal rows (like "TOTALS", "TOTAL CONSTRUCTION", "GRAND TOTAL")
 - Section headers (like "CONSTRUCTION COSTS", "SOFT COSTS")
-- Empty or placeholder rows
+- Rows with empty/blank category names
+
+IMPORTANT: Include rows with $0 amounts! A budget category with $0 is valid - 
+it represents an unfunded or placeholder line item. Only exclude if the 
+category NAME itself is empty, not if the amount is zero.
 
 Categories: ["Muddy River - Lot # 3", "Item", "Land", "Permits", "Excavation", ...]
 
