@@ -960,47 +960,23 @@ export function prepareColumnExport(
     // - Budgets: Include ANY row with a valid category (even if amount is $0, blank, or null)
     //   A budget line with $0 is valid - it's a category placeholder or unfunded line
     // - Draws: Require category AND amount > 0 (a $0 draw request doesn't make sense)
-    
-    console.log(`  Row ${i}: category="${category}" (${category ? 'valid' : 'empty'}), amount=${amount}`)
-    
     if (importType === 'budget') {
       // For budgets: ONLY require a non-empty category. Amount can be anything including 0/null/blank
       if (category && category.length > 0) {
         categoryValues.push(category)
         amountValues.push(amount) // amount is 0 if blank/null thanks to parseAmount
-        console.log(`    → [INCLUDE BUDGET]`)
-      } else {
-        console.log(`    → [SKIP] No category name`)
       }
     } else {
       // Draw import - require category AND positive amount
       if (category && category.length > 0 && amount > 0) {
         categoryValues.push(category)
         amountValues.push(amount)
-        console.log(`    → [INCLUDE DRAW]`)
-      } else {
-        console.log(`    → [SKIP DRAW] Missing category or zero amount`)
       }
     }
   }
   
-  // Debug logging to verify what's being exported
-  console.log(`========================================`)
-  console.log(`[${importType.toUpperCase()} Export] importType="${importType}"`)
-  console.log(`[${importType.toUpperCase()} Export] Processing rows ${startRow} to ${endRow}`)
-  console.log(`[${importType.toUpperCase()} Export] Found ${categoryValues.length} valid categories`)
-  console.log(`========================================`)
-  console.log(`[${importType.toUpperCase()} Export] RAW DATA SAMPLE (first 5 rows):`)
-  for (let i = startRow; i <= Math.min(startRow + 4, endRow) && i < data.rows.length; i++) {
-    const row = data.rows[i]
-    const catRaw = row[categoryCol.columnIndex]
-    const amtRaw = row[amountCol.columnIndex]
-    console.log(`  Row ${i}: category="${catRaw}" (${typeof catRaw}), amount="${amtRaw}" (${typeof amtRaw})`)
-  }
-  console.log(`[${importType.toUpperCase()} Export] FILTERED OUTPUT:`)
-  categoryValues.forEach((cat, i) => {
-    console.log(`  ${i + 1}. "${cat}" = $${amountValues[i]}`)
-  })
+  // Debug logging (minimal for production)
+  console.log(`[${importType.toUpperCase()} Export] ${categoryValues.length} categories from rows ${startRow}-${endRow}`)
   
   return {
     type: importType,
