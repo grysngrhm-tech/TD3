@@ -85,6 +85,7 @@ export async function GET(
         lines_without_budget: lines?.filter(l => !l.budget_id).length || 0,
         lines_with_amount: lines?.filter(l => l.amount_requested && l.amount_requested > 0).length || 0,
         total_requested: lines?.reduce((sum, l) => sum + (l.amount_requested || 0), 0) || 0,
+        // Canonical status is 'funded'. Keep 'paid' for legacy rows.
         can_update_budget: draw.status === 'funded' || draw.status === 'paid'
       }
     }
@@ -118,7 +119,7 @@ export async function POST(
 
     if (draw.status !== 'funded' && draw.status !== 'paid') {
       return NextResponse.json({ 
-        error: `Cannot update budget for draw with status '${draw.status}'. Only funded or paid draws can have budget updates.` 
+        error: `Cannot update budget for draw with status '${draw.status}'. Only funded (or legacy 'paid') draws can have budget updates.` 
       }, { status: 400 })
     }
 

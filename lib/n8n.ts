@@ -1,7 +1,9 @@
 // n8n Webhook Integration
 // Configure your n8n webhook URLs here
 
-const N8N_BASE_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'https://grysngrhm.app.n8n.cloud/webhook'
+// Base URL should be the n8n "webhook" base, e.g. https://<host>/webhook
+// Prefer env var, but default to the repo's documented self-hosted instance.
+const N8N_BASE_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'https://n8n.srv1208741.hstgr.cloud/webhook'
 
 export type BudgetImportPayload = {
   projectCode: string

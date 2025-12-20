@@ -581,6 +581,22 @@ body {
     background: var(--warning-muted);
     color: var(--warning);
   }
+
+  /* Canonical draw workflow statuses */
+  .badge-review {
+    background: var(--accent-muted);
+    color: var(--accent);
+  }
+
+  .badge-staged {
+    background: var(--info-muted);
+    color: var(--info);
+  }
+
+  .badge-funded {
+    background: var(--success-muted);
+    color: var(--success);
+  }
   
   .badge-approved,
   .badge-success,
@@ -826,6 +842,12 @@ body {
   .status-approved { @apply badge badge-approved; }
   .status-rejected { @apply badge badge-rejected; }
   .status-paid { @apply badge badge-paid; }
+
+  /* Canonical draw workflow status helpers (preferred) */
+  .status-review { @apply badge badge-review; }
+  .status-staged { @apply badge badge-staged; }
+  .status-pending_wire { @apply badge badge-pending_wire; }
+  .status-funded { @apply badge badge-funded; }
 }
 
 /* =============================================================================

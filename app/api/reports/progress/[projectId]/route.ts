@@ -51,12 +51,13 @@ export async function GET(
       )
     }
 
-    // Fetch approved/paid draws
+    // Fetch funded draws (plus legacy 'paid' rows)
     const { data: draws, error: drawsError } = await supabaseAdmin
       .from('draw_requests')
       .select('*, draw_request_lines(*)')
       .eq('project_id', projectId)
-      .in('status', ['approved', 'paid'])
+      // Canonical status is 'funded'. Keep 'paid' for legacy rows.
+      .in('status', ['funded', 'paid'])
       .order('draw_number', { ascending: true })
 
     // Calculate totals

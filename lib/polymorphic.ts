@@ -13,7 +13,9 @@ export type WorkflowStatus =
   | 'draft'
   | 'pending'
   | 'pending_review'
+  | 'review'
   | 'staged'
+  | 'funded'
   | 'approved'
   | 'rejected'
   | 'pending_wire'
@@ -43,9 +45,17 @@ export function getStatusTint(status: WorkflowStatus, theme: ThemeMode = 'dark')
       light: 'rgba(245, 158, 11, 0.05)', 
       dark: 'rgba(245, 158, 11, 0.08)' 
     },
+    review: {
+      light: 'rgba(149, 6, 6, 0.05)',
+      dark: 'rgba(149, 6, 6, 0.08)'
+    },
     staged: { 
       light: 'rgba(59, 130, 246, 0.05)', 
       dark: 'rgba(59, 130, 246, 0.08)' 
+    },
+    funded: {
+      light: 'rgba(16, 185, 129, 0.05)',
+      dark: 'rgba(16, 185, 129, 0.08)'
     },
     approved: { 
       light: 'rgba(16, 185, 129, 0.05)', 
@@ -92,7 +102,9 @@ export function getStatusColor(status: WorkflowStatus): string {
     draft: 'var(--text-muted)',
     pending: 'var(--warning)',
     pending_review: 'var(--warning)',
+    review: 'var(--accent)',
     staged: 'var(--info)',
+    funded: 'var(--success)',
     approved: 'var(--success)',
     rejected: 'var(--error)',
     pending_wire: 'var(--purple)',
@@ -114,7 +126,9 @@ export function getStatusBadgeBackground(status: WorkflowStatus): string {
     draft: 'var(--bg-hover)',
     pending: 'var(--warning-muted)',
     pending_review: 'var(--warning-muted)',
+    review: 'var(--accent-muted)',
     staged: 'var(--info-muted)',
+    funded: 'var(--success-muted)',
     approved: 'var(--success-muted)',
     rejected: 'var(--error-muted)',
     pending_wire: 'var(--purple-muted)',

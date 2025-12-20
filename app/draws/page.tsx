@@ -47,7 +47,11 @@ export default function DrawsPage() {
 
   const filteredDraws = statusFilter === 'all'
     ? draws
-    : draws.filter(d => d.status === statusFilter)
+    : draws.filter(d => {
+        // Backward compatibility: older DB rows may have 'paid' (legacy) instead of 'funded'
+        const normalized = d.status === 'paid' ? 'funded' : d.status
+        return normalized === statusFilter
+      })
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -61,9 +65,14 @@ export default function DrawsPage() {
   const getStatusClass = (status: string) => {
     const classes: Record<string, string> = {
       draft: 'status-draft',
+      review: 'status-review',
+      staged: 'status-staged',
+      pending_wire: 'status-pending_wire',
+      funded: 'status-funded',
+      rejected: 'status-rejected',
+      // Legacy aliases (still styled if encountered)
       submitted: 'status-submitted',
       approved: 'status-approved',
-      rejected: 'status-rejected',
       paid: 'status-paid',
     }
     return classes[status] || 'status-draft'
@@ -114,7 +123,7 @@ export default function DrawsPage() {
         >
           All ({draws.length})
         </button>
-        {['draft', 'submitted', 'approved', 'rejected', 'paid'].map((status) => (
+        {['draft', 'review', 'staged', 'pending_wire', 'funded', 'rejected'].map((status) => (
           <button
             key={status}
             onClick={() => setStatusFilter(status)}
@@ -163,7 +172,9 @@ export default function DrawsPage() {
                       {formatCurrency(draw.total_amount)}
                     </td>
                     <td className="table-cell">
-                      <span className={getStatusClass(draw.status)}>{draw.status}</span>
+                      <span className={getStatusClass(draw.status === 'paid' ? 'funded' : draw.status)}>
+                        {draw.status === 'paid' ? 'funded' : draw.status}
+                      </span>
                     </td>
                     <td className="table-cell text-sm max-w-xs truncate" style={{ color: 'var(--text-muted)' }}>
                       {draw.notes || '-'}
