@@ -957,13 +957,16 @@ export function prepareColumnExport(
     const amount = parseAmount(amtValue)
     
     // Filter logic differs by import type:
-    // - Budgets: Include any row with a valid category (even if amount is $0)
+    // - Budgets: Include any row with a valid category (even if amount is $0 or blank)
     //   A budget line with $0 is valid - it's a category placeholder or unfunded line
     // - Draws: Require category AND amount > 0 (a $0 draw request doesn't make sense)
     if (importType === 'budget') {
       if (category) {
         categoryValues.push(category)
-        amountValues.push(amount || 0)
+        amountValues.push(amount) // amount is already 0 if blank/null thanks to parseAmount
+        console.log(`  [INCLUDE] "${category}" with amount ${amount}`)
+      } else {
+        console.log(`  [SKIP] Row ${i}: Empty category (amount was ${amount})`)
       }
     } else {
       // Draw import - require non-zero amount
@@ -976,6 +979,14 @@ export function prepareColumnExport(
   
   // Debug logging to verify what's being exported
   console.log(`[${importType.toUpperCase()} Export] Preparing ${categoryValues.length} categories from rows ${startRow}-${endRow}:`)
+  console.log(`[${importType.toUpperCase()} Export] RAW DATA SAMPLE (first 5 rows):`)
+  for (let i = startRow; i <= Math.min(startRow + 4, endRow) && i < data.rows.length; i++) {
+    const row = data.rows[i]
+    const catRaw = row[categoryCol.columnIndex]
+    const amtRaw = row[amountCol.columnIndex]
+    console.log(`  Row ${i}: category="${catRaw}" (${typeof catRaw}), amount="${amtRaw}" (${typeof amtRaw})`)
+  }
+  console.log(`[${importType.toUpperCase()} Export] FILTERED OUTPUT:`)
   categoryValues.forEach((cat, i) => {
     console.log(`  ${i + 1}. "${cat}" = $${amountValues[i]}`)
   })
