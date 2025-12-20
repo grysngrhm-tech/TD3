@@ -957,28 +957,39 @@ export function prepareColumnExport(
     const amount = parseAmount(amtValue)
     
     // Filter logic differs by import type:
-    // - Budgets: Include any row with a valid category (even if amount is $0 or blank)
+    // - Budgets: Include ANY row with a valid category (even if amount is $0, blank, or null)
     //   A budget line with $0 is valid - it's a category placeholder or unfunded line
     // - Draws: Require category AND amount > 0 (a $0 draw request doesn't make sense)
+    
+    console.log(`  Row ${i}: category="${category}" (${category ? 'valid' : 'empty'}), amount=${amount}`)
+    
     if (importType === 'budget') {
-      if (category) {
+      // For budgets: ONLY require a non-empty category. Amount can be anything including 0/null/blank
+      if (category && category.length > 0) {
         categoryValues.push(category)
-        amountValues.push(amount) // amount is already 0 if blank/null thanks to parseAmount
-        console.log(`  [INCLUDE] "${category}" with amount ${amount}`)
+        amountValues.push(amount) // amount is 0 if blank/null thanks to parseAmount
+        console.log(`    → [INCLUDE BUDGET]`)
       } else {
-        console.log(`  [SKIP] Row ${i}: Empty category (amount was ${amount})`)
+        console.log(`    → [SKIP] No category name`)
       }
     } else {
-      // Draw import - require non-zero amount
-      if (category && amount && amount > 0) {
+      // Draw import - require category AND positive amount
+      if (category && category.length > 0 && amount > 0) {
         categoryValues.push(category)
         amountValues.push(amount)
+        console.log(`    → [INCLUDE DRAW]`)
+      } else {
+        console.log(`    → [SKIP DRAW] Missing category or zero amount`)
       }
     }
   }
   
   // Debug logging to verify what's being exported
-  console.log(`[${importType.toUpperCase()} Export] Preparing ${categoryValues.length} categories from rows ${startRow}-${endRow}:`)
+  console.log(`========================================`)
+  console.log(`[${importType.toUpperCase()} Export] importType="${importType}"`)
+  console.log(`[${importType.toUpperCase()} Export] Processing rows ${startRow} to ${endRow}`)
+  console.log(`[${importType.toUpperCase()} Export] Found ${categoryValues.length} valid categories`)
+  console.log(`========================================`)
   console.log(`[${importType.toUpperCase()} Export] RAW DATA SAMPLE (first 5 rows):`)
   for (let i = startRow; i <= Math.min(startRow + 4, endRow) && i < data.rows.length; i++) {
     const row = data.rows[i]
