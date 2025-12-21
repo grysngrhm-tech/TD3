@@ -193,7 +193,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Build final result from matching agent output\nconst agentOutput = $input.first().json.output || $input.first().json.text || '{}';\nconst prevData = $('Parse OpenAI Response').first().json;\n\nlet matchResult = {};\ntry {\n  if (typeof agentOutput === 'string') {\n    const jsonStr = agentOutput.replace(/```json\\n?|```\\n?/g, '').trim();\n    matchResult = JSON.parse(jsonStr);\n  } else {\n    matchResult = agentOutput;\n  }\n} catch (e) {\n  matchResult = {\n    matched_category: null,\n    matched_nahb_code: null,\n    matched_draw_line_id: null,\n    matched_budget_id: null,\n    confidence_score: 0,\n    flags: ['PARSE_ERROR']\n  };\n}\n\nconst extracted = prevData.extractedInvoice || {};\n\n// Build callback payload\nreturn [{\n  json: {\n    invoiceId: prevData.invoiceId,\n    success: true,\n    extractedData: {\n      vendorName: extracted.vendor_name || 'Unknown Vendor',\n      invoiceNumber: extracted.invoice_number,\n      invoiceDate: extracted.invoice_date,\n      amount: extracted.total_amount || 0,\n      lineItems: extracted.line_items,\n      constructionCategory: extracted.construction_category,\n      projectReference: extracted.project_reference\n    },\n    matching: {\n      matchedCategory: matchResult.matched_category,\n      matchedNahbCode: matchResult.matched_nahb_code,\n      matchedDrawLineId: matchResult.matched_draw_line_id,\n      matchedBudgetId: matchResult.matched_budget_id,\n      confidenceScore: matchResult.confidence_score || 0,\n      matchReasoning: matchResult.match_reasoning,\n      flags: matchResult.flags || []\n    }\n  }\n}];"
+        "jsCode": "// Build final result from matching agent output\nconst agentOutput = $input.first().json.output || $input.first().json.text || '{}';\nconst prevData = $('Parse OpenAI Response').first().json;\n\nlet matchResult = {};\ntry {\n  if (typeof agentOutput === 'string') {\n    const jsonStr = agentOutput.replace(/```json\\n?|```\\n?/g, '').trim();\n    matchResult = JSON.parse(jsonStr);\n  } else {\n    matchResult = agentOutput;\n  }\n} catch (e) {\n  matchResult = {\n    matched_category: null,\n    matched_nahb_code: null,\n    matched_draw_line_id: null,\n    matched_budget_id: null,\n    confidence_score: 0,\n    flags: ['PARSE_ERROR']\n  };\n}\n\nconst extracted = prevData.extractedInvoice || {};\n\n// Build callback payload\nreturn [{\n  json: {\n    invoiceId: prevData.invoiceId,\n    n8nExecutionId: $execution.id,\n    success: true,\n    extractedData: {\n      vendorName: extracted.vendor_name || 'Unknown Vendor',\n      invoiceNumber: extracted.invoice_number,\n      invoiceDate: extracted.invoice_date,\n      amount: extracted.total_amount || 0,\n      lineItems: extracted.line_items,\n      constructionCategory: extracted.construction_category,\n      projectReference: extracted.project_reference\n    },\n    matching: {\n      matchedCategory: matchResult.matched_category,\n      matchedNahbCode: matchResult.matched_nahb_code,\n      matchedDrawLineId: matchResult.matched_draw_line_id,\n      matchedBudgetId: matchResult.matched_budget_id,\n      confidenceScore: matchResult.confidence_score || 0,\n      matchReasoning: matchResult.match_reasoning,\n      flags: matchResult.flags || []\n    }\n  }\n}];"
       },
       "id": "build-callback-payload",
       "name": "Build Callback Payload",
@@ -204,13 +204,17 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.TD3_API_URL }}/api/invoices/process-callback",
+        "url": "={{ $('Webhook').first().json.callbackUrl || ($env.TD3_API_URL + '/api/invoices/process-callback') }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "X-TD3-Webhook-Secret",
+              "value": "={{ $env.TD3_WEBHOOK_SECRET }}"
             }
           ]
         },
@@ -231,19 +235,23 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.TD3_API_URL }}/api/invoices/process-callback",
+        "url": "={{ $('Webhook').first().json.callbackUrl || ($env.TD3_API_URL + '/api/invoices/process-callback') }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "X-TD3-Webhook-Secret",
+              "value": "={{ $env.TD3_WEBHOOK_SECRET }}"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ invoiceId: $json.invoiceId, success: false, error: $json.message || 'Processing failed' }) }}",
+        "jsonBody": "={{ JSON.stringify({ invoiceId: $json.invoiceId, n8nExecutionId: $execution.id, success: false, error: $json.message || 'Processing failed' }) }}",
         "options": {
           "timeout": 10000
         }

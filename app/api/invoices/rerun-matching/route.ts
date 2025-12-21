@@ -78,11 +78,12 @@ export async function POST(request: NextRequest) {
     }))
     
     // Reset invoices to pending status before re-processing
+    const processingStartedAt = new Date().toISOString()
     await supabaseAdmin
       .from('invoices')
       .update({ 
         status: 'pending', 
-        flags: JSON.stringify({ status_detail: 'processing' }),
+        flags: JSON.stringify({ status_detail: 'processing', processing_started_at: processingStartedAt }),
         confidence_score: null,
         matched_to_category: null,
         matched_to_nahb_code: null
@@ -148,6 +149,15 @@ export async function POST(request: NextRequest) {
         triggerInvoiceProcess(payload).then(result => {
           if (!result.success) {
             console.warn(`Invoice ${invoice.id} processing trigger failed:`, result.message)
+            // Mark as error so UI doesn't show "processing" forever.
+            supabaseAdmin
+              .from('invoices')
+              .update({
+                status: 'pending',
+                flags: JSON.stringify({ status_detail: 'error', error: result.message, processing_started_at: processingStartedAt })
+              })
+              .eq('id', invoice.id)
+              .then(() => {})
           }
         })
         

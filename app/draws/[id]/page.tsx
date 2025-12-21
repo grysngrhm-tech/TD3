@@ -100,8 +100,21 @@ export default function DrawDetailPage() {
     }
   }
 
+  const getInvoiceErrorDetail = (flags: string | null): string | null => {
+    if (!flags || flags === 'PROCESSING') return null
+    try {
+      const parsed = JSON.parse(flags)
+      return typeof parsed?.error === 'string' ? parsed.error : null
+    } catch {
+      return null
+    }
+  }
+
   const isInvoiceProcessing = (inv: any) =>
     inv.status === 'pending' && getInvoiceStatusDetail(inv.flags) === 'processing'
+
+  const isInvoiceErrored = (inv: any) =>
+    (inv.status === 'pending' || inv.status === 'rejected') && getInvoiceStatusDetail(inv.flags) === 'error'
 
   // Auto-refresh when invoices are processing (poll every 3 seconds)
   useEffect(() => {
@@ -129,6 +142,44 @@ export default function DrawDetailPage() {
       return () => clearInterval(interval)
     }
   }, [invoices, drawId])
+
+  // Realtime updates (preferred): subscribe to invoice + draw line changes for this draw.
+  // Falls back to polling above if Realtime isn't configured/enabled.
+  useEffect(() => {
+    if (!drawId) return
+
+    const invoiceChannel = supabase
+      .channel(`draw-${drawId}-invoices`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'invoices', filter: `draw_request_id=eq.${drawId}` },
+        async () => {
+          const { data: updatedInvoices } = await supabase
+            .from('invoices')
+            .select('*')
+            .eq('draw_request_id', drawId)
+          if (updatedInvoices) setInvoices(updatedInvoices)
+        }
+      )
+      .subscribe()
+
+    const linesChannel = supabase
+      .channel(`draw-${drawId}-lines`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'draw_request_lines', filter: `draw_request_id=eq.${drawId}` },
+        async () => {
+          // Refresh the full page state to keep budgets/flags consistent
+          await loadDrawRequest()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(invoiceChannel)
+      supabase.removeChannel(linesChannel)
+    }
+  }, [drawId])
 
   async function loadDrawRequest() {
     try {
@@ -605,6 +656,35 @@ export default function DrawDetailPage() {
     } catch (err: any) {
       console.error('Error re-running matching:', err)
       setActionError(err.message || 'Failed to re-run invoice matching')
+    } finally {
+      setIsRerunningMatching(false)
+    }
+  }
+
+  const retryProcessingFailedInvoices = async () => {
+    if (!draw?.project_id) return
+    setIsRerunningMatching(true)
+    setActionError('')
+    try {
+      const response = await fetch('/api/invoices/rerun-matching', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          drawRequestId: drawId,
+          projectId: draw.project_id,
+          rerunMatching: true
+        })
+      })
+
+      if (!response.ok) {
+        const text = await response.text()
+        throw new Error(text || `Retry request failed (${response.status})`)
+      }
+
+      await loadDrawRequest()
+    } catch (err: any) {
+      console.error('Error retrying invoice processing:', err)
+      setActionError(err.message || 'Failed to retry invoice processing')
     } finally {
       setIsRerunningMatching(false)
     }
@@ -1396,6 +1476,19 @@ export default function DrawDetailPage() {
                   </span>
                 )}
               </div>
+              {invoices.some(isInvoiceErrored) && (
+                <div className="flex items-center justify-between mb-3 p-2 rounded-lg text-xs" style={{ background: 'rgba(239, 68, 68, 0.08)', color: 'var(--error)' }}>
+                  <span>Some invoices failed to process. You can retry.</span>
+                  <button
+                    type="button"
+                    className="btn-secondary px-3 py-1"
+                    onClick={retryProcessingFailedInvoices}
+                    disabled={isRerunningMatching}
+                  >
+                    Retry failed
+                  </button>
+                </div>
+              )}
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {invoices.map(inv => (
                   <button
@@ -1434,8 +1527,9 @@ export default function DrawDetailPage() {
                           {isInvoiceProcessing(inv) ? 'Processing...' : inv.vendor_name}
                         </p>
                         <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
-                          {isInvoiceProcessing(inv) ? 'Extracting invoice data' : 
-                           inv.matched_to_category || (inv.status === 'rejected' ? 'Processing failed' : 'Needs review')}
+                          {isInvoiceProcessing(inv) ? 'Extracting invoice data' :
+                           (isInvoiceErrored(inv) ? (getInvoiceErrorDetail(inv.flags) || 'Processing failed') :
+                            inv.matched_to_category || (inv.status === 'rejected' ? 'Processing failed' : 'Needs review'))}
                           {inv.confidence_score !== null && !isInvoiceProcessing(inv) && (
                             <span className="ml-1" style={{ color: inv.confidence_score >= 0.9 ? 'var(--success)' : inv.confidence_score >= 0.7 ? 'var(--warning)' : 'var(--error)' }}>
                               ({Math.round(inv.confidence_score * 100)}%)

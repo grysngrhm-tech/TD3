@@ -108,6 +108,7 @@ export async function POST(request: NextRequest) {
         
         // Create invoice record in database with 'pending' status
         // Note: DB constraint only allows 'pending', 'matched', 'rejected'
+        const processingStartedAt = new Date().toISOString()
         const { data: invoice, error: insertError } = await supabaseAdmin
           .from('invoices')
           .insert({
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
             file_path: filePath,
             file_url: fileUrlForStorage,
             status: 'pending',
-            flags: JSON.stringify({ status_detail: 'processing' })
+            flags: JSON.stringify({ status_detail: 'processing', processing_started_at: processingStartedAt })
           })
           .select()
           .single()
@@ -156,10 +157,14 @@ export async function POST(request: NextRequest) {
         triggerInvoiceProcess(payload).then(result => {
           if (!result.success) {
             console.warn(`Invoice ${invoice.id} processing trigger failed:`, result.message)
-            // Update status to pending if trigger failed
+            // Mark as error so UI doesn't show "processing" forever.
             supabaseAdmin
               .from('invoices')
-              .update({ status: 'pending', vendor_name: 'Pending Review' })
+              .update({
+                status: 'pending',
+                vendor_name: 'Pending Review',
+                flags: JSON.stringify({ status_detail: 'error', error: result.message, processing_started_at: processingStartedAt })
+              })
               .eq('id', invoice.id)
               .then(() => {})
           }
