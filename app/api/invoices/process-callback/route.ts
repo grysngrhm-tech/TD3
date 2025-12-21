@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase-server'
 // Payload from n8n after processing invoice (two-stage: extraction + matching)
 type InvoiceProcessResult = {
   invoiceId: string
+  n8nExecutionId?: string | null
   success: boolean
   error?: string
   extractedData?: {
@@ -32,9 +33,19 @@ type InvoiceProcessResult = {
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify callbacks are actually from our n8n instance (optional but recommended).
+    // Configure TD3 with N8N_CALLBACK_SECRET and n8n with TD3_WEBHOOK_SECRET.
+    const expectedSecret = process.env.N8N_CALLBACK_SECRET
+    if (expectedSecret) {
+      const provided = request.headers.get('x-td3-webhook-secret')
+      if (!provided || provided !== expectedSecret) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+    }
+
     const body: InvoiceProcessResult = await request.json()
     
-    const { invoiceId, success, error, extractedData, matching } = body
+    const { invoiceId, n8nExecutionId, success, error, extractedData, matching } = body
     
     if (!invoiceId) {
       return NextResponse.json(
@@ -42,15 +53,43 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // Load existing flags so we can preserve processing_started_at and merge metadata idempotently.
+    const { data: existingInvoice } = await supabaseAdmin
+      .from('invoices')
+      .select('flags')
+      .eq('id', invoiceId)
+      .maybeSingle()
+
+    const parseInvoiceFlagsObject = (flagsStr: string | null): Record<string, any> => {
+      if (!flagsStr) return {}
+      try {
+        const parsed = JSON.parse(flagsStr)
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+      } catch {
+        return {}
+      }
+    }
+
+    const existingFlagsObj = parseInvoiceFlagsObject((existingInvoice as any)?.flags ?? null)
     
     // If processing failed, update status to 'rejected' (DB only allows: pending, matched, rejected)
     if (!success) {
+      const completedAt = new Date().toISOString()
+      const mergedFlags = {
+        ...existingFlagsObj,
+        status_detail: 'error',
+        error: error || 'Processing failed',
+        completed_at: completedAt,
+        ...(n8nExecutionId ? { n8n_execution_id: n8nExecutionId } : {})
+      }
+
       const { error: updateError } = await supabaseAdmin
         .from('invoices')
         .update({
           status: 'rejected',
-          flags: JSON.stringify({ error: error || 'Processing failed', status_detail: 'error' }),
-          updated_at: new Date().toISOString()
+          flags: JSON.stringify(mergedFlags),
+          updated_at: completedAt
         })
         .eq('id', invoiceId)
       
@@ -83,11 +122,12 @@ export async function POST(request: NextRequest) {
       updateData.confidence_score = matching.confidenceScore
       
       // Store flags and reasoning as JSON
-      const metadata: Record<string, any> = {}
+      const metadata: Record<string, any> = { ...existingFlagsObj }
       if (matching.flags?.length > 0) metadata.flags = matching.flags
       if (matching.matchReasoning) metadata.reasoning = matching.matchReasoning
       if (extractedData?.constructionCategory) metadata.constructionCategory = extractedData.constructionCategory
       if (extractedData?.lineItems) metadata.lineItems = extractedData.lineItems
+      if (n8nExecutionId) metadata.n8n_execution_id = n8nExecutionId
       
       // Set status based on confidence
       // DB constraint only allows: 'pending', 'matched', 'rejected'
@@ -99,12 +139,18 @@ export async function POST(request: NextRequest) {
         updateData.status = 'pending' // Low confidence = needs manual review
         metadata.status_detail = matching.confidenceScore >= 0.5 ? 'low_confidence' : 'unmatched'
       }
+
+      metadata.completed_at = updateData.updated_at
       
       // Update flags with metadata
       updateData.flags = Object.keys(metadata).length > 0 ? JSON.stringify(metadata) : null
     } else {
       updateData.status = 'pending' // Data extracted but not matched
-      updateData.flags = JSON.stringify({ status_detail: 'extracted' })
+      const metadata: Record<string, any> = { ...existingFlagsObj }
+      metadata.status_detail = 'extracted'
+      if (n8nExecutionId) metadata.n8n_execution_id = n8nExecutionId
+      metadata.completed_at = updateData.updated_at
+      updateData.flags = JSON.stringify(metadata)
     }
     
     // Update the invoice record
