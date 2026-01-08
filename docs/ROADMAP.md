@@ -11,6 +11,26 @@
 
 TD3 is ready to transition from development to production use. This roadmap outlines the path from our current functional state to full adoption, replacing legacy Excel-based systems with a unified construction loan management platform.
 
+### Purpose of This Document
+
+This roadmap serves two purposes:
+1. **Map the development path** from current state through full launch and beyond
+2. **Identify where team cooperation is required** so we can move forward together
+
+### What the Team Needs to Do
+
+**Development cannot proceed past certain points without team input.** The following items require decisions or verification from the team before we can continue:
+
+| Required Input | Who | When Needed | Time Commitment |
+|----------------|-----|-------------|-----------------|
+| **Review budget categories** | Team Lead | Week 1 | 1-2 hour meeting |
+| **Verify payoff calculations** | Finance | Weeks 1-2 | 2-3 hours comparing to legacy |
+| **Define invoice review flags** | Operations | Week 2 | 30-minute discussion |
+| **Verify migrated data** | Team Lead | Week 5 | 1-2 hours spot-checking |
+| **Complete training** | All Staff | Week 8 | 2-3 hours over 1 week |
+
+**Without these inputs, we cannot migrate historical data or go live.** The specific questions and verification steps are detailed in each section below.
+
 ### Current State Assessment
 
 TD3 is **substantially complete** for core functionality:
@@ -37,6 +57,47 @@ Authentication → User Access Control
 ```
 
 **Key Insight:** Team input on categories and calculation verification are the primary blockers. Development can proceed in parallel, but data migration cannot begin until categories are finalized.
+
+### Three-Phase Approach
+
+| Phase | Timeline | Focus | Team Involvement |
+|-------|----------|-------|------------------|
+| **Pre-Launch** | Weeks 1-6 | Finalize database, verify calculations, add authentication | Category review, calculation sign-off |
+| **Adoption** | Weeks 7-12 | Migrate data, enhance AI, train team | Data verification, training participation |
+| **Continued Development** | Post-Launch | Add advanced features (DocuSign, portals, mobile app) | Feature prioritization feedback |
+
+### Estimated Costs
+
+- **Development:** ~135-172 hours total (AI-assisted development)
+- **Monthly Operations:** $52-58 base, up to $112-148 with all features
+- **External:** ~$500 one-time for Microsoft Bot (CMIT coordination)
+
+---
+
+## Table of Contents
+
+- [Timeline Overview](#timeline-overview)
+- **Phase 1: Pre-Launch**
+  - [1.1 Finalize Categories & Subcategories](#11-finalize-categories--subcategories)
+  - [1.2 Verify Amortization & Payoff Calculations](#12-verify-amortization--payoff-calculations)
+  - [1.3 Authentication System](#13-authentication-system-internal-staff)
+  - [1.4 Dev/Prod Branch Setup](#14-devprod-branch-setup)
+- **Phase 2: Adoption**
+  - [2.1 Enhanced Invoice AI Workflow](#21-enhanced-invoice-ai-workflow)
+  - [2.2 Historical Data Migration](#22-historical-data-migration)
+  - [2.3 Payoff Production for Title Companies](#23-payoff-production-for-title-companies)
+  - [2.4 Team Training & Parallel Running](#24-team-training--parallel-running)
+- **Phase 3: Continued Development**
+  - [3.1 DocuSign API Integration](#31-docusign-api-integration)
+  - [3.2 Microsoft Adaptive Cards Bot](#32-microsoft-adaptive-cards-bot)
+  - [3.3 Builder & Lender Portals](#33-builder--lender-portals)
+  - [3.4 RAG Portfolio Chatbot](#34-rag-portfolio-chatbot)
+  - [3.5 Mobile Inspection App](#35-mobile-inspection-app)
+- [Dependency Flow](#dependency-flow)
+- [Cost Estimates](#cost-estimates)
+- [Team Input Requirements](#team-input-requirements)
+- [Risk Assessment](#risk-assessment)
+- [Success Metrics](#success-metrics)
 
 ---
 
