@@ -8,6 +8,16 @@ This isn't about adopting more software. It's about reducing the mental overhead
 
 ---
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Development Roadmap](docs/ROADMAP.md) | Launch timeline, milestones, cost estimates, and team input requirements |
+| [Technical Architecture](docs/ARCHITECTURE.md) | System design, data flows, and component responsibilities |
+| [Design Language](docs/DESIGN_LANGUAGE.md) | UI/UX standards, color palette, and component patterns |
+
+---
+
 ## The Problem
 
 Construction lending operations create two persistent challenges that compound as the portfolio grows.
@@ -426,8 +436,14 @@ TD3 is in active use and continuous development. The system is functional for da
 
 **On the Roadmap:**
 
-- Portfolio analytics enhancements
-- LOS system integrations
+See the full [Development Roadmap](docs/ROADMAP.md) for detailed timeline and milestones.
+
+- User authentication with role-based permissions
+- Historical data migration from legacy Excel systems
+- DocuSign API integration for loan origination
+- Microsoft Adaptive Cards for workflow notifications
+- Builder and lender portal access
+- RAG-powered portfolio chatbot
 - Mobile inspection app for field photos
 
 ---
