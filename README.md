@@ -307,126 +307,56 @@ These diagrams show what happens when you upload a budget or submit a draw reque
 
 ## Current Status
 
-TD3 is in active use and continuous development. The system is functional for daily operations, with ongoing refinement based on real usage.
+TD3 is fully functional for daily operations. The system handles the complete construction loan lifecycle from origination through payoff.
 
-**What's Working Now:**
+### Loan & Project Management
 
-- ✅ Project management dashboard with iOS-style dark mode UI
-- ✅ Loan lifecycle management (Pending → Active → Historic)
-- ✅ iOS-style stage selector to filter loans by lifecycle
-- ✅ Tabbed loan pages with progressive disclosure
-- ✅ New loan origination workflow with inline editing
-- ✅ Default term sheet integration
-- ✅ Document upload with categorized document types
-- ✅ Budget upload with smart column detection
-- ✅ Intelligent row boundary detection with visual classification
-- ✅ Excel formatting preservation (bold, borders)
-- ✅ Weighted keyword scoring for closing costs
-- ✅ Interactive row range controls (click, drag, keyboard)
-- ✅ Inline budget editor with cascading Category → Subcategory dropdowns
-- ✅ Auto-generated project codes (e.g., "DW-244")
-- ✅ AI-powered NAHB budget categorization
-- ✅ Hierarchical NAHB category structure (16 categories, 118 subcategories)
-- ✅ Budget management tools (Clear All, auto-replace on upload)
-- ✅ Standardized NAHB cost code taxonomy
-- ✅ **Builder Page System** — Dedicated builder management with company info, banking details, and loan portfolio view
-- ✅ **Lender Support** — Multi-lender tracking (TD2, TenBrook, Tennant) with proper separation
-- ✅ **Toggle-Based Filter Sidebar** — 3-way toggle (Builder/Subdivision/Lender) with cascading filters
-- ✅ **Stage-Specific Stats Bar** — Dynamic metrics per lifecycle stage with visual elements
-- ✅ **Historic Loan Metrics** — Total Income and IRR calculations on historic loan tiles
-- ✅ **Enhanced LTV Color Coding** — Risk-based thresholds (≤65% green, 66-74% yellow, ≥75% red)
-- ✅ **Compact Builder Info Card** — 4-column layout with clickable email/phone links
-- ✅ **Borrower Auto-Fill** — Automatically populates from selected builder profile
-- ✅ **Budget Amount Field** — Auto-calculated from uploaded budget categories
-- ✅ **Loan Lifecycle Transitions** — Checkbox-driven state changes with validation
-- ✅ **Dual Dashboard Design** — Portfolio Dashboard and Draw Dashboard as mirror-image home pages
-- ✅ **Smart Navigation System** — Context-aware back button with breadcrumb trail
-- ✅ **Quick Links Popup** — Press Q for quick access to actions, pages, and recent items
-- ✅ **Cascading Filters** — Filter options update dynamically based on selections
-- ✅ **Unified Dashboard Header** — Consistent header component across dashboards
-- ✅ **Draw Status Selector** — iOS-style toggle (All/Review/Staged/Wire) with live counts
-- ✅ **Embedded Nav Buttons** — Large navigation buttons in stats bars
-- ✅ **Recent Pages Tracking** — Last 5 visited pages in Quick Links
-- ✅ **Keyboard Navigation** — Q for Quick Links, Escape to close
-- ✅ **Animated Transitions** — Smooth animations throughout the interface
-- ✅ **Active Page Indicator** — Current route highlighted in navigation
-- ✅ **TD3 Design Language System** — Comprehensive design system for consistency
-- ✅ **Dark Red/Maroon Accent Palette** — Brand colors with AAA accessibility
-- ✅ **Material Elevation System** — 5-level shadow hierarchy
-- ✅ **Polymorphic Behaviors** — Context-aware styling
-- ✅ **Draw Request System** — Complete draw upload workflow with invoice management
-- ✅ **Fuzzy Category Matching** — Intelligent matching of draw categories to budgets
-- ✅ **Draw Review Page** — Comprehensive table view with inline editing and flags
-- ✅ **Cascading Dropdowns for Unmatched Lines** — NAHB Category → Budget selectors
-- ✅ **Invoice Upload & Preview** — Drag-drop with thumbnail gallery and modal viewer
-- ✅ **AI Invoice Processing** — Two-stage extraction and matching with confidence scores
-- ✅ **Enhanced Financial Reports** — Two-view toggle (Table/Chart) for each report
-  - **Budget Report**: Sankey flow, Category Utilization with budget markers, Spending Velocity
-  - **Amortization Report**: Balance Growth, Draw Timeline, Interest Analysis donut chart
-  - **Payoff Report**: Fee Escalation, Payoff Projection, What-If Comparison with custom dates
-- ✅ **Chart Information Tooltips** — Each chart includes an info tooltip explaining the visualization
-- ✅ **Credits System (Payoff)** — Manage credits/adjustments that reduce payoff amounts
-- ✅ **Title Company Report Generator** — Professional payoff letter for title companies
-- ✅ **Standardized Loan Terms** — Hierarchical term resolution (Project > Lender > Default)
-- ✅ **Accurate Fee Calculation** — Precise fee escalation matching our formulas
-- ✅ **Interactive Payoff Calculator** — What-If scenarios with custom date picker
-- ✅ **Fee & Interest Projection Chart** — Visual projections over 18 months
-- ✅ **Anomaly Detection** — Automated flagging of spending spikes and variances
-- ✅ **Polymorphic Loan Details** — Expandable accordion with context-aware stats
-- ✅ **Urgency Indicators** — Color-coded maturity warnings
-- ✅ **View Mode Persistence** — User preferences saved between sessions
-- ✅ **Report Detail Panel** — Slide-out panel for drill-down on any line item
-- ✅ **Invoice Preview Modal** — Split-view PDF preview with match details
-- ✅ **Compound Interest Amortization** — Accurate draw-by-draw interest with monthly compounding
-- ✅ **Auto Fee Clock Start** — Fee calculation begins from first funded draw
-- ✅ **Loan Activation Enhancement** — Lender selection required for activation
-- ✅ **Builder Timeline** — Interactive Gantt/spreadsheet views grouped by lender
-  - Calendar-based Gantt columns with pill-shaped draw bars
-  - Two-panel spreadsheet view with sticky columns
-  - "Show only funded" filter
-  - Click-to-open detail panel
-  - Keyboard navigation (arrow keys + Enter)
-- ✅ **Lender Selection Dropdown** — Searchable picker with activation validation
-- ✅ **Builder Auto-Fill Fields** — Automatic population from builder profile
-- ✅ **Lender Display in Header** — Visible alongside builder and address
-- ✅ **Draw Dashboard Reorganization** — Adaptive layout with dynamic widths
-  - Wire Confirmation at top (collapses when empty)
-  - Pending Review and Staged by Builder side-by-side
-  - Smooth layout animations
-- ✅ **Light Mode Default** — Clean light theme with dark mode available
-- ✅ **Complete Draw Funding Workflow** — Multi-stage funding process
-  - `review` → `staged` → `pending_wire` → `funded`
-  - Unstage capability from draw review page
-  - Fund All creates wire batch and moves to Pending Wire Confirmation
-  - Bookkeeper marks as funded with wire reference and date
-  - Budget spend tracking automatically updates on funding
-- ✅ **Wire Batch System** — Grouped funding with complete tracking
-  - Builder-grouped wire batches
-  - Official funding report for bookkeepers
-  - Wire reference and funding date capture
-  - Full audit trail
-- ✅ **Budget Import with Countdown Timer** — Enhanced import experience
-  - Adaptive countdown based on category count (~1.1s per category)
-  - Animated task messages during processing
-  - Real-time N8N response validation
-  - Success/error feedback before navigation
-- ✅ **Protected Budget Data** — Funded draw data preservation
-  - Budgets with funded draws cannot be deleted
-  - Warning UI shows which categories are protected
-  - Smart merge for duplicate categories during reimport
-  - Non-funded draw lines become "unmatched" instead of deleted
-- ✅ **$0/Blank Budget Amount Support** — Full support for placeholder categories
-  - Budget categories with $0 or blank amounts are imported correctly
-  - Allows unfunded or placeholder line items in budgets
-  - Only filters based on category name, not amount
-- ✅ **Create Budget Lines from Draw Review** — Dynamic budget expansion
-  - Unmatched draw categories can become new budget lines
-  - Cascading NAHB Category → Subcategory selection
-  - Creates budget with draw amount as initial budget
-- ✅ **Draw Budget Diagnostic Tools** — Troubleshooting endpoints
-  - GET `/api/draws/[id]/recalculate-budget` for diagnostics
-  - POST endpoint to manually recalculate budget spend
-- ✅ **URL-Based Dashboard Filtering** — Deep-linking for specific views
+- **Complete Loan Lifecycle** — Track loans through Pending → Active → Historic stages with checkbox-driven transitions
+- **Loan Origination** — Create new loans with inline editing, default term sheets, and auto-generated project codes (e.g., "DW-244")
+- **Builder Management** — Dedicated builder pages with company info, banking details, contact links, and portfolio views with auto-fill for new loans
+- **Multi-Lender Support** — Track loans across multiple lenders (TD2, TenBrook, Tennant) with proper separation and lender-required activation
+
+### Budget System
+
+- **Smart Budget Import** — Upload Excel/CSV budgets with intelligent column detection, row boundary recognition, and Excel formatting preservation
+- **AI-Powered Categorization** — Automatic mapping to NAHB cost codes (16 categories, 118 subcategories) with confidence scoring
+- **Inline Budget Editor** — Edit budgets directly with cascading Category → Subcategory dropdowns and real-time calculations
+- **Budget Protection** — Funded draws preserve budget data; smart merge handles reimports; placeholder categories ($0 amounts) fully supported
+- **Dynamic Budget Expansion** — Create new budget lines directly from draw review when categories are unmatched
+
+### Draw Processing & Funding
+
+- **Complete Draw Workflow** — Multi-stage process: `review` → `staged` → `pending_wire` → `funded` with unstage capability
+- **Intelligent Category Matching** — Fuzzy matching of draw categories to budgets with cascading dropdowns for manual assignment
+- **Wire Batch System** — Group draws by builder for single wire transfers with official funding reports, wire references, and full audit trail
+- **Invoice Management** — Drag-drop upload with thumbnail gallery, AI-powered extraction, and split-view PDF preview with match details
+- **Automated Validation** — Flag over-budget requests, duplicate invoices, missing documentation, and low-confidence matches
+
+### Financial Calculations & Reports
+
+- **Compound Interest Amortization** — Accurate draw-by-draw interest with monthly compounding and automatic fee clock start
+- **Interactive Payoff Calculator** — Real-time payoff statements with what-if scenarios, per diem rates, and custom date projections
+- **Title Company Reports** — Professional payoff letters with credits management and good-through dates
+- **Fee Escalation Tracking** — Precise calculation matching our formulas with hierarchical term resolution (Project > Lender > Default)
+- **Three Financial Report Types** — Budget (Sankey flow, utilization charts), Amortization (balance growth, draw timeline), and Payoff (fee projection, what-if comparison) with Table/Chart toggle views
+- **Anomaly Detection** — Automated flagging of spending spikes, velocity changes, and budget variances
+- **Risk Indicators** — LTV color coding (≤65% green, 66-74% yellow, ≥75% red) and maturity urgency warnings
+
+### Dashboards & Navigation
+
+- **Dual Dashboard Design** — Portfolio Dashboard for overview and Draw Dashboard for daily operations
+- **Smart Filtering** — 3-way toggle (Builder/Subdivision/Lender) with cascading filters and URL-based deep linking
+- **Stage-Specific Metrics** — Dynamic stats bars showing relevant KPIs per lifecycle stage (pipeline value, utilization, IRR)
+- **Builder Timeline** — Interactive Gantt and spreadsheet views grouped by lender with keyboard navigation
+- **Quick Navigation** — Context-aware back button, Quick Links popup (press Q), recent pages tracking, and keyboard shortcuts
+
+### User Interface & Design
+
+- **TD3 Design System** — Consistent visual language with dark red/maroon accent palette (AAA accessibility) and Material elevation system
+- **Light & Dark Modes** — Clean light theme default with full dark mode support
+- **Polymorphic Components** — Context-aware styling that adapts to content state and user role
+- **Smooth Animations** — Framer Motion transitions throughout with view mode persistence across sessions
+- **Progressive Disclosure** — Tabbed loan pages and expandable accordions reveal detail on demand
 
 **In Active Development:**
 
