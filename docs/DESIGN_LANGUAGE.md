@@ -1103,5 +1103,23 @@ styles/
 
 ---
 
-*TD3 Design Language v1.0 — Last updated: December 2024*
+## Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Development Roadmap](ROADMAP.md) | Launch timeline, planned features, and upcoming UI work |
+| [Technical Architecture](ARCHITECTURE.md) | System design, data flows, component reference |
+| [N8N Agent Prompt](N8N_AGENT_PROMPT.md) | AI workflow instructions and webhook specs |
+
+### Upcoming Design Work
+
+See the [Development Roadmap](ROADMAP.md) for detailed timelines on features that will require new design patterns:
+
+- **Builder Portal** — Simplified interface for external builders to view loans and submit draws
+- **Lender Portal** — Read-only portfolio view for lending partners
+- **Mobile Inspection App** — Touch-optimized interface for field inspections and photo capture
+
+---
+
+*TD3 Design Language v1.1 — Last updated: January 2026*
 

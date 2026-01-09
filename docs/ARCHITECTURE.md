@@ -1369,3 +1369,23 @@ TD3 uses a self-hosted n8n instance at `https://n8n.srv1208741.hstgr.cloud/` for
 ### Unmatched Draw Categories Can't Be Assigned
 - **Cause:** No existing budget line for the category
 - **Solution:** Draw review page now allows creating new budget lines from unmatched categories using cascading NAHB Category → Subcategory dropdowns
+
+---
+
+## Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Development Roadmap](ROADMAP.md) | Launch timeline, planned features, team requirements, and cost estimates |
+| [Design Language](DESIGN_LANGUAGE.md) | UI/UX standards, color system, and component patterns |
+| [N8N Agent Prompt](N8N_AGENT_PROMPT.md) | Instructions for building and modifying n8n workflows |
+
+## Planned Enhancements
+
+See the [Development Roadmap](ROADMAP.md) for detailed timelines and specifications on upcoming features:
+
+- **Authentication & Permissions** — Role-based access control with Supabase Auth
+- **DocuSign Integration** — Automated document signing and status tracking
+- **Builder/Lender Portals** — External access for clients and lending partners
+- **RAG Portfolio Chatbot** — Natural language queries against loan data
+- **Mobile Inspection App** — Field inspections with photo documentation

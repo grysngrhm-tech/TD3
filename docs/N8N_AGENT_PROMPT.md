@@ -32,7 +32,7 @@ All technical details are documented in the TD3 repository:
 
 ---
 
-## IMPLEMENTATION STATUS (December 2024)
+## IMPLEMENTATION STATUS (January 2026)
 
 ### Working Workflows
 
@@ -969,3 +969,29 @@ project_id: originalItem.projectId
 1. Ensure variables are prefixed with `NEXT_PUBLIC_`
 2. Delete `.next` folder and restart dev server
 3. Check Vercel environment variables match local
+
+---
+
+## Planned n8n Enhancements
+
+See the [Development Roadmap](ROADMAP.md) for detailed timelines. Upcoming n8n workflow work includes:
+
+### Phase 2: Enhanced Invoice AI Workflow
+- Configurable flag thresholds (variance %, large draw amounts)
+- Additional review triggers (first draw on loan, past maturity, new vendor)
+- Improved invoice-to-category matching reliability
+
+### Phase 3: Post-Launch Integrations
+- **DocuSign Webhooks** — Receive signed document notifications, update loan status
+- **Microsoft Adaptive Cards** — Generate cards for funding requests, approvals
+- **RAG Chatbot Backend** — SQL generation agent for portfolio queries
+
+---
+
+## Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Development Roadmap](ROADMAP.md) | Launch timeline, planned features, cost estimates |
+| [Technical Architecture](ARCHITECTURE.md) | Complete system design, data flows, database schema |
+| [Design Language](DESIGN_LANGUAGE.md) | UI/UX standards and component patterns |
