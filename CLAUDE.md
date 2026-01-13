@@ -89,6 +89,31 @@ Located in `n8n/workflows/` and `n8n-workflows/`:
 - `td3-draw-processor.json` - Draw processing workflow
 - `td3-invoice-process.json` - AI invoice matching
 
+## Git Workflow
+```
+main (production)     → Protected, deploys to production
+  └── develop (staging) → Preview deployments on Vercel
+       └── feature/*    → Local development
+```
+
+### Branching Rules
+- **Never push directly to `main`** - All changes require a Pull Request
+- Create feature branches from `develop` for new work
+- PR to `develop` first, test on staging preview
+- PR from `develop` to `main` when ready for production
+
+### Workflow Example
+```bash
+git checkout develop
+git pull origin develop
+git checkout -b feature/my-new-feature
+# ... make changes ...
+git add . && git commit -m "Add new feature"
+git push -u origin feature/my-new-feature
+# Create PR to develop on GitHub
+# After merge, create PR from develop to main for production
+```
+
 ## Common Development Commands
 ```bash
 npm run dev      # Start development server (port 3000)
