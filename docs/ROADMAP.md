@@ -267,8 +267,9 @@ Step 4: Document any discrepancies
 | **Team Input Required** | No |
 | **Estimated Duration** | 2-3 days |
 | **Owner** | Development |
+| **Status** | ✅ COMPLETE (Jan 13, 2026) |
 
-**Setup Required:**
+**Implemented Configuration:**
 
 ```
 GitHub Repository Structure:
@@ -282,16 +283,21 @@ GitHub Repository Structure:
 
 **Environment Configuration:**
 
-| Environment | Branch | Database | URL |
-|-------------|--------|----------|-----|
-| Production | main | Supabase prod project | td3.yourdomain.com |
-| Staging | develop | Supabase staging project | staging.td3.yourdomain.com |
-| Development | feature/* | Local or dev project | localhost:3000 |
+| Environment | Branch | Database | Deployment |
+|-------------|--------|----------|------------|
+| Production | main | Supabase (shared) | Vercel auto-deploy |
+| Staging | develop | Supabase (shared) | Vercel preview URL |
+| Development | feature/* | Supabase (shared) | localhost:3000 |
 
 **Vercel Setup:**
-- Production deployment from `main`
-- Preview deployments from PRs
-- Environment variables per environment
+- Production deployment from `main` (auto)
+- Preview deployments from `develop` and PRs (auto)
+- Environment variables configured
+
+**Documentation Updated:**
+- `CLAUDE.md` - Git workflow section added
+- `README.md` - Development section added
+- `docs/ARCHITECTURE.md` - Development workflow section added
 
 ---
 

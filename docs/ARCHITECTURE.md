@@ -4,6 +4,72 @@ This document provides detailed technical information for developers and AI agen
 
 ---
 
+## Development Workflow
+
+### Branch Strategy
+
+```
+main (production)     → Protected, requires PR, auto-deploys to Vercel
+  └── develop (staging) → Preview deployments, integration testing
+       └── feature/*    → Local development branches
+```
+
+### Environments
+
+| Environment | Branch | URL | Purpose |
+|-------------|--------|-----|---------|
+| Production | `main` | Vercel production URL | Live application |
+| Staging | `develop` | Vercel preview URL | Pre-production testing |
+| Local | `feature/*` | localhost:3000 | Development |
+
+### Workflow Steps
+
+1. **Start new work**
+   ```bash
+   git checkout develop
+   git pull origin develop
+   git checkout -b feature/my-feature
+   ```
+
+2. **Develop locally**
+   ```bash
+   npm run dev          # Start dev server
+   npm run build        # Test production build
+   npm run lint         # Check for issues
+   ```
+
+3. **Push to staging**
+   ```bash
+   git push origin develop
+   # Or create PR to develop for review
+   ```
+
+4. **Test on staging**
+   - Vercel auto-generates preview URL
+   - Test with real Supabase data
+   - Verify all functionality works
+
+5. **Deploy to production**
+   - Create PR: `develop` → `main`
+   - Review changes
+   - Merge triggers production deploy
+
+### Branch Protection Rules
+
+- **main**: Protected - no direct pushes, requires PR
+- **develop**: Open - direct pushes allowed for quick iterations
+
+### Database Note
+
+Currently all environments share the same Supabase database. Be cautious with:
+- Schema migrations (test on local first)
+- Destructive operations (deletes, truncates)
+- Seed data modifications
+
+Future: Separate staging Supabase project for isolated testing.
+
+---
+
 ## System Components
 
 ### 1. Web Application (Next.js)
