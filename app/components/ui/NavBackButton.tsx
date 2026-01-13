@@ -61,12 +61,13 @@ export function NavBackButton() {
       <div className="flex items-center gap-1">
         <motion.button
           onClick={() => router.back()}
+          aria-label="Go back"
           className="flex items-center gap-1 px-2 py-1.5 touch-target"
-          style={{ 
+          style={{
             color: 'var(--text-secondary)',
             borderRadius: 'var(--radius-sm)',
           }}
-          whileHover={{ 
+          whileHover={{
             backgroundColor: 'var(--bg-hover)',
             color: 'var(--text-primary)',
           }}
@@ -82,8 +83,9 @@ export function NavBackButton() {
             <span key={crumb.path} className="flex items-center gap-1">
               <motion.button
                 onClick={() => router.push(crumb.path)}
+                aria-label={`Navigate to ${crumb.title}`}
                 className="truncate max-w-[120px] transition-colors"
-                style={{ 
+                style={{
                   color: 'var(--text-muted)',
                 }}
                 whileHover={{
