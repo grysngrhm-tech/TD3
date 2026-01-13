@@ -138,6 +138,7 @@ export function DetailPanel({ projectId, onClose }: DetailPanelProps) {
               </div>
               <button
                 onClick={onClose}
+                aria-label="Close panel"
                 className="w-10 h-10 rounded-ios-sm flex items-center justify-center transition-colors hover:bg-[var(--bg-hover)]"
               >
                 <svg className="w-5 h-5" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">

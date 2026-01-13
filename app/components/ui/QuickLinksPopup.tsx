@@ -316,15 +316,17 @@ export function QuickLinksPopup({ variant }: QuickLinksPopupProps) {
       {/* Tab - always visible at bottom */}
       <motion.button
         onClick={toggleQuickLinks}
+        aria-expanded={quickLinksOpen}
+        aria-label="Quick Links menu (Press Q)"
         className="w-full flex items-center justify-center gap-2 px-4 py-3.5 touch-target transition-all"
-        style={{ 
+        style={{
           background: quickLinksOpen ? 'var(--accent)' : 'var(--bg-card)',
           color: quickLinksOpen ? 'white' : 'var(--text-secondary)',
           borderTop: quickLinksOpen ? 'none' : '1px solid var(--border-subtle)',
           borderRadius: quickLinksOpen ? 0 : 'var(--radius-lg)',
           boxShadow: quickLinksOpen ? 'none' : 'var(--elevation-1)',
         }}
-        whileHover={{ 
+        whileHover={{
           backgroundColor: quickLinksOpen ? 'var(--accent-hover)' : 'var(--bg-hover)',
           color: quickLinksOpen ? 'white' : 'var(--text-primary)',
         }}

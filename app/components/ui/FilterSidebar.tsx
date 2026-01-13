@@ -155,10 +155,11 @@ export function FilterSidebar({
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.8, opacity: 0 }}
                     onClick={() => onFilterChange(chip.category, chip.id)}
+                    aria-label={`Remove ${chip.label} filter`}
                     className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors hover:opacity-80"
-                    style={{ 
-                      background: 'var(--accent-glow)', 
-                      color: 'var(--accent)' 
+                    style={{
+                      background: 'var(--accent-glow)',
+                      color: 'var(--accent)'
                     }}
                   >
                     <span className="truncate max-w-[120px]">{chip.label}</span>
