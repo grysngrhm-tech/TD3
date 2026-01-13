@@ -1,0 +1,110 @@
+# TD3 Project Context
+
+## Overview
+TD3 is a construction loan management system built for Tennant Development. It replaces scattered spreadsheets with a unified platform for tracking loans, budgets, draws, and wire transfers throughout the construction lending lifecycle.
+
+## Tech Stack
+- **Frontend**: Next.js 14 (App Router), React 18, Tailwind CSS, Framer Motion
+- **Database**: Supabase (PostgreSQL) - Project ID: zekbemqgvupzmukpntog
+- **AI Workflows**: n8n (self-hosted at https://n8n.srv1208741.hstgr.cloud)
+- **Charts**: Nivo (Sankey, Bar, Line, Pie)
+- **UI Components**: Radix UI (Dialog, Accordion, Tabs)
+- **Spreadsheet Parsing**: xlsx-js-style
+- **Data Grid**: react-datasheet-grid
+
+## Key Directories
+- `app/` - Next.js App Router pages and components
+  - `app/components/` - React components (builders, draws, import, projects, ui)
+  - `app/api/` - API routes (webhooks, validations, reports)
+- `lib/` - Core business logic
+  - `calculations.ts` - Financial calculations (IRR, amortization, payoff)
+  - `loanTerms.ts` - Fee escalation formulas and term resolution
+  - `spreadsheet.ts` - Excel parsing with column/row detection
+  - `validations.ts` - Draw request validation and flag generation
+  - `anomalyDetection.ts` - Budget and spending anomaly detection
+- `types/` - TypeScript type definitions (`database.ts`)
+- `supabase/` - Database migrations and schema (001_schema.sql, 002_seed.sql)
+- `n8n/workflows/` - n8n workflow JSON exports
+- `docs/` - Documentation (ARCHITECTURE.md, DESIGN_LANGUAGE.md, ROADMAP.md)
+
+## Database Schema (Key Tables)
+- `projects` - Construction loans with lifecycle_stage (pending/active/historic)
+- `builders` - Builder/contractor companies with banking info
+- `budgets` - Line items with NAHB cost codes and AI confidence scores
+- `draw_requests` - Draw submissions with status workflow
+- `draw_request_lines` - Individual items linked to budgets
+- `wire_batches` - Groups draws per builder for single wire transfers
+- `nahb_categories/subcategories` - 16 major categories, 118 subcategories
+
+## Important Patterns
+
+### Loan Lifecycle
+```
+Pending → Active → Historic
+```
+- Pending: Loan in origination (Origination tab)
+- Active: Loan funded, tracking draws (Status tab)
+- Historic: Loan paid off (Performance tab)
+
+### Draw Workflow
+```
+review → staged → pending_wire → funded
+```
+- review: Awaiting user review, editable
+- staged: Approved, grouped with builder's other draws
+- pending_wire: Sent to bookkeeper for wire processing
+- funded: Wire sent, budget spent amounts updated, locked
+
+### Financial Calculations
+- **Compound Interest**: Monthly accrual at month-end and draw funding
+- **Fee Escalation**: 2% months 1-6, +0.25%/month 7-12, 5.9% month 13, +0.4%/month after
+- **IRR**: Newton-Raphson method on cash flows
+- **LTV Risk**: ≤65% green, 66-74% yellow, ≥75% red
+
+### Budget Categorization
+- AI maps builder categories to NAHB cost codes (16 categories, 118 subcategories)
+- Fuzzy matching for draw-to-budget category assignment (0.6 threshold)
+- Cascading dropdowns: Category → Subcategory
+
+## Environment Variables
+Required in `.env.local`:
+```
+NEXT_PUBLIC_SUPABASE_URL=https://[project-id].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIs...
+NEXT_PUBLIC_N8N_BUDGET_WEBHOOK=https://n8n.srv1208741.hstgr.cloud/webhook/budget-import
+NEXT_PUBLIC_N8N_DRAW_WEBHOOK=https://n8n.srv1208741.hstgr.cloud/webhook/td3-draw-process
+```
+
+## Code Style & Conventions
+- TypeScript strict mode
+- Tailwind for all styling (no inline styles, no CSS modules)
+- Framer Motion for animations
+- Prefer Radix UI for accessible primitives
+- Component files use PascalCase (e.g., `BudgetEditor.tsx`)
+- Utility files use camelCase (e.g., `calculations.ts`)
+
+## n8n Workflows
+Located in `n8n/workflows/` and `n8n-workflows/`:
+- `td3-budget-import.json` - AI budget categorization
+- `td3-draw-processor.json` - Draw processing workflow
+- `td3-invoice-process.json` - AI invoice matching
+
+## Common Development Commands
+```bash
+npm run dev      # Start development server (port 3000)
+npm run build    # Production build
+npm run lint     # ESLint check
+npm run start    # Start production server
+```
+
+## Key Features to Understand
+1. **Smart Import**: Excel parsing with multi-signal row boundary detection
+2. **Fuzzy Matching**: Levenshtein + tokenized word matching for category assignment
+3. **Polymorphic Reports**: Budget/Amortization/Payoff reports with Table/Chart views
+4. **Wire Batch System**: Groups multiple draws per builder into single wire transfers
+5. **Audit Trail**: Every action logged with timestamps and user attribution
+
+## Owner
+Grayson Graham (grysngrhm-tech on GitHub)
+GRYSNGRHM organization on Supabase
+
