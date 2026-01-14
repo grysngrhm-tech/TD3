@@ -5,7 +5,7 @@ TD3 is a construction loan management system built for Tennant Development. It r
 
 ## Tech Stack
 - **Frontend**: Next.js 14 (App Router), React 18, Tailwind CSS, Framer Motion
-- **Database**: Supabase (PostgreSQL) - Project ID: zekbemqgvupzmukpntog
+- **Database**: Supabase (PostgreSQL) - Project ID: uewqcbmaiuofdfvqmbmq
 - **AI Workflows**: n8n (self-hosted at https://n8n.srv1208741.hstgr.cloud)
 - **Charts**: Nivo (Sankey, Bar, Line, Pie)
 - **UI Components**: Radix UI (Dialog, Accordion, Tabs)
@@ -15,16 +15,20 @@ TD3 is a construction loan management system built for Tennant Development. It r
 ## Key Directories
 - `app/` - Next.js App Router pages and components
   - `app/components/` - React components (builders, draws, import, projects, ui)
-  - `app/api/` - API routes (webhooks, validations, reports)
+  - `app/api/` - API routes (webhooks, validations, reports, invoices)
 - `lib/` - Core business logic
   - `calculations.ts` - Financial calculations (IRR, amortization, payoff)
   - `loanTerms.ts` - Fee escalation formulas and term resolution
   - `spreadsheet.ts` - Excel parsing with column/row detection
   - `validations.ts` - Draw request validation and flag generation
   - `anomalyDetection.ts` - Budget and spending anomaly detection
+  - `invoiceMatching.ts` - Deterministic invoice-to-draw-line matching
+  - `invoiceLearning.ts` - Match correction learning and training data
+  - `n8n.ts` - n8n webhook integration and payload types
 - `types/` - TypeScript type definitions (`database.ts`)
 - `supabase/` - Database migrations and schema (001_schema.sql, 002_seed.sql)
-- `n8n/workflows/` - n8n workflow JSON exports
+- `n8n/workflows/` - n8n workflow documentation
+- `n8n-workflows/` - n8n workflow JSON exports
 - `docs/` - Documentation (ARCHITECTURE.md, DESIGN_LANGUAGE.md, ROADMAP.md)
 
 ## Database Schema (Key Tables)
@@ -35,6 +39,10 @@ TD3 is a construction loan management system built for Tennant Development. It r
 - `draw_request_lines` - Individual items linked to budgets
 - `wire_batches` - Groups draws per builder for single wire transfers
 - `nahb_categories/subcategories` - 16 major categories, 118 subcategories
+- `invoices` - Uploaded invoice files with extraction and match status
+- `invoice_match_decisions` - Audit trail of matching decisions (auto/manual)
+- `invoice_match_training` - Learning data from approved matches
+- `vendor_category_associations` - Vendor-to-category mappings for training
 
 ## Important Patterns
 
@@ -66,13 +74,53 @@ review → staged → pending_wire → funded
 - Fuzzy matching for draw-to-budget category assignment (0.6 threshold)
 - Cascading dropdowns: Category → Subcategory
 
+### Invoice Matching Architecture
+```
+Upload → n8n Extraction → Callback → Deterministic Matching → Apply/Flag
+```
+
+**Flow:**
+1. User uploads invoice PDF to `/api/invoices/upload`
+2. TD3 stores file in Supabase Storage, creates invoice record
+3. TD3 calls n8n webhook (`td3-invoice-process`) with signed file URL
+4. n8n extracts data using GPT-4o-mini (vendor, amount, trade, keywords)
+5. n8n calls back to `/api/invoices/process-callback` with extracted data
+6. TD3 runs deterministic matching with weighted scores:
+   - Amount: 50% (how close is invoice to draw line amount)
+   - Trade: 20% (does extracted trade match category)
+   - Keywords: 15% (keyword overlap with category tokens)
+   - Training: 15% (vendor history from past matches)
+7. Classification and action:
+   - SINGLE_MATCH (≥85%, ≥15% gap): Auto-apply
+   - MULTIPLE_CANDIDATES: Flag for review
+   - AMBIGUOUS/NO_CANDIDATES: Manual review
+
+**Key Files:**
+- `lib/invoiceMatching.ts` - Candidate generation and scoring
+- `lib/invoiceLearning.ts` - Training data capture from corrections
+- `app/api/invoices/process-callback/route.ts` - n8n callback handler
+- `app/components/draws/InvoiceMatchPanel.tsx` - Manual matching UI
+
 ## Environment Variables
 Required in `.env.local`:
 ```
+# Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://[project-id].supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIs...
-NEXT_PUBLIC_N8N_BUDGET_WEBHOOK=https://n8n.srv1208741.hstgr.cloud/webhook/budget-import
-NEXT_PUBLIC_N8N_DRAW_WEBHOOK=https://n8n.srv1208741.hstgr.cloud/webhook/td3-draw-process
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIs...  # For server-side operations
+
+# n8n Integration
+NEXT_PUBLIC_N8N_WEBHOOK_URL=https://n8n.srv1208741.hstgr.cloud/webhook
+N8N_CALLBACK_SECRET=your-shared-secret  # Must match n8n's TD3_WEBHOOK_SECRET
+
+# Optional
+NEXT_PUBLIC_APP_URL=https://td3.vercel.app  # For callback URLs
+```
+
+**n8n Environment (set in n8n instance):**
+```
+TD3_WEBHOOK_SECRET=your-shared-secret  # Must match TD3's N8N_CALLBACK_SECRET
+TD3_API_URL=https://td3.vercel.app     # Base URL for callbacks
 ```
 
 ## Code Style & Conventions
@@ -84,10 +132,15 @@ NEXT_PUBLIC_N8N_DRAW_WEBHOOK=https://n8n.srv1208741.hstgr.cloud/webhook/td3-draw
 - Utility files use camelCase (e.g., `calculations.ts`)
 
 ## n8n Workflows
-Located in `n8n/workflows/` and `n8n-workflows/`:
-- `td3-budget-import.json` - AI budget categorization
-- `td3-draw-processor.json` - Draw processing workflow
-- `td3-invoice-process.json` - AI invoice matching
+Located in `n8n-workflows/`:
+- `td3-invoice-process.json` - Invoice extraction with GPT-4o-mini
+
+Webhook endpoints (base: `https://n8n.srv1208741.hstgr.cloud/webhook`):
+- `/budget-import` - Budget spreadsheet AI categorization
+- `/td3-draw-process` - Draw processing
+- `/td3-invoice-process` - Invoice PDF extraction → callback to TD3
+
+See `n8n/workflows/README.md` for detailed documentation.
 
 ## Git Workflow
 ```
@@ -128,6 +181,7 @@ npm run start    # Start production server
 3. **Polymorphic Reports**: Budget/Amortization/Payoff reports with Table/Chart views
 4. **Wire Batch System**: Groups multiple draws per builder into single wire transfers
 5. **Audit Trail**: Every action logged with timestamps and user attribution
+6. **Invoice Matching**: AI extraction + deterministic scoring with learning flywheel
 
 ## Owner
 Grayson Graham (grysngrhm-tech on GitHub)

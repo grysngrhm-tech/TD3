@@ -11,7 +11,7 @@ import { DashboardHeader } from '@/app/components/ui/DashboardHeader'
 import { useFilters } from '@/app/hooks/useFilters'
 import { useNavigation } from '@/app/context/NavigationContext'
 import { calculateLoanIncome, calculateIRR } from '@/lib/calculations'
-import type { LifecycleStage, Builder, Lender, DrawRequest } from '@/types/database'
+import type { LifecycleStage, Builder, Lender, DrawRequest, Project } from '@/types/database'
 
 type ProjectWithBudget = {
   id: string
@@ -66,31 +66,34 @@ export default function Dashboard() {
   async function loadData() {
     try {
       // Fetch builders
-      const { data: buildersData } = await supabase
+      const { data: buildersRaw } = await supabase
         .from('builders')
         .select('*')
         .order('company_name', { ascending: true })
+      const buildersData = (buildersRaw || []) as Builder[]
 
-      setBuilders(buildersData || [])
-      const builderMap = new Map(buildersData?.map(b => [b.id, b]) || [])
+      setBuilders(buildersData)
+      const builderMap = new Map(buildersData.map(b => [b.id, b]))
 
       // Fetch lenders
-      const { data: lendersData } = await supabase
+      const { data: lendersRaw } = await supabase
         .from('lenders')
         .select('*')
         .eq('is_active', true)
         .order('name', { ascending: true })
+      const lendersData = (lendersRaw || []) as Lender[]
 
-      setLenders(lendersData || [])
-      const lenderMap = new Map(lendersData?.map(l => [l.id, l]) || [])
+      setLenders(lendersData)
+      const lenderMap = new Map(lendersData.map(l => [l.id, l]))
 
       // Get projects
-      const { data: projectsData } = await supabase
+      const { data: projectsRaw } = await supabase
         .from('projects')
         .select('*')
         .order('created_at', { ascending: false })
+      const projectsData = (projectsRaw || []) as Project[]
 
-      if (!projectsData) {
+      if (projectsData.length === 0) {
         setProjects([])
         return
       }
@@ -113,13 +116,13 @@ export default function Dashboard() {
           let irr: number | null = null
 
           if (project.lifecycle_stage === 'historic') {
-            const { data: drawsData } = await supabase
+            const { data: drawsRaw } = await supabase
               .from('draw_requests')
               .select('*')
               .eq('project_id', project.id)
               .order('request_date', { ascending: true })
 
-            draws = drawsData || []
+            draws = (drawsRaw || []) as DrawRequest[]
 
             // Calculate income and IRR
             const incomeResult = calculateLoanIncome(project, draws)

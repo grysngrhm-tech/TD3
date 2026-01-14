@@ -52,19 +52,20 @@ export default function EditProjectPage() {
 
       if (fetchError) throw fetchError
 
-      setProject(data)
+      const projectData = data as Project
+      setProject(projectData)
       // Populate form
-      setName(data.name)
-      setAddress(data.address || '')
-      setLoanAmount(data.loan_amount?.toString() || '')
-      setStatus(data.status)
-      setProjectCode(data.project_code || '')
-      setBuilderName(data.builder_name || '')
-      setBorrowerName(data.borrower_name || '')
-      setInterestRate(data.interest_rate_annual ? (data.interest_rate_annual * 100).toString() : '')
-      setLoanTermMonths(data.loan_term_months?.toString() || '')
-      setLoanStartDate(data.loan_start_date || '')
-      setMaturityDate(data.maturity_date || '')
+      setName(projectData.name)
+      setAddress(projectData.address || '')
+      setLoanAmount(projectData.loan_amount?.toString() || '')
+      setStatus((projectData.status || 'active') as 'active' | 'completed' | 'on_hold')
+      setProjectCode(projectData.project_code || '')
+      setBuilderName(projectData.builder_name || '')
+      setBorrowerName(projectData.borrower_name || '')
+      setInterestRate(projectData.interest_rate_annual ? (projectData.interest_rate_annual * 100).toString() : '')
+      setLoanTermMonths(projectData.loan_term_months?.toString() || '')
+      setLoanStartDate(projectData.loan_start_date || '')
+      setMaturityDate(projectData.maturity_date || '')
     } catch (error) {
       console.error('Error loading project:', error)
       setError('Failed to load project')

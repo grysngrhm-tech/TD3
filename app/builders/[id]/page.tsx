@@ -10,6 +10,11 @@ import { useNavigation } from '@/app/context/NavigationContext'
 import { calculateLoanIncome, calculateIRR } from '@/lib/calculations'
 import type { Builder, LifecycleStage, DrawRequest, Project, Lender } from '@/types/database'
 
+// Extended project type with lender relation
+type ProjectWithLender = Project & {
+  lender: Lender | null
+}
+
 type ProjectWithBudget = {
   id: string
   project_code: string | null
@@ -62,14 +67,15 @@ export default function BuilderDetailPage() {
         .single()
 
       if (builderError) throw builderError
-      setBuilder(builderData)
+      setBuilder(builderData as Builder)
 
       // Fetch projects for this builder WITH lender relation
-      const { data: projectsData } = await supabase
+      const { data: projectsRaw } = await supabase
         .from('projects')
         .select('*, lender:lenders(*)')
         .eq('builder_id', builderId)
         .order('created_at', { ascending: false })
+      const projectsData = projectsRaw as ProjectWithLender[] | null
 
       if (!projectsData) {
         setProjects([])
@@ -99,7 +105,7 @@ export default function BuilderDetailPage() {
             .eq('project_id', project.id)
             .order('request_date', { ascending: true })
 
-          const draws = drawsData || []
+          const draws = (drawsData || []) as DrawRequest[]
 
           // Get draws for historic projects (for income/IRR calculation)
           let totalIncome = 0
@@ -134,12 +140,12 @@ export default function BuilderDetailPage() {
 
           // For timeline - include lender and draws
           projectsForTimeline.push({
-            ...project,
-            lender: (project as any).lender as Lender | null,
+            ...(project as Project),
+            lender: project.lender,
             draws: draws,
             total_budget: totalBudget,
             total_spent: totalSpent,
-          })
+          } as ProjectWithDraws)
         })
       )
 
@@ -157,9 +163,9 @@ export default function BuilderDetailPage() {
           .order('created_at', { ascending: false })
 
         setStagedDraws(
-          (stagedDrawsData || []).map(draw => ({
+          ((stagedDrawsData || []) as (DrawRequest & { projects: Project })[]).map(draw => ({
             ...draw,
-            project: (draw as any).projects as Project
+            project: draw.projects
           }))
         )
       } else {

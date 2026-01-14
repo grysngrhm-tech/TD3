@@ -17,6 +17,7 @@ import {
 } from '@/lib/spreadsheet'
 import type { SpreadsheetData, ColumnMapping, WorkbookInfo, Invoice, RowRange, RowRangeWithAnalysis, RowAnalysis } from '@/lib/spreadsheet'
 import { supabase } from '@/lib/supabase'
+import type { Budget, DrawRequest, DrawRequestLine } from '@/types/database'
 
 type Builder = {
   id: string
@@ -636,11 +637,12 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
         // === DRAW IMPORT: Create directly in Supabase ===
         
         // 1. Fetch existing budgets for this project to match against
-        const { data: budgets, error: budgetsError } = await supabase
+        const { data: budgetsRaw, error: budgetsError } = await supabase
           .from('budgets')
           .select('*')
           .eq('project_id', selectedProjectId)
-        
+        const budgets = (budgetsRaw || []) as Budget[]
+
         if (budgetsError) {
           console.error('Failed to fetch budgets:', budgetsError)
         }
@@ -649,7 +651,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
         const totalAmount = amountValues.reduce((sum, amt) => sum + amt, 0)
         
         // 2. Create draw_request in Supabase
-        const { data: newDraw, error: drawError } = await supabase
+        const { data: newDrawRaw, error: drawError } = await supabase
           .from('draw_requests')
           .insert({
             project_id: selectedProjectId,
@@ -661,11 +663,12 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
           })
           .select()
           .single()
-        
+
         if (drawError) {
           throw new Error('Failed to create draw request: ' + drawError.message)
         }
-        
+        const newDraw = newDrawRaw as DrawRequest
+
         // Store draw ID for redirect after success
         createdDrawId = newDraw.id
         
@@ -697,11 +700,12 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
         })
         
         // 4. Insert draw_request_lines with proper budget_id
-        const { data: createdLines, error: linesError } = await supabase
+        const { data: createdLinesRaw, error: linesError } = await supabase
           .from('draw_request_lines')
           .insert(drawLinesData)
           .select()
-        
+        const createdLines = (createdLinesRaw || []) as DrawRequestLine[]
+
         if (linesError) {
           console.error('Failed to create draw lines:', linesError)
           // Don't throw - draw was created, lines can be added later

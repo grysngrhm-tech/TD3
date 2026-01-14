@@ -18,7 +18,8 @@
       "Bash(findstr:*)",
       "Bash(timeout:*)",
       "Bash(npx tsc:*)",
-      "Bash(git diff:*)"
+      "Bash(git diff:*)",
+      "Bash(tee:*)"
     ]
   }
 }

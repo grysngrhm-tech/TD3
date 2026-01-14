@@ -55,14 +55,15 @@ export default function ProgressReportPage() {
         .single()
 
       if (projectError) throw projectError
-      setProject(projectData)
+      setProject(projectData as Project)
 
       // Fetch budgets
-      const { data: budgets } = await supabase
+      const { data: budgetsRaw } = await supabase
         .from('budgets')
         .select('*')
         .eq('project_id', projectId)
         .order('sort_order', { ascending: true })
+      const budgets = (budgetsRaw || []) as Budget[]
 
       // Fetch draws
       const { data: drawsData } = await supabase
@@ -73,7 +74,7 @@ export default function ProgressReportPage() {
         .in('status', ['funded', 'paid'])
         .order('draw_number', { ascending: true })
 
-      setDraws(drawsData || [])
+      setDraws((drawsData || []) as DrawRequest[])
 
       // Calculate totals
       const totalOriginal = budgets?.reduce((sum, b) => sum + (b.original_amount || 0), 0) || 0

@@ -1,5 +1,25 @@
-// n8n Webhook Integration
-// Configure your n8n webhook URLs here
+/**
+ * n8n Webhook Integration
+ *
+ * This module handles communication between TD3 and n8n workflows.
+ *
+ * ## Environment Variables
+ *
+ * TD3 side (.env.local):
+ * - NEXT_PUBLIC_N8N_WEBHOOK_URL: Base URL for n8n webhooks (e.g., https://n8n.example.com/webhook)
+ * - N8N_CALLBACK_SECRET: Secret for authenticating callbacks FROM n8n TO TD3
+ *
+ * n8n side (n8n environment):
+ * - TD3_WEBHOOK_SECRET: Must match TD3's N8N_CALLBACK_SECRET
+ * - TD3_API_URL: Base URL for TD3 callbacks (e.g., https://td3.vercel.app)
+ *
+ * ## Workflow: td3-invoice-process
+ *
+ * 1. TD3 uploads invoice and calls n8n webhook with file URL
+ * 2. n8n downloads file, extracts data with GPT-4o-mini
+ * 3. n8n calls back to TD3 /api/invoices/process-callback with extracted data
+ * 4. TD3 runs deterministic matching and applies/flags the result
+ */
 
 // Base URL should be the n8n "webhook" base, e.g. https://<host>/webhook
 // Prefer env var, but default to the repo's documented self-hosted instance.
@@ -49,15 +69,33 @@ export type DrawProcessPayload = {
   invoiceCount: number
 }
 
+/**
+ * Payload sent to n8n td3-invoice-process webhook.
+ *
+ * Required by n8n:
+ * - invoiceId: Used to track the invoice through processing
+ * - fileUrl: Signed URL for n8n to download the invoice file
+ * - fileName: Original filename for reference
+ * - callbackUrl: Where n8n sends extraction results
+ *
+ * Optional context (currently unused by n8n, kept for future enhancements):
+ * - drawRequestId, projectId, projectCode: Context for potential n8n-side matching
+ * - budgetCategories, drawLines: Could enable n8n-side category suggestions
+ */
 export type InvoiceProcessPayload = {
+  // Required fields - used by n8n workflow
   invoiceId: string
   fileUrl: string
   fileName: string
+  callbackUrl: string
+
+  // Context fields - passed through for callback, not used by n8n extraction
   drawRequestId: string
   projectId: string
   projectCode: string | null
-  callbackUrl: string  // TD3 callback URL for n8n to send results to
-  budgetCategories: Array<{
+
+  // Optional enrichment - currently unused by n8n, kept for potential future use
+  budgetCategories?: Array<{
     id: string
     category: string
     nahbCategory: string | null
@@ -65,7 +103,7 @@ export type InvoiceProcessPayload = {
     drawnToDate: number
     remaining: number
   }>
-  drawLines: Array<{
+  drawLines?: Array<{
     id: string
     budgetId: string | null
     budgetCategory: string | null
