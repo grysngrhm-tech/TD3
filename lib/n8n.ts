@@ -189,6 +189,80 @@ export async function triggerInvoiceProcess(payload: InvoiceProcessPayload): Pro
   }
 }
 
+/**
+ * Payload for invoice disambiguation when multiple candidates score similarly.
+ * Sent to n8n td3-invoice-disambiguate webhook.
+ */
+export type InvoiceDisambiguatePayload = {
+  invoiceId: string
+  callbackUrl: string
+  extractedData: {
+    vendorName: string
+    amount: number
+    context?: string | null
+    keywords?: string[]
+    trade?: string | null
+    workType?: string | null
+    vendorType?: string | null
+  }
+  candidates: Array<{
+    drawLineId: string
+    budgetId: string | null
+    budgetCategory: string
+    nahbCategory: string | null
+    amountRequested: number
+    scores: {
+      amount: number
+      trade: number
+      keywords: number
+      training: number
+      composite: number
+    }
+    factors: {
+      amountVariance: number
+      amountVarianceAbsolute: number
+      tradeMatch: boolean
+      keywordMatches: string[]
+      vendorPreviousMatch: boolean
+      trainingReason: string | null
+    }
+  }>
+}
+
+/**
+ * Trigger AI disambiguation when multiple candidates are viable.
+ * Called when deterministic matching returns MULTIPLE_CANDIDATES.
+ */
+export async function triggerInvoiceDisambiguation(
+  payload: InvoiceDisambiguatePayload
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await fetch(`${N8N_BASE_URL}/td3-invoice-disambiguate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+
+    if (!response.ok) {
+      console.warn(`Invoice disambiguation webhook returned ${response.status}`)
+      return {
+        success: false,
+        message: `Webhook returned ${response.status}`,
+      }
+    }
+
+    return { success: true, message: 'Disambiguation started' }
+  } catch (error) {
+    console.warn('Invoice disambiguation webhook error:', error)
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
 // Utility to extract project metadata from first row of budget spreadsheet
 export function extractProjectMetadata(headers: string[], firstRow: (string | number | null)[]): Partial<BudgetImportPayload> {
   const metadata: Partial<BudgetImportPayload> = {}

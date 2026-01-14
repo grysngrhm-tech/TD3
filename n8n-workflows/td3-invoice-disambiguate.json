@@ -1,0 +1,362 @@
+{
+  "name": "TD3 Invoice Match Disambiguator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "td3-invoice-disambiguate",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "webhookId": "td3-invoice-disambiguate"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build AI prompt for candidate disambiguation\nconst webhookData = $input.first().json;\n\nconst invoice = webhookData.extractedData || {};\nconst candidates = webhookData.candidates || [];\n\nif (candidates.length < 2) {\n  return [{\n    json: {\n      error: true,\n      invoiceId: webhookData.invoiceId,\n      message: 'Need at least 2 candidates for disambiguation'\n    }\n  }];\n}\n\n// Format candidates for the prompt\nconst candidateList = candidates.map((c, i) => `\nCandidate ${i + 1}:\n- Draw Line ID: ${c.drawLineId}\n- Budget Category: ${c.budgetCategory}\n- NAHB Category: ${c.nahbCategory || 'N/A'}\n- Amount Requested: $${(c.amountRequested || 0).toLocaleString()}\n- Composite Score: ${((c.scores?.composite || 0) * 100).toFixed(1)}%\n- Amount Score: ${((c.scores?.amount || 0) * 100).toFixed(1)}%\n- Trade Match: ${c.factors?.tradeMatch ? 'Yes' : 'No'}\n- Keyword Matches: ${(c.factors?.keywordMatches || []).join(', ') || 'None'}\n- Vendor Previously Matched: ${c.factors?.vendorPreviousMatch ? 'Yes' : 'No'}\n`).join('');\n\nconst prompt = `You are a construction invoice matching expert. Given an invoice and multiple candidate budget categories that scored similarly in deterministic matching, select the BEST match.\n\nINVOICE DATA:\n- Vendor: ${invoice.vendorName || 'Unknown'}\n- Amount: $${(invoice.amount || 0).toLocaleString()}\n- Work Context: ${invoice.context || 'Not provided'}\n- Trade: ${invoice.trade || 'Not specified'}\n- Keywords: ${(invoice.keywords || []).join(', ') || 'None'}\n- Work Type: ${invoice.workType || 'Unknown'}\n- Vendor Type: ${invoice.vendorType || 'Unknown'}\n\nCANDIDATES:\n${candidateList}\n\nANALYZE the invoice context, vendor name, and keywords against each candidate's category. Consider:\n1. Does the vendor name suggest a specific trade? (e.g., \"ABC Electric\" → Electrical)\n2. Does the work context/description match the category better?\n3. Which keywords align best with which category?\n4. Is the amount variance acceptable for this type of work?\n\nReturn ONLY valid JSON (no markdown, no extra text):\n{\n  \"selectedDrawLineId\": \"the-uuid-of-best-match\",\n  \"selectedCategory\": \"the category name\",\n  \"confidence\": 0.0-1.0,\n  \"reasoning\": \"1-2 sentence explanation of why this is the best match\",\n  \"factors\": [\"list\", \"of\", \"key\", \"factors\"]\n}`;\n\nconst body = {\n  model: \"gpt-4o-mini\",\n  messages: [\n    {\n      role: \"user\",\n      content: prompt\n    }\n  ],\n  temperature: 0.1,\n  response_format: { type: \"json_object\" }\n};\n\nreturn [{\n  json: {\n    body,\n    invoiceId: webhookData.invoiceId,\n    callbackUrl: webhookData.callbackUrl,\n    candidates: candidates\n  }\n}];"
+      },
+      "id": "build-prompt",
+      "name": "Build Disambiguation Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-error",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-input-error",
+      "name": "Check Input Error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "call-openai",
+      "name": "Call OpenAI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 200],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAi account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse OpenAI response and build callback payload\nconst input = $input.first().json;\nconst prevData = $('Build Disambiguation Prompt').first().json;\n\n// Check for API errors\nif (input.error || !input.choices?.[0]?.message?.content) {\n  return [{\n    json: {\n      error: true,\n      invoiceId: prevData.invoiceId,\n      callbackUrl: prevData.callbackUrl,\n      message: input.error?.message || 'OpenAI API call failed'\n    }\n  }];\n}\n\n// Parse the response\nlet result = {};\ntry {\n  const content = input.choices[0].message.content;\n  const jsonStr = content.replace(/```json\\n?|```\\n?/g, '').trim();\n  result = JSON.parse(jsonStr);\n} catch (e) {\n  return [{\n    json: {\n      error: true,\n      invoiceId: prevData.invoiceId,\n      callbackUrl: prevData.callbackUrl,\n      message: 'Failed to parse OpenAI response: ' + e.message\n    }\n  }];\n}\n\n// Validate the selected candidate exists\nconst selectedCandidate = prevData.candidates.find(\n  c => c.drawLineId === result.selectedDrawLineId\n);\n\nif (!selectedCandidate) {\n  return [{\n    json: {\n      error: true,\n      invoiceId: prevData.invoiceId,\n      callbackUrl: prevData.callbackUrl,\n      message: 'AI selected an invalid candidate ID'\n    }\n  }];\n}\n\n// Build success payload\nreturn [{\n  json: {\n    invoiceId: prevData.invoiceId,\n    n8nExecutionId: $execution.id,\n    callbackUrl: prevData.callbackUrl,\n    success: true,\n    disambiguation: {\n      selectedDrawLineId: result.selectedDrawLineId,\n      selectedCategory: result.selectedCategory || selectedCandidate.budgetCategory,\n      selectedBudgetId: selectedCandidate.budgetId,\n      confidence: result.confidence || 0.7,\n      reasoning: result.reasoning || 'AI selected best match',\n      factors: result.factors || [],\n      originalScores: selectedCandidate.scores\n    }\n  }\n}];"
+      },
+      "id": "parse-response",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-error",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-parse-error",
+      "name": "Check Parse Error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1320, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callbackUrl || ($env.TD3_API_URL + '/api/invoices/disambiguate-callback') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-TD3-Webhook-Secret",
+              "value": "={{ $env.TD3_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "success-callback",
+      "name": "Success Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 100],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callbackUrl || ($env.TD3_API_URL + '/api/invoices/disambiguate-callback') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-TD3-Webhook-Secret",
+              "value": "={{ $env.TD3_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ invoiceId: $json.invoiceId, n8nExecutionId: $execution.id, success: false, error: $json.message || 'Disambiguation failed' }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "error-callback",
+      "name": "Error Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Build Disambiguation Prompt').first().json.callbackUrl || ($env.TD3_API_URL + '/api/invoices/disambiguate-callback') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-TD3-Webhook-Secret",
+              "value": "={{ $env.TD3_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ invoiceId: $('Build Disambiguation Prompt').first().json.invoiceId, n8nExecutionId: $execution.id, success: false, error: $json.message || 'Input validation failed' }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "input-error-callback",
+      "name": "Input Error Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 400],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ received: true, invoiceId: $('Webhook').first().json.invoiceId, status: 'processing' }) }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1760, 200]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Build Disambiguation Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Disambiguation Prompt": {
+      "main": [
+        [
+          {
+            "node": "Check Input Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Input Error": {
+      "main": [
+        [
+          {
+            "node": "Input Error Callback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call OpenAI": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Check Parse Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Parse Error": {
+      "main": [
+        [
+          {
+            "node": "Error Callback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Success Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success Callback": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Callback": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Error Callback": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "TD3",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}

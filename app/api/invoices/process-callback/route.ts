@@ -4,6 +4,7 @@ import {
   generateMatchCandidates,
   classifyMatchResult,
 } from '@/lib/invoiceMatching'
+import { triggerInvoiceDisambiguation } from '@/lib/n8n'
 import type {
   ExtractedInvoiceData,
   MatchCandidate,
@@ -209,11 +210,11 @@ export async function POST(request: NextRequest) {
         break
 
       case 'MULTIPLE_CANDIDATES':
-        // For now, flag for review. AI selection can be added later.
-        matchResult = await flagForReview(
+        // Trigger AI disambiguation workflow
+        matchResult = await triggerDisambiguation(
           invoiceId,
+          extractedData,
           classification,
-          'multiple_candidates',
           n8nExecutionId
         )
         break
@@ -381,6 +382,100 @@ async function flagForReview(
     status: 'needs_review',
     needsReview: true,
     aiUsed: false,
+  }
+}
+
+/**
+ * Trigger AI disambiguation for multiple candidates
+ */
+async function triggerDisambiguation(
+  invoiceId: string,
+  extractedData: ExtractedInvoiceData,
+  classification: MatchClassificationResult,
+  n8nExecutionId?: string | null
+): Promise<{ status: string; needsReview: boolean; aiUsed: boolean }> {
+  const now = new Date().toISOString()
+
+  // Build callback URL - use VERCEL_URL for preview deployments
+  const baseUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : process.env.NEXT_PUBLIC_APP_URL || 'https://td3.vercel.app'
+  const callbackUrl = `${baseUrl}/api/invoices/disambiguate-callback`
+
+  // Prepare payload for n8n
+  const payload = {
+    invoiceId,
+    callbackUrl,
+    extractedData: {
+      vendorName: extractedData.vendorName,
+      amount: extractedData.amount,
+      context: extractedData.context,
+      keywords: extractedData.keywords,
+      trade: extractedData.trade,
+      workType: extractedData.workType,
+      vendorType: extractedData.vendorType,
+    },
+    candidates: classification.candidates.slice(0, 5).map(c => ({
+      drawLineId: c.drawLineId,
+      budgetId: c.budgetId,
+      budgetCategory: c.budgetCategory,
+      nahbCategory: c.nahbCategory,
+      amountRequested: c.amountRequested,
+      scores: c.scores,
+      factors: c.factors,
+    })),
+  }
+
+  // Update invoice to show disambiguation in progress
+  await supabaseAdmin
+    .from('invoices')
+    .update({
+      match_status: 'ai_processing',
+      flags: JSON.stringify({
+        status_detail: 'disambiguation_in_progress',
+        candidates_count: classification.candidates.length,
+        n8n_execution_id: n8nExecutionId,
+        disambiguation_started_at: now,
+      }),
+      updated_at: now,
+    })
+    .eq('id', invoiceId)
+
+  // Trigger the disambiguation workflow
+  const result = await triggerInvoiceDisambiguation(payload)
+
+  if (!result.success) {
+    // If webhook fails, fall back to flagging for review
+    console.warn('Disambiguation webhook failed, flagging for review:', result.message)
+
+    await supabaseAdmin
+      .from('invoices')
+      .update({
+        match_status: 'needs_review',
+        flags: JSON.stringify({
+          status_detail: 'disambiguation_webhook_failed',
+          error: result.message,
+          candidates_count: classification.candidates.length,
+          n8n_execution_id: n8nExecutionId,
+          completed_at: now,
+        }),
+        updated_at: now,
+      })
+      .eq('id', invoiceId)
+
+    return {
+      status: 'needs_review',
+      needsReview: true,
+      aiUsed: false,
+    }
+  }
+
+  // Return status indicating AI is processing
+  // The actual match will be applied when the disambiguation callback is received
+  return {
+    status: 'ai_processing',
+    needsReview: false,
+    aiUsed: true,
   }
 }
 

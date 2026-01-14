@@ -1050,7 +1050,7 @@ export const DEFAULT_TERM_SHEET = {
 export type ExtractionStatus = 'pending' | 'processing' | 'extracted' | 'extraction_failed'
 
 // Match status after deterministic/AI matching
-export type MatchStatus = 'pending' | 'auto_matched' | 'ai_matched' | 'needs_review' | 'manually_matched' | 'no_match'
+export type MatchStatus = 'pending' | 'auto_matched' | 'ai_processing' | 'ai_matched' | 'needs_review' | 'manually_matched' | 'no_match'
 
 // Construction trades for AI extraction
 export type ConstructionTrade =
