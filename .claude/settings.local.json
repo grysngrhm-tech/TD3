@@ -8,7 +8,17 @@
       "Bash(git push)",
       "Bash(gh auth:*)",
       "Bash(git fetch:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "mcp__filesystem__directory_tree",
+      "Bash(find:*)",
+      "Bash(dir \"C:\\\\Users\\\\Grays\\\\OneDrive\\\\Documents\\\\TD3\\\\supabase\")",
+      "Bash(test:*)",
+      "Bash(git push:*)",
+      "Bash(curl:*)",
+      "Bash(findstr:*)",
+      "Bash(timeout:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git diff:*)"
     ]
   }
 }

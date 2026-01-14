@@ -1,0 +1,357 @@
+{
+  "name": "TD3 Invoice Extract v4",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "td3-invoice-extract",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "webhookId": "td3-invoice-extract"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.fileUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "download-invoice",
+      "name": "Download Invoice File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "binaryPropertyName": "data",
+        "options": {
+          "purpose": "user_data"
+        }
+      },
+      "id": "upload-to-openai",
+      "name": "Upload to OpenAI Files",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [660, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAi account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "id": "wait-for-processing",
+      "name": "Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [880, 300],
+      "webhookId": "td3-invoice-wait"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build request body for OpenAI Responses API\nconst fileId = $input.first().json.id;\nconst webhookData = $('Webhook').first().json;\n\n// Check if file upload succeeded\nif (!fileId) {\n  return [{\n    json: {\n      error: true,\n      invoiceId: webhookData.invoiceId,\n      message: 'Failed to upload file to OpenAI'\n    }\n  }];\n}\n\n// New extraction prompt - focused on structured signals, NO line items\nconst prompt = `You are extracting structured data from a construction invoice for automated matching.\nDO NOT include raw line items. Instead, create semantic context from them.\n\nReturn ONLY a valid JSON object with this exact structure (no markdown, no extra text):\n{\n  \"vendor_name\": \"Company name on invoice\",\n  \"invoice_number\": \"Invoice ID or null\",\n  \"invoice_date\": \"YYYY-MM-DD or null\",\n  \"amount\": 0.00,\n\n  \"context\": \"Brief semantic description of work performed, e.g., 'Electrical panel upgrade and wiring installation for 200amp service'\",\n\n  \"keywords\": [\"electrical\", \"panel\", \"wiring\", \"200amp\", \"service upgrade\"],\n\n  \"trade\": \"electrical\",\n\n  \"work_type\": \"mixed\",\n\n  \"vendor_type\": \"subcontractor\",\n\n  \"project_reference\": null,\n\n  \"has_lien_waiver\": false,\n\n  \"confidence\": 0.95\n}\n\nField descriptions:\n- vendor_name: The company name that issued the invoice\n- invoice_number: Invoice number/ID, or null if not found\n- invoice_date: Date in YYYY-MM-DD format, or null if not found\n- amount: Total invoice amount as a number\n- context: One sentence summarizing what this invoice is for\n- keywords: 5-10 normalized keywords describing the work/materials (lowercase, no special chars)\n- trade: Best match to standard construction trade. One of: electrical, plumbing, hvac, framing, roofing, flooring, foundation, excavation, landscaping, painting, drywall, insulation, windows_doors, appliances, fixtures, general, or null if unclear\n- work_type: One of: labor, materials, equipment, mixed\n- vendor_type: One of: subcontractor, supplier, utility, professional, unknown\n- project_reference: Any project code, lot number, or address mentioned, or null\n- has_lien_waiver: true if a lien waiver is mentioned or attached, false otherwise\n- confidence: Your confidence in this extraction from 0.0 to 1.0\n\nIf you cannot find a value, use null. For amount, extract the numeric value only.`;\n\nconst body = {\n  model: \"gpt-4o-mini\",\n  input: [\n    {\n      role: \"user\",\n      content: [\n        {\n          type: \"input_text\",\n          text: prompt\n        },\n        {\n          type: \"input_file\",\n          file_id: fileId\n        }\n      ]\n    }\n  ],\n  text: {\n    format: {\n      type: \"json_object\"\n    }\n  }\n};\n\nreturn [{\n  json: {\n    body,\n    invoiceId: webhookData.invoiceId,\n    fileName: webhookData.fileName\n  }\n}];"
+      },
+      "id": "build-responses-body",
+      "name": "Build Extraction Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "call-openai-responses",
+      "name": "Call OpenAI Responses",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAi account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse OpenAI Responses API output and extract invoice data\nconst input = $input.first().json;\nconst prevData = $('Build Extraction Request').first().json;\n\n// Check for errors\nif (input.error || !input.output) {\n  return [{\n    json: {\n      error: true,\n      invoiceId: prevData.invoiceId,\n      message: input.error?.message || 'OpenAI API call failed'\n    }\n  }];\n}\n\n// Parse the response\nlet extractedInvoice = {};\ntry {\n  const content = input.output?.[0]?.content?.[0]?.text || '';\n  if (typeof content === 'string') {\n    // Remove any markdown code blocks if present\n    const jsonStr = content.replace(/```json\\n?|```\\n?/g, '').trim();\n    extractedInvoice = JSON.parse(jsonStr);\n  }\n} catch (e) {\n  return [{\n    json: {\n      error: true,\n      invoiceId: prevData.invoiceId,\n      message: 'Failed to parse OpenAI response: ' + e.message\n    }\n  }];\n}\n\n// Transform to camelCase for callback\nconst extracted = {\n  vendorName: extractedInvoice.vendor_name || 'Unknown Vendor',\n  invoiceNumber: extractedInvoice.invoice_number || null,\n  invoiceDate: extractedInvoice.invoice_date || null,\n  amount: parseFloat(extractedInvoice.amount) || 0,\n  context: extractedInvoice.context || null,\n  keywords: Array.isArray(extractedInvoice.keywords) ? extractedInvoice.keywords : [],\n  trade: extractedInvoice.trade || null,\n  workType: extractedInvoice.work_type || 'mixed',\n  vendorType: extractedInvoice.vendor_type || 'unknown',\n  projectReference: extractedInvoice.project_reference || null,\n  hasLienWaiver: extractedInvoice.has_lien_waiver === true,\n  confidence: parseFloat(extractedInvoice.confidence) || 0.5\n};\n\n// Return extraction data for callback\nreturn [{\n  json: {\n    invoiceId: prevData.invoiceId,\n    n8nExecutionId: $execution.id,\n    success: true,\n    extractedData: extracted\n  }\n}];"
+      },
+      "id": "parse-openai-response",
+      "name": "Parse Extraction Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-error",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-extraction-error",
+      "name": "Check Extraction Error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1760, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Webhook').first().json.callbackUrl || ($env.TD3_API_URL + '/api/invoices/extraction-callback') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-TD3-Webhook-Secret",
+              "value": "={{ $env.TD3_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "success-callback",
+      "name": "Success Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1980, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Webhook').first().json.callbackUrl || ($env.TD3_API_URL + '/api/invoices/extraction-callback') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-TD3-Webhook-Secret",
+              "value": "={{ $env.TD3_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ invoiceId: $json.invoiceId, n8nExecutionId: $execution.id, success: false, error: $json.message || 'Extraction failed' }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "error-callback",
+      "name": "Error Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1980, 400],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ received: true, invoiceId: $('Webhook').first().json.invoiceId, status: 'extracting' }) }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2200, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Download Invoice File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Invoice File": {
+      "main": [
+        [
+          {
+            "node": "Upload to OpenAI Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to OpenAI Files": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Build Extraction Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Extraction Request": {
+      "main": [
+        [
+          {
+            "node": "Call OpenAI Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call OpenAI Responses": {
+      "main": [
+        [
+          {
+            "node": "Parse Extraction Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Extraction Response": {
+      "main": [
+        [
+          {
+            "node": "Check Extraction Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Extraction Error": {
+      "main": [
+        [
+          {
+            "node": "Error Callback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Success Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success Callback": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Callback": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "TD3",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}
