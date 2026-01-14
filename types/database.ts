@@ -362,10 +362,13 @@ export type Database = {
       invoices: {
         Row: {
           amount: number
+          candidate_count: number | null
           confidence_score: number | null
           created_at: string | null
           draw_request_id: string | null
           draw_request_line_id: string | null
+          extracted_data: Record<string, unknown> | null
+          extraction_status: string | null
           file_hash: string | null
           file_path: string | null
           file_url: string | null
@@ -373,19 +376,24 @@ export type Database = {
           id: string
           invoice_date: string | null
           invoice_number: string | null
+          match_status: string | null
           matched_to_category: string | null
           matched_to_nahb_code: string | null
           project_id: string | null
           status: string | null
           updated_at: string | null
           vendor_name: string
+          was_manually_corrected: boolean | null
         }
         Insert: {
           amount: number
+          candidate_count?: number | null
           confidence_score?: number | null
           created_at?: string | null
           draw_request_id?: string | null
           draw_request_line_id?: string | null
+          extracted_data?: Record<string, unknown> | null
+          extraction_status?: string | null
           file_hash?: string | null
           file_path?: string | null
           file_url?: string | null
@@ -393,19 +401,24 @@ export type Database = {
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
+          match_status?: string | null
           matched_to_category?: string | null
           matched_to_nahb_code?: string | null
           project_id?: string | null
           status?: string | null
           updated_at?: string | null
           vendor_name: string
+          was_manually_corrected?: boolean | null
         }
         Update: {
           amount?: number
+          candidate_count?: number | null
           confidence_score?: number | null
           created_at?: string | null
           draw_request_id?: string | null
           draw_request_line_id?: string | null
+          extracted_data?: Record<string, unknown> | null
+          extraction_status?: string | null
           file_hash?: string | null
           file_path?: string | null
           file_url?: string | null
@@ -413,12 +426,14 @@ export type Database = {
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
+          match_status?: string | null
           matched_to_category?: string | null
           matched_to_nahb_code?: string | null
           project_id?: string | null
           status?: string | null
           updated_at?: string | null
           vendor_name?: string
+          was_manually_corrected?: boolean | null
         }
         Relationships: []
       }
