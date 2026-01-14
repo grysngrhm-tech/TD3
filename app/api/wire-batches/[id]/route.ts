@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { captureTrainingDataForDraw } from '@/lib/invoiceLearning'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -210,6 +211,21 @@ export async function PATCH(
 
         // Update budget spent amounts for each draw line
         await updateBudgetSpendForDraw(draw.id, funded_by || 'bookkeeper')
+
+        // Capture invoice training data (learning system)
+        // Every approved draw becomes training data for future matching
+        try {
+          const learningResult = await captureTrainingDataForDraw(draw.id, supabaseAdmin)
+          if (learningResult.trainingRecordsCreated > 0) {
+            console.log(`[Learning] Draw ${draw.id}: ${learningResult.trainingRecordsCreated} training records created`)
+          }
+          if (learningResult.errors.length > 0) {
+            console.warn(`[Learning] Draw ${draw.id} had errors:`, learningResult.errors)
+          }
+        } catch (learningError) {
+          // Don't fail the funding if learning capture fails
+          console.error(`[Learning] Failed to capture training data for draw ${draw.id}:`, learningError)
+        }
       }
 
       // Log wire batch funded event
