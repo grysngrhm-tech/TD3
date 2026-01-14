@@ -17,7 +17,8 @@ import type {
   MATCHING_THRESHOLDS,
   MATCHING_WEIGHTS,
 } from '@/types/database'
-import { createClient } from '@/lib/supabase/client'
+import { supabase as defaultSupabase } from '@/lib/supabase'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 // Re-export thresholds and weights for external use
 export { MATCHING_THRESHOLDS, MATCHING_WEIGHTS } from '@/types/database'
@@ -269,7 +270,7 @@ export async function calculateTrainingScore(
   vendorName: string,
   keywords: string[],
   budgetCategory: string,
-  supabase: ReturnType<typeof createClient>
+  supabase: SupabaseClient
 ): Promise<{ score: number; reason: string | null; vendorMatched: boolean }> {
   const normalizedVendor = normalizeVendorName(vendorName)
 
@@ -337,7 +338,7 @@ export async function calculateTrainingScore(
 // ============================================
 
 interface GenerateCandidatesOptions {
-  supabase?: ReturnType<typeof createClient>
+  supabase?: SupabaseClient
   skipTrainingLookup?: boolean
 }
 
@@ -352,7 +353,7 @@ export async function generateMatchCandidates(
   options: GenerateCandidatesOptions = {}
 ): Promise<MatchCandidate[]> {
   const candidates: MatchCandidate[] = []
-  const supabase = options.supabase || createClient()
+  const supabase = options.supabase || defaultSupabase
 
   // Create budget lookup map
   const budgetMap = new Map(budgets.map(b => [b.id, b]))
