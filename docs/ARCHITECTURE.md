@@ -229,10 +229,12 @@ TD3 implements a comprehensive draw request workflow that handles the entire pro
 - Second dropdown: Budget items in selected category
 - Auto-filters to exclude already-assigned budgets
 
-**3. Invoice Management**
+**3. Invoice Management** (See [Invoice Matching Architecture](#invoice-matching-architecture))
 - Drag-and-drop upload on draw request page
 - Thumbnail previews with modal viewer
-- N8N-powered AI invoice-to-category matching
+- Deterministic matching with AI-extracted signals
+- Narrow AI selection only for ambiguous cases
+- Learning system improves with every funded draw
 - Re-run matching capability from review page
 
 **4. Builder-Based Wire Batching**
@@ -247,6 +249,212 @@ TD3 implements a comprehensive draw request workflow that handles the entire pro
 | New Draw Request | `/draws/new` | Upload draw spreadsheet and invoices |
 | Draw Review | `/draws/[id]` | Review, edit, and approve draw request |
 | Staging Dashboard | `/staging` | Central hub for all draw operations |
+
+---
+
+## Invoice Matching Architecture
+
+TD3 implements a sophisticated invoice-to-budget-line matching system that uses deterministic scoring with narrow AI assistance only when needed.
+
+### Design Principles
+
+1. **AI reads, application reasons**: AI extracts structured signals from invoices; deterministic code scores and selects candidates
+2. **Amount matching is primary**: Invoice amounts covering draw line amounts is the main goal (50% weight)
+3. **Narrow AI assistance**: AI only chooses among pre-validated candidates when scores are too close
+4. **Clear failure modes**: Each failure type has distinct handling and user communication
+5. **Full auditability**: Every decision is explainable and recorded in the database
+6. **Continuous learning**: Every approved draw becomes training data for future matching
+
+### Invoice Processing Flow
+
+```
+UPLOAD → n8n (EXTRACTION ONLY) → CALLBACK → DETERMINISTIC MATCHING → [AI if needed] → APPLY → LEARN
+```
+
+#### Step-by-Step Flow
+
+1. **Invoice Upload** (`/api/invoices/upload`)
+   - Invoices uploaded via drag-drop on draw request page
+   - Files stored in Supabase Storage: `invoices/{projectId}/{drawId}/{uuid}-{filename}`
+   - Invoice record created with `extraction_status: 'pending'`
+
+2. **n8n Extraction** (`n8n-workflows/td3-invoice-process.json`)
+   - GPT-4o-mini extracts structured signals (NO line items, NO matching decisions)
+   - Outputs: `vendorName`, `amount`, `context`, `keywords`, `trade`, `workType`, `vendorType`
+   - AI confidence score indicates extraction quality
+
+3. **Extraction Callback** (`/api/invoices/process-callback`)
+   - Stores extracted data in `invoices.extracted_data`
+   - Updates `extraction_status` to 'extracted' or 'extraction_failed'
+   - Triggers deterministic matching pipeline
+
+4. **Candidate Generation** (`lib/invoiceMatching.ts`)
+   - Generates scored candidates for each draw line
+   - Uses weighted factors: Amount (50%), Trade (20%), Keywords (15%), Training (15%)
+
+5. **Classification** (`lib/invoiceMatching.ts`)
+   - Categorizes result: `SINGLE_MATCH`, `MULTIPLE_CANDIDATES`, `AMBIGUOUS`, `NO_CANDIDATES`
+   - Single high-confidence matches auto-apply
+   - Multiple close candidates trigger AI selection
+
+6. **AI Selection** (`lib/invoiceAISelection.ts`) - Only when needed
+   - GPT-4o-mini selects from pre-scored candidates
+   - Cannot invent new matches or categories
+   - Can flag for human review if uncertain
+
+7. **Apply Match**
+   - Updates invoice with `draw_request_line_id`, `matched_to_category`
+   - Updates draw line with invoice details
+   - Records decision in `invoice_match_decisions` audit table
+
+8. **Learn** (On draw approval via wire batch funding)
+   - Captures all matches as training data
+   - Updates vendor → category associations
+   - System improves with every funded draw
+
+### Scoring Algorithm
+
+The matching system uses a weighted composite score:
+
+| Factor | Weight | Description |
+|--------|--------|-------------|
+| **Amount** | **50%** | Proximity to draw line `amount_requested` |
+| Trade Match | 20% | Extracted `trade` field matches budget NAHB category |
+| Keywords | 15% | Overlap between extracted `keywords` and category terms |
+| Training | 15% | Historical patterns from past approved matches |
+
+#### Amount Scoring (50% of total)
+
+| Variance | Score | Description |
+|----------|-------|-------------|
+| ±$50 or ±2% | 1.00 | Exact match |
+| Within 5% | 0.95 | Near exact |
+| Within 10% | 0.80 | Good match |
+| Within 15% | 0.65 | Acceptable |
+| Within 25% | 0.45 | Marginal |
+| Over 25% | 0.20 | Poor match |
+
+#### Classification Thresholds
+
+| Threshold | Value | Purpose |
+|-----------|-------|---------|
+| `AUTO_MATCH_SCORE` | 0.85 | Above = auto-match without AI |
+| `CLEAR_WINNER_GAP` | 0.15 | Gap needed between top 2 for single match |
+| `MIN_CANDIDATE_SCORE` | 0.35 | Below = not considered as candidate |
+
+### Match Classification
+
+| Status | Condition | Invoice `match_status` | Action |
+|--------|-----------|------------------------|--------|
+| `SINGLE_MATCH` | Score > 0.85, gap > 0.15 | `auto_matched` | Auto-apply |
+| `MULTIPLE_CANDIDATES` | 2+ within 0.15 gap | `ai_matched` or `needs_review` | AI selection |
+| `AMBIGUOUS` | AI flagged for review | `needs_review` | Human review |
+| `NO_CANDIDATES` | All scores < 0.35 | `no_match` | Manual match |
+| `EXTRACTION_FAILED` | n8n error | N/A | Retry extraction |
+
+### AI Extraction Output
+
+The n8n workflow extracts structured signals for deterministic matching:
+
+```json
+{
+  "vendorName": "ABC Electric LLC",
+  "invoiceNumber": "INV-2024-001",
+  "invoiceDate": "2024-01-15",
+  "amount": 4500.00,
+
+  "context": "Electrical panel upgrade and wiring for 200amp service",
+  "keywords": ["electrical", "panel", "wiring", "200amp", "service", "breaker"],
+  "trade": "electrical",
+  "workType": "mixed",
+  "vendorType": "subcontractor",
+  "projectReference": "Lot 42",
+  "hasLienWaiver": false,
+  "confidence": 0.95
+}
+```
+
+| Field | Purpose in Matching |
+|-------|---------------------|
+| `amount` | **Primary signal** - matches to draw line `amount_requested` |
+| `keywords` | Fuzzy match against budget category names and NAHB codes |
+| `trade` | Direct mapping to NAHB categories (electrical → "Electrical") |
+| `context` | Stored for audit trail and display |
+| `vendorType` | Distinguishes supplier vs labor invoices |
+| `hasLienWaiver` | Can flag if lien waiver missing for large amounts |
+| `confidence` | Low extraction confidence → flag for review |
+
+### Learning System (The Flywheel)
+
+Every approved draw becomes training data. The system improves with every funded draw.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     THE LEARNING FLYWHEEL                           │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   Invoice Uploaded                                                  │
+│        │                                                            │
+│        ▼                                                            │
+│   Extraction (n8n/AI)                                               │
+│        │                                                            │
+│        ▼                                                            │
+│   Training DB queried for:                                          │
+│   - Vendor history (ABC Electric → Electrical 5x)                   │
+│   - Keyword patterns (wiring → Electrical 20x)                      │
+│   - Trade mappings (electrical → Electrical 50x)                    │
+│        │                                                            │
+│        ▼                                                            │
+│   Deterministic Matching (training boosts scores)                   │
+│        │                                                            │
+│        ▼                                                            │
+│   Match Applied                                                     │
+│        │                                                            │
+│        ▼                                                            │
+│   Draw Approved (funded) ──────────────────────────────────┐        │
+│        │                                                    │        │
+│        ▼                                                    ▼        │
+│   Training DB updated:              ◄───────────────────────┘        │
+│   - vendor + category (ground truth)                                │
+│   - keywords + category                                             │
+│   - trade + category                                                │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### Training Data Captured
+
+When a draw is funded, `lib/invoiceLearning.ts` captures:
+
+| Data | Purpose |
+|------|---------|
+| Vendor → Category | Future invoices from same vendor boost that category |
+| Keywords → Category | Invoices with similar keywords boost that category |
+| Trade → Category | Trade signals boost corresponding NAHB categories |
+| Match method | Tracks auto vs AI vs manual for quality metrics |
+| Was corrected | Manual corrections inform model of mistakes |
+
+#### Vendor Association Table
+
+The `vendor_category_associations` table provides fast lookups during matching:
+
+```sql
+-- Example: ABC Electric has matched to Electrical 5 times, totaling $45,000
+vendor_name_normalized: "abc electric"
+budget_category: "Electrical"
+match_count: 5
+total_amount: 45000.00
+last_matched_at: 2024-01-15
+```
+
+### Invoice Match Panel UI
+
+The `InvoiceMatchPanel.tsx` component provides:
+
+1. **Candidate Display**: Shows top candidates with scores and factors
+2. **AI Reasoning**: Displays AI selection reasoning when applicable
+3. **Manual Override**: Collapsible view of all draw lines for correction
+4. **Correction Tracking**: Captures reason when user overrides a match
 
 ### Navigation Flow
 
@@ -685,6 +893,89 @@ wire_batches (
   created_at      TIMESTAMP
 )
 
+-- Invoices: Invoice files with extraction and matching data
+invoices (
+  id                    UUID PRIMARY KEY,
+  draw_request_id       UUID REFERENCES draw_requests,
+  draw_request_line_id  UUID REFERENCES draw_request_lines,
+  file_url              TEXT,
+  file_path             TEXT,
+  file_name             TEXT,
+  vendor_name           TEXT,
+  invoice_number        TEXT,
+  invoice_date          DATE,
+  amount                DECIMAL,
+  extraction_status     TEXT,       -- pending, processing, extracted, extraction_failed
+  match_status          TEXT,       -- pending, auto_matched, ai_matched, needs_review, manually_matched, no_match
+  extracted_data        JSONB,      -- Full extraction output from n8n
+  matched_to_category   TEXT,       -- Budget category matched to
+  matched_to_nahb_code  TEXT,       -- NAHB code matched to
+  confidence_score      DECIMAL,    -- Match confidence 0-1
+  candidate_count       INTEGER,    -- Number of candidates considered
+  was_manually_corrected BOOLEAN DEFAULT FALSE,
+  flags                 TEXT,       -- JSON array of flags
+  created_at            TIMESTAMP,
+  updated_at            TIMESTAMP
+)
+
+-- Invoice Match Decisions: Audit trail for all match decisions
+invoice_match_decisions (
+  id                    UUID PRIMARY KEY,
+  invoice_id            UUID REFERENCES invoices,
+  draw_request_line_id  UUID REFERENCES draw_request_lines,
+  decision_type         TEXT,       -- auto_single, ai_selected, manual_override, manual_initial
+  decision_source       TEXT,       -- system, ai, user
+  candidates            JSONB,      -- All candidates considered with scores
+  selected_draw_line_id UUID,
+  selected_confidence   DECIMAL,
+  selection_factors     JSONB,      -- Breakdown of scoring factors
+  ai_reasoning          TEXT,       -- AI explanation when applicable
+  previous_draw_line_id UUID,       -- For corrections
+  correction_reason     TEXT,
+  flags                 TEXT[],     -- Flags at decision time
+  decided_at            TIMESTAMP,
+  created_at            TIMESTAMP DEFAULT NOW()
+)
+
+-- Invoice Match Training: Training data from approved draws
+invoice_match_training (
+  id                    UUID PRIMARY KEY,
+  invoice_id            UUID REFERENCES invoices,
+  draw_request_id       UUID REFERENCES draw_requests,
+  approved_at           TIMESTAMP NOT NULL,
+
+  -- Extraction data (for future matching)
+  vendor_name_normalized TEXT NOT NULL,
+  amount                DECIMAL NOT NULL,
+  context               TEXT,           -- Semantic description
+  keywords              TEXT[] NOT NULL,-- Normalized keywords
+  trade                 TEXT,           -- Extracted trade signal
+  work_type             TEXT,
+
+  -- Match result (ground truth)
+  budget_category       TEXT NOT NULL,
+  nahb_category         TEXT,
+
+  -- Match metadata
+  match_method          TEXT,           -- auto, ai, manual
+  confidence_at_match   DECIMAL,
+  was_corrected         BOOLEAN DEFAULT FALSE,
+
+  created_at            TIMESTAMP DEFAULT NOW()
+)
+
+-- Vendor Category Associations: Aggregated lookup for matching boost
+vendor_category_associations (
+  id                    UUID PRIMARY KEY,
+  vendor_name_normalized TEXT NOT NULL,
+  budget_category       TEXT NOT NULL,
+  nahb_category         TEXT,
+  match_count           INTEGER DEFAULT 1,
+  total_amount          DECIMAL DEFAULT 0,
+  last_matched_at       TIMESTAMP DEFAULT NOW(),
+  UNIQUE(vendor_name_normalized, budget_category)
+)
+
 -- Documents: Supporting files for loans
 documents (
   id            UUID PRIMARY KEY,
@@ -738,10 +1029,13 @@ The system uses 16 major categories with 118 subcategories, including "Other" ca
 |------|-------------|----------------|
 | `NO_BUDGET_MATCH` | Category not found in project budget | Yes - during import |
 | `OVER_BUDGET` | Request exceeds remaining budget | Yes - during import |
-| `AMOUNT_MISMATCH` | Invoice total doesn't match requested | N8N processing |
-| `NO_INVOICE` | No invoice attached to line | N8N processing |
-| `LOW_CONFIDENCE` | AI confidence < 70% | N8N processing |
-| `DUPLICATE_INVOICE` | Invoice already used in previous draw | N8N processing |
+| `AMOUNT_MISMATCH` | Invoice total doesn't match requested (>10% variance) | Invoice matching |
+| `NO_INVOICE` | No invoice attached to line with amount > 0 | Invoice matching |
+| `LOW_CONFIDENCE` | Match confidence < 70% | Invoice matching |
+| `DUPLICATE_INVOICE` | Invoice already used in previous draw | Invoice matching |
+| `EXTRACTION_FAILED` | Invoice extraction failed in n8n | Invoice matching |
+| `AI_SELECTED` | Match was selected by AI (not auto) | Invoice matching |
+| `NEEDS_REVIEW` | AI flagged for human review | Invoice matching |
 
 ### Draw Request Status Values
 
@@ -1337,6 +1631,9 @@ TD3 uses a self-hosted n8n instance at `https://n8n.srv1208741.hstgr.cloud/` for
 | `lib/anomalyDetection.ts` | Budget and draw anomaly detection |
 | `lib/validations.ts` | Draw request validation and flag generation |
 | `lib/polymorphic.ts` | Polymorphic UI utilities |
+| `lib/invoiceMatching.ts` | Deterministic invoice-to-budget-line candidate generation and scoring |
+| `lib/invoiceAISelection.ts` | Narrow AI selection from pre-scored candidates |
+| `lib/invoiceLearning.ts` | Training data capture and vendor association management |
 
 ### UI Components
 
@@ -1365,6 +1662,12 @@ TD3 uses a self-hosted n8n instance at `https://n8n.srv1208741.hstgr.cloud/` for
 | `app/components/projects/AmortizationTable.tsx` | Draw-by-draw interest schedule |
 | `app/components/projects/PayoffReport.tsx` | Three-view interactive payoff system |
 | `app/components/projects/PolymorphicLoanDetails.tsx` | Context-aware stats tile |
+
+### Draw Components
+
+| File | Purpose |
+|------|---------|
+| `app/components/draws/InvoiceMatchPanel.tsx` | Invoice-to-line matching with candidates, AI reasoning, and manual override |
 
 ### Pages
 

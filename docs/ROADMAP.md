@@ -42,6 +42,7 @@ TD3 is **substantially complete** for core functionality:
 | Draw Request Processing | ✅ Complete | Full workflow with staging |
 | Financial Calculations | ✅ Complete | Amortization, payoff, IRR |
 | Wire Batch Funding | ✅ Complete | Builder grouping, audit trail |
+| Invoice AI Matching | ✅ Complete | Deterministic scoring, narrow AI, learning |
 | User Authentication | ❌ Not Started | RLS placeholders in schema |
 | DocuSign Integration | ❌ Not Started | Placeholder in origination |
 | External Portals | ❌ Not Started | Builder/lender access |
@@ -115,7 +116,7 @@ gantt
     Authentication System              :auth, 2026-01-11, 14d
     
     section Adoption
-    Invoice AI Enhancement (TEAM)      :invoice, 2026-01-15, 10d
+    Invoice AI Enhancement             :done, invoice, 2026-01-08, 5d
     Historical Data Migration          :crit, migrate, 2026-01-25, 14d
     Payoff Production Ready            :payoff, 2026-01-22, 7d
     Team Training                      :training, 2026-02-08, 5d
@@ -310,45 +311,63 @@ GitHub Repository Structure:
 | Attribute | Value |
 |-----------|-------|
 | **Priority** | HIGH |
-| **Team Input Required** | YES - Define review flags |
+| **Team Input Required** | NO (Implementation complete) |
 | **Estimated Duration** | 2 weeks |
 | **Owner** | Development |
+| **Status** | ✅ COMPLETE (Jan 13, 2026) |
+
+**Implementation Summary:**
+
+The invoice matching system has been completely redesigned with a "AI reads, application reasons" architecture:
+
+1. **n8n Extraction** (AI-only): GPT-4o-mini extracts structured signals from invoices - vendor, amount, semantic context, keywords, trade signals
+2. **Deterministic Matching**: Application scores candidates using weighted factors (Amount 50%, Trade 20%, Keywords 15%, Training 15%)
+3. **Narrow AI Selection**: AI only chooses among pre-validated candidates when scores are too close
+4. **Learning System**: Every approved draw becomes training data for future matching
+
+**New Modules Implemented:**
+
+| Module | Purpose |
+|--------|---------|
+| `lib/invoiceMatching.ts` | Deterministic candidate generation and scoring |
+| `lib/invoiceAISelection.ts` | Narrow AI selection from pre-scored candidates |
+| `lib/invoiceLearning.ts` | Training data capture on draw approval |
+
+**Database Tables Added:**
+
+| Table | Purpose |
+|-------|---------|
+| `invoices` | Invoice records with extraction and match data |
+| `invoice_match_decisions` | Audit trail for all match decisions |
+| `invoice_match_training` | Training data from approved draws |
+| `vendor_category_associations` | Aggregated vendor → category lookup |
 
 **Current Flags (Implemented):**
 
 | Flag | Description | Auto-Generated |
 |------|-------------|----------------|
-| `NO_BUDGET_MATCH` | Category not found in project budget | Yes |
-| `OVER_BUDGET` | Request exceeds remaining budget | Yes |
-| `AMOUNT_MISMATCH` | Invoice total doesn't match requested | n8n |
-| `NO_INVOICE` | No invoice attached to line | n8n |
-| `LOW_CONFIDENCE` | AI confidence < 70% | n8n |
-| `DUPLICATE_INVOICE` | Invoice already used in previous draw | n8n |
+| `NO_BUDGET_MATCH` | Category not found in project budget | Yes - import |
+| `OVER_BUDGET` | Request exceeds remaining budget | Yes - import |
+| `AMOUNT_MISMATCH` | Invoice total vs requested >10% variance | Invoice matching |
+| `NO_INVOICE` | No invoice for line with amount > 0 | Invoice matching |
+| `LOW_CONFIDENCE` | Match confidence < 70% | Invoice matching |
+| `DUPLICATE_INVOICE` | Invoice already used in previous draw | Invoice matching |
+| `EXTRACTION_FAILED` | Invoice extraction failed in n8n | Invoice matching |
+| `AI_SELECTED` | Match was selected by AI (not auto) | Invoice matching |
+| `NEEDS_REVIEW` | AI flagged for human review | Invoice matching |
 
-**Team Decision Required:**
+**Match Classification Thresholds:**
 
-> **QUESTION 1:** What additional conditions should trigger human review?
-> 
-> Suggestions to consider:
-> - Large single draw (>$X or >Y% of budget)
-> - First draw on a new loan
-> - Draw on loan past maturity date
-> - Vendor not seen before on this project
-> - Invoice date significantly before/after draw date
+| Threshold | Value | Purpose |
+|-----------|-------|---------|
+| `AUTO_MATCH_SCORE` | 0.85 | Above = auto-match without AI |
+| `CLEAR_WINNER_GAP` | 0.15 | Gap needed for single match |
+| `MIN_CANDIDATE_SCORE` | 0.35 | Below = not a candidate |
+| Amount variance | ±10% | Triggers `AMOUNT_MISMATCH` flag |
 
-> **QUESTION 2:** What thresholds should apply?
-> 
-> Current defaults:
-> - Over-budget: Any amount over remaining
-> - Low confidence: < 70%
-> - Amount mismatch: Any variance
-> 
-> Should we add:
-> - Acceptable variance threshold (e.g., within $50 or 2%)?
-> - Large draw threshold (e.g., >$25,000)?
-> - Invoice date range (e.g., within 30 days of draw)?
+**Documentation:** See [Invoice Matching Architecture](ARCHITECTURE.md#invoice-matching-architecture) for full technical details.
 
-**Deliverable:** Updated n8n workflow with configurable flag thresholds
+**Deliverable:** ✅ Complete - Deterministic matching with narrow AI assistance and learning flywheel
 
 ---
 
