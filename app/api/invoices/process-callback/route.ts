@@ -1,20 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
-import type {
-  ExtractedInvoiceData,
-  MatchCandidate,
-  MatchStatus,
-  Budget,
-  DrawRequestLine,
-  Json,
-} from '@/types/database'
 import {
   generateMatchCandidates,
   classifyMatchResult,
 } from '@/lib/invoiceMatching'
+import type {
+  ExtractedInvoiceData,
+  MatchCandidate,
+  MatchClassificationResult,
+  Budget,
+  DrawRequestLine,
+  Json,
+} from '@/types/database'
 
-// Payload from n8n after extraction (extraction-only, no matching)
-type ExtractionCallbackPayload = {
+/**
+ * Invoice Process Callback API
+ *
+ * Called by n8n after AI extraction completes.
+ * This is the single callback endpoint for invoice processing.
+ *
+ * Flow:
+ * 1. Verify webhook secret
+ * 2. Store extracted data in invoice record
+ * 3. Run deterministic candidate generation
+ * 4. Classify result (SINGLE_MATCH, MULTIPLE_CANDIDATES, AMBIGUOUS, NO_CANDIDATES)
+ * 5. For SINGLE_MATCH: auto-apply match
+ * 6. For MULTIPLE_CANDIDATES: flag for review (AI selection can be added later)
+ * 7. For AMBIGUOUS/NO_CANDIDATES: flag for manual review
+ * 8. Reconcile NO_INVOICE flags across draw lines
+ */
+
+// Payload from n8n extraction workflow
+interface ExtractionCallbackPayload {
   invoiceId: string
   n8nExecutionId?: string | null
   success: boolean
@@ -29,7 +46,8 @@ type ExtractionCallbackPayload = {
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify callbacks are actually from our n8n instance
+    // Verify webhook secret
+    // Note: n8n uses TD3_WEBHOOK_SECRET env var, TD3 uses N8N_CALLBACK_SECRET
     const expectedSecret = process.env.N8N_CALLBACK_SECRET
     if (expectedSecret) {
       const provided = request.headers.get('x-td3-webhook-secret')
@@ -45,47 +63,45 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing invoiceId' }, { status: 400 })
     }
 
-    // If extraction failed, update status and return
-    if (!success) {
+    // Get existing invoice
+    const { data: existingInvoice, error: fetchError } = await supabaseAdmin
+      .from('invoices')
+      .select('*, draw_request_id, project_id, file_url, file_path')
+      .eq('id', invoiceId)
+      .single()
+
+    if (fetchError || !existingInvoice) {
+      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
+    }
+
+    const now = new Date().toISOString()
+
+    // Handle extraction failure
+    if (!success || !extractedData) {
       await supabaseAdmin
         .from('invoices')
         .update({
           extraction_status: 'extraction_failed',
           match_status: 'no_match',
-          updated_at: new Date().toISOString(),
           flags: JSON.stringify({
+            status_detail: 'extraction_failed',
             error: error || 'Extraction failed',
             n8n_execution_id: n8nExecutionId,
-            failed_at: new Date().toISOString(),
+            completed_at: now,
           }),
+          updated_at: now,
         })
         .eq('id', invoiceId)
 
       return NextResponse.json({
         success: false,
-        message: error || 'Extraction failed',
+        invoiceId,
+        status: 'extraction_failed',
+        error: error || 'Extraction failed',
       })
     }
 
-    if (!extractedData) {
-      return NextResponse.json({
-        success: false,
-        message: 'No extracted data in successful response',
-      }, { status: 400 })
-    }
-
-    // Step 1: Store extracted data
-    const { data: invoice, error: fetchError } = await supabaseAdmin
-      .from('invoices')
-      .select('id, draw_request_id, file_url, file_path')
-      .eq('id', invoiceId)
-      .single()
-
-    if (fetchError || !invoice) {
-      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
-    }
-
-    // Update invoice with extracted data
+    // Store extracted data
     await supabaseAdmin
       .from('invoices')
       .update({
@@ -95,12 +111,13 @@ export async function POST(request: NextRequest) {
         invoice_date: extractedData.invoiceDate,
         extraction_status: 'extracted',
         extracted_data: extractedData as unknown as Record<string, unknown>,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       })
       .eq('id', invoiceId)
 
-    // Step 2: Get draw request lines and budgets for matching
-    const drawRequestId = invoice.draw_request_id || metadata?.drawRequestId
+    // Get draw request ID (from invoice or metadata)
+    const drawRequestId = existingInvoice.draw_request_id || metadata?.drawRequestId
+
     if (!drawRequestId) {
       // No draw request to match against - just mark as extracted
       await supabaseAdmin
@@ -116,7 +133,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Fetch draw lines
+    // Get draw lines and budgets for matching
     const { data: drawLines } = await supabaseAdmin
       .from('draw_request_lines')
       .select('*')
@@ -125,14 +142,22 @@ export async function POST(request: NextRequest) {
     if (!drawLines || drawLines.length === 0) {
       await supabaseAdmin
         .from('invoices')
-        .update({ match_status: 'no_match' })
+        .update({
+          match_status: 'no_match',
+          candidate_count: 0,
+          flags: JSON.stringify({
+            status_detail: 'no_draw_lines',
+            n8n_execution_id: n8nExecutionId,
+            completed_at: now,
+          }),
+        })
         .eq('id', invoiceId)
 
       return NextResponse.json({
         success: true,
         invoiceId,
         status: 'no_match',
-        message: 'No draw lines to match against',
+        reason: 'No draw lines to match against',
       })
     }
 
@@ -143,7 +168,7 @@ export async function POST(request: NextRequest) {
       .select('*')
       .in('id', budgetIds)
 
-    // Step 3: Run deterministic matching
+    // Generate candidates using deterministic matching
     const candidates = await generateMatchCandidates(
       extractedData,
       drawLines as DrawRequestLine[],
@@ -151,132 +176,70 @@ export async function POST(request: NextRequest) {
       { supabase: supabaseAdmin }
     )
 
+    // Classify the result
     const classification = classifyMatchResult(candidates)
 
-    // Step 4: Apply match result based on classification
-    let matchStatus: MatchStatus = 'pending'
-    let matchedDrawLineId: string | null = null
-    let decisionType: string | null = null
-
-    if (classification.status === 'SINGLE_MATCH' && classification.topCandidate) {
-      // Auto-apply high-confidence single match
-      matchStatus = 'auto_matched'
-      matchedDrawLineId = classification.topCandidate.drawLineId
-      decisionType = 'auto_single'
-
-      // Record decision in audit trail
-      await supabaseAdmin.from('invoice_match_decisions').insert({
-        invoice_id: invoiceId,
-        draw_request_line_id: matchedDrawLineId,
-        decision_type: 'auto_single',
-        decision_source: 'system',
-        candidates: candidates as unknown as Json,
-        selected_draw_line_id: matchedDrawLineId,
-        selected_confidence: classification.topCandidate.scores.composite,
-        selection_factors: classification.topCandidate.scores as unknown as Json,
-        flags: [] as Json,
-      })
-
-    } else if (classification.status === 'MULTIPLE_CANDIDATES') {
-      // Multiple candidates - needs AI selection (will be handled separately)
-      matchStatus = 'needs_review' // For now, flag for review until AI selection is implemented
-      decisionType = 'needs_ai_selection'
-
-      // Record candidates for later AI selection
-      await supabaseAdmin.from('invoice_match_decisions').insert({
-        invoice_id: invoiceId,
-        decision_type: 'auto_single', // Will be updated when AI selects
-        decision_source: 'system',
-        candidates: candidates.slice(0, 5) as unknown as Json,
-        selected_draw_line_id: null,
-        selected_confidence: null,
-        flags: ['MULTIPLE_CANDIDATES'] as Json,
-      })
-
-    } else if (classification.status === 'NO_CANDIDATES') {
-      matchStatus = 'no_match'
-    } else {
-      // AMBIGUOUS - needs human review
-      matchStatus = 'needs_review'
-    }
-
-    // Step 5: Update invoice with match result
+    // Store candidate count
     await supabaseAdmin
       .from('invoices')
-      .update({
-        match_status: matchStatus,
-        draw_request_line_id: matchedDrawLineId,
-        matched_to_category: classification.topCandidate?.budgetCategory || null,
-        matched_to_nahb_code: classification.topCandidate?.nahbCategory || null,
-        confidence_score: classification.topCandidate?.scores.composite || null,
-        candidate_count: candidates.length,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ candidate_count: candidates.length })
       .eq('id', invoiceId)
 
-    // Step 6: If we have a match, update the draw line
-    if (matchedDrawLineId && classification.topCandidate) {
-      const topCandidate = classification.topCandidate
-      const invoiceFileName = invoice.file_path?.split('/').pop() || null
-
-      // Parse existing flags
-      const { data: drawLine } = await supabaseAdmin
-        .from('draw_request_lines')
-        .select('flags')
-        .eq('id', matchedDrawLineId)
-        .single()
-
-      const parseLineFlags = (flagsStr: string | null): string[] => {
-        if (!flagsStr) return []
-        try {
-          const parsed = JSON.parse(flagsStr)
-          return Array.isArray(parsed) ? parsed : []
-        } catch {
-          return flagsStr.split(',').map(s => s.trim()).filter(Boolean)
-        }
-      }
-
-      const existingFlags = parseLineFlags(drawLine?.flags ?? null)
-      const mergedFlags = new Set<string>(existingFlags.filter(f => f !== 'NO_INVOICE'))
-
-      // Add flags based on matching result
-      if (topCandidate.factors.amountVariance > 0.10) {
-        mergedFlags.add('AMOUNT_MISMATCH')
-      }
-      if (topCandidate.scores.composite < 0.7) {
-        mergedFlags.add('LOW_CONFIDENCE')
-      }
-
-      await supabaseAdmin
-        .from('draw_request_lines')
-        .update({
-          invoice_file_id: invoiceId,
-          invoice_file_url: invoice.file_url,
-          invoice_file_name: invoiceFileName,
-          invoice_vendor_name: extractedData.vendorName,
-          invoice_number: extractedData.invoiceNumber,
-          invoice_date: extractedData.invoiceDate,
-          matched_invoice_amount: extractedData.amount,
-          confidence_score: topCandidate.scores.composite,
-          variance: extractedData.amount - topCandidate.amountRequested,
-          flags: mergedFlags.size > 0 ? JSON.stringify(Array.from(mergedFlags)) : null,
-        })
-        .eq('id', matchedDrawLineId)
+    // Handle based on classification
+    let matchResult: {
+      status: string
+      matchedLineId?: string
+      confidence?: number
+      needsReview: boolean
+      aiUsed: boolean
     }
 
-    // Step 7: Update NO_INVOICE flags on unmatched lines
-    await updateNoInvoiceFlags(drawRequestId)
+    switch (classification.status) {
+      case 'SINGLE_MATCH':
+        // Auto-apply the match
+        matchResult = await applyMatch(
+          invoiceId,
+          existingInvoice,
+          extractedData,
+          classification.topCandidate!,
+          classification,
+          'auto_single',
+          n8nExecutionId
+        )
+        break
+
+      case 'MULTIPLE_CANDIDATES':
+        // For now, flag for review. AI selection can be added later.
+        matchResult = await flagForReview(
+          invoiceId,
+          classification,
+          'multiple_candidates',
+          n8nExecutionId
+        )
+        break
+
+      case 'AMBIGUOUS':
+      case 'NO_CANDIDATES':
+      default:
+        matchResult = await flagForReview(
+          invoiceId,
+          classification,
+          classification.status.toLowerCase(),
+          n8nExecutionId
+        )
+        break
+    }
+
+    // Reconcile NO_INVOICE flags across the draw
+    await reconcileNoInvoiceFlags(drawRequestId)
 
     return NextResponse.json({
       success: true,
       invoiceId,
-      matchStatus,
+      ...matchResult,
       candidateCount: candidates.length,
       classification: classification.status,
-      matchedDrawLineId,
-      confidence: classification.topCandidate?.scores.composite || 0,
     })
-
   } catch (error: any) {
     console.error('Process callback error:', error)
     return NextResponse.json(
@@ -287,10 +250,146 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Update NO_INVOICE flags on draw lines
+ * Apply a match to an invoice and draw line
+ */
+async function applyMatch(
+  invoiceId: string,
+  invoice: any,
+  extractedData: ExtractedInvoiceData,
+  candidate: MatchCandidate,
+  classification: MatchClassificationResult,
+  decisionType: 'auto_single' | 'ai_selected',
+  n8nExecutionId?: string | null
+): Promise<{ status: string; matchedLineId: string; confidence: number; needsReview: boolean; aiUsed: boolean }> {
+  const now = new Date().toISOString()
+
+  // Update invoice
+  await supabaseAdmin
+    .from('invoices')
+    .update({
+      match_status: decisionType === 'auto_single' ? 'auto_matched' : 'ai_matched',
+      matched_to_category: candidate.budgetCategory,
+      matched_to_nahb_code: candidate.nahbCategory,
+      draw_request_line_id: candidate.drawLineId,
+      confidence_score: candidate.scores.composite,
+      flags: JSON.stringify({
+        status_detail: decisionType,
+        confidence: candidate.scores.composite,
+        n8n_execution_id: n8nExecutionId,
+        completed_at: now,
+        candidates_considered: classification.candidates.length,
+      }),
+      updated_at: now,
+    })
+    .eq('id', invoiceId)
+
+  // Update draw line
+  const variance = extractedData.amount - candidate.amountRequested
+  const variancePct = Math.abs(variance) / candidate.amountRequested
+
+  // Build flags
+  const flags: string[] = []
+  if (variancePct > 0.10) flags.push('AMOUNT_MISMATCH')
+  if (candidate.scores.composite < 0.7) flags.push('LOW_CONFIDENCE')
+
+  const invoiceFileName = invoice.file_path?.split('/').pop() || null
+
+  await supabaseAdmin
+    .from('draw_request_lines')
+    .update({
+      invoice_file_id: invoiceId,
+      invoice_file_url: invoice.file_url,
+      invoice_file_name: invoiceFileName,
+      invoice_vendor_name: extractedData.vendorName,
+      invoice_number: extractedData.invoiceNumber,
+      invoice_date: extractedData.invoiceDate,
+      matched_invoice_amount: extractedData.amount,
+      confidence_score: candidate.scores.composite,
+      variance,
+      flags: flags.length > 0 ? JSON.stringify(flags) : null,
+    })
+    .eq('id', candidate.drawLineId)
+
+  // Record decision in audit trail
+  await supabaseAdmin.from('invoice_match_decisions').insert({
+    invoice_id: invoiceId,
+    draw_request_line_id: candidate.drawLineId,
+    decision_type: decisionType,
+    decision_source: decisionType === 'auto_single' ? 'system' : 'ai',
+    candidates: classification.candidates as unknown as Json,
+    selected_draw_line_id: candidate.drawLineId,
+    selected_confidence: candidate.scores.composite,
+    selection_factors: candidate.scores as unknown as Json,
+    flags: flags as unknown as Json,
+    decided_at: now,
+  })
+
+  return {
+    status: decisionType === 'auto_single' ? 'auto_matched' : 'ai_matched',
+    matchedLineId: candidate.drawLineId,
+    confidence: candidate.scores.composite,
+    needsReview: false,
+    aiUsed: decisionType === 'ai_selected',
+  }
+}
+
+/**
+ * Flag an invoice for manual review
+ */
+async function flagForReview(
+  invoiceId: string,
+  classification: MatchClassificationResult,
+  reason: string,
+  n8nExecutionId?: string | null
+): Promise<{ status: string; needsReview: boolean; aiUsed: boolean }> {
+  const now = new Date().toISOString()
+
+  await supabaseAdmin
+    .from('invoices')
+    .update({
+      match_status: 'needs_review',
+      confidence_score: classification.topCandidate?.scores.composite || 0,
+      flags: JSON.stringify({
+        status_detail: reason,
+        confidence: classification.topCandidate?.scores.composite || 0,
+        n8n_execution_id: n8nExecutionId,
+        completed_at: now,
+        candidates_considered: classification.candidates.length,
+        top_candidates: classification.candidates.slice(0, 3).map(c => ({
+          category: c.budgetCategory,
+          score: c.scores.composite,
+          amountVariance: c.factors.amountVariance,
+        })),
+      }),
+      updated_at: now,
+    })
+    .eq('id', invoiceId)
+
+  // Record decision (no selection made)
+  await supabaseAdmin.from('invoice_match_decisions').insert({
+    invoice_id: invoiceId,
+    decision_type: 'manual_initial',
+    decision_source: 'system',
+    candidates: classification.candidates as unknown as Json,
+    selected_draw_line_id: null,
+    selected_confidence: null,
+    flags: ['NEEDS_REVIEW'] as unknown as Json,
+    decided_at: now,
+  })
+
+  return {
+    status: 'needs_review',
+    needsReview: true,
+    aiUsed: false,
+  }
+}
+
+/**
+ * Reconcile NO_INVOICE flags across all draw lines
  * Lines with amount > 0 and no matched invoice should have NO_INVOICE flag
  */
-async function updateNoInvoiceFlags(drawRequestId: string) {
+async function reconcileNoInvoiceFlags(drawRequestId: string) {
+  // Helper to parse flags
   const parseLineFlags = (flagsStr: string | null): string[] => {
     if (!flagsStr) return []
     try {
@@ -301,48 +400,46 @@ async function updateNoInvoiceFlags(drawRequestId: string) {
     }
   }
 
+  // Get all lines and their invoice status
+  const { data: lines } = await supabaseAdmin
+    .from('draw_request_lines')
+    .select('id, amount_requested, invoice_file_id, matched_invoice_amount, flags')
+    .eq('draw_request_id', drawRequestId)
+
+  if (!lines) return
+
   // Check if draw has any invoices
-  const { data: invoiceCount } = await supabaseAdmin
+  const { data: invoices } = await supabaseAdmin
     .from('invoices')
     .select('id')
     .eq('draw_request_id', drawRequestId)
 
-  const hasAnyInvoices = (invoiceCount?.length || 0) > 0
+  const hasAnyInvoices = (invoices?.length || 0) > 0
 
-  if (hasAnyInvoices) {
-    const { data: allLines } = await supabaseAdmin
+  // Only flag lines if the draw has at least one invoice
+  if (!hasAnyInvoices) return
+
+  for (const line of lines) {
+    const hasInvoice = !!line.invoice_file_id || !!line.matched_invoice_amount
+    const needsInvoice = (line.amount_requested || 0) > 0 && !hasInvoice
+
+    const currentFlags = parseLineFlags(line.flags ?? null)
+    const flagSet = new Set(currentFlags)
+    const hadNoInvoice = flagSet.has('NO_INVOICE')
+
+    if (needsInvoice && !hadNoInvoice) {
+      flagSet.add('NO_INVOICE')
+    } else if (!needsInvoice && hadNoInvoice) {
+      flagSet.delete('NO_INVOICE')
+    } else {
+      continue // No change needed
+    }
+
+    await supabaseAdmin
       .from('draw_request_lines')
-      .select('id, amount_requested, invoice_file_id, matched_invoice_amount, flags')
-      .eq('draw_request_id', drawRequestId)
-
-    const updates = []
-    for (const line of (allLines || [])) {
-      const amountRequested = line.amount_requested || 0
-      const hasInvoiceMatch = !!line.invoice_file_id || !!line.matched_invoice_amount
-      const shouldFlagNoInvoice = amountRequested > 0 && !hasInvoiceMatch
-
-      const currentFlags = parseLineFlags(line.flags ?? null)
-      const next = new Set<string>(currentFlags)
-
-      if (shouldFlagNoInvoice) next.add('NO_INVOICE')
-      else next.delete('NO_INVOICE')
-
-      const nextFlags = Array.from(next)
-      const changed =
-        currentFlags.length !== nextFlags.length ||
-        currentFlags.some(f => !next.has(f)) ||
-        nextFlags.some(f => !currentFlags.includes(f))
-
-      if (changed) {
-        updates.push({ id: line.id, flags: nextFlags.length > 0 ? JSON.stringify(nextFlags) : null })
-      }
-    }
-
-    for (const u of updates) {
-      await supabaseAdmin
-        .from('draw_request_lines')
-        .update({ flags: u.flags })
-        .eq('id', u.id)
-    }
+      .update({
+        flags: flagSet.size > 0 ? JSON.stringify([...flagSet]) : null,
+      })
+      .eq('id', line.id)
   }
 }

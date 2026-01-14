@@ -7,7 +7,7 @@ import { validateDrawRequest } from '@/lib/validations'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigation } from '@/app/context/NavigationContext'
 import { InvoiceMatchPanel } from '@/app/components/draws/InvoiceMatchPanel'
-import type { DrawRequestWithDetails, ValidationResult, Budget, Invoice, Builder, Project, NahbCategory, NahbSubcategory } from '@/types/database'
+import type { DrawRequestWithDetails, ValidationResult, Budget, Invoice, Builder, Project, NahbCategory, NahbSubcategory, DrawRequest, DrawRequestLine } from '@/types/database'
 import { DRAW_STATUS_LABELS, DRAW_FLAG_LABELS, DrawStatus, DrawLineFlag } from '@/types/database'
 
 type LineWithBudget = {
@@ -127,9 +127,9 @@ export default function DrawDetailPage() {
           .from('invoices')
           .select('*')
           .eq('draw_request_id', drawId)
-        
+
         if (updatedInvoices) {
-          setInvoices(updatedInvoices)
+          setInvoices(updatedInvoices as Invoice[])
           
           // If no more processing invoices, also refresh lines to get updated matches
           const stillProcessing = updatedInvoices.some(isInvoiceProcessing)
@@ -158,7 +158,7 @@ export default function DrawDetailPage() {
             .from('invoices')
             .select('*')
             .eq('draw_request_id', drawId)
-          if (updatedInvoices) setInvoices(updatedInvoices)
+          if (updatedInvoices) setInvoices(updatedInvoices as Invoice[])
         }
       )
       .subscribe()
@@ -208,15 +208,18 @@ export default function DrawDetailPage() {
         .eq('draw_request_id', drawId)
         .order('created_at', { ascending: true })
 
+      // Type assertion for drawData
+      const typedDrawData = drawData as DrawRequest & { projects: ProjectWithBuilder }
+
       // Fetch all budgets for this project (for unmatched line dropdown)
-      if (drawData?.project_id) {
+      if (typedDrawData?.project_id) {
         const { data: budgetsData } = await supabase
           .from('budgets')
           .select('*')
-          .eq('project_id', drawData.project_id)
+          .eq('project_id', typedDrawData.project_id)
           .order('sort_order', { ascending: true })
-        
-        setAllBudgets(budgetsData || [])
+
+        setAllBudgets((budgetsData || []) as Budget[])
       }
 
       // Fetch NAHB categories and subcategories for cascading dropdowns
@@ -246,24 +249,24 @@ export default function DrawDetailPage() {
         .select('*')
         .eq('draw_request_id', drawId)
 
-      const projectData = (drawData as any).projects as ProjectWithBuilder
+      const projectData = typedDrawData.projects
       setProject(projectData)
-      
+
       setDraw({
-        ...drawData,
+        ...typedDrawData,
         project: projectData,
-        invoices: invoicesData || [],
+        invoices: (invoicesData || []) as Invoice[],
         documents: docsData || [],
-      })
+      } as DrawRequestWithDetails)
 
       setLines(
-        (linesData || []).map((line: any) => ({
+        ((linesData || []) as (DrawRequestLine & { budgets: Budget })[]).map((line) => ({
           ...line,
           budget: line.budgets,
         }))
       )
-      
-      setInvoices(invoicesData || [])
+
+      setInvoices((invoicesData || []) as Invoice[])
 
       // Run validation
       const validationResult = await validateDrawRequest(drawId)
@@ -469,14 +472,14 @@ export default function DrawDetailPage() {
       const originalCategory = line.notes?.replace('Original category: ', '').replace(/^Fuzzy matched \(\d+%\): /, '') || subcategory.name
 
       // Create new budget line
-      const { data: newBudget, error: budgetError } = await supabase
+      const { data: newBudgetData, error: budgetError } = await supabase
         .from('budgets')
         .insert({
           project_id: draw.project_id,
           category: subcategory.name,
           nahb_category: category.name,
           nahb_subcategory: subcategory.name,
-          cost_code: subcategory.cost_code || `${category.code}00`,
+          cost_code: subcategory.code || `${category.code}00`,
           builder_category_raw: originalCategory,
           original_amount: line.amount_requested,
           current_amount: line.amount_requested,
@@ -487,11 +490,12 @@ export default function DrawDetailPage() {
         .single()
 
       if (budgetError) throw budgetError
+      const newBudget = newBudgetData as Budget
 
       // Assign the new budget to the draw line
       const { error: lineError } = await supabase
         .from('draw_request_lines')
-        .update({ 
+        .update({
           budget_id: newBudget.id,
           flags: null,
           notes: `Created new budget line: ${category.name} / ${subcategory.name}`

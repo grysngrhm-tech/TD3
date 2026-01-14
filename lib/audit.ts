@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { AuditEventInsert, AuditEvent } from '@/types/database'
+import type { AuditEventInsert, AuditEvent, Json } from '@/types/database'
 
 type EntityType = 'project' | 'budget' | 'draw_request' | 'invoice' | 'document' | 'approval'
 type ActionType = 'created' | 'updated' | 'deleted' | 'submitted' | 'approved' | 'rejected' | 'paid'
@@ -32,9 +32,9 @@ export async function logAuditEvent({
         entity_id: entityId,
         action,
         actor: actor || 'system',
-        old_data: oldData || null,
-        new_data: newData || null,
-        metadata: metadata || null,
+        old_data: (oldData || null) as Json,
+        new_data: (newData || null) as Json,
+        metadata: (metadata || null) as Json,
       })
       .select()
       .single()
@@ -44,7 +44,7 @@ export async function logAuditEvent({
       return null
     }
 
-    return data
+    return data as AuditEvent
   } catch (error) {
     console.error('Error logging audit event:', error)
     return null
@@ -71,7 +71,7 @@ export async function getAuditHistory(
       return []
     }
 
-    return data || []
+    return (data || []) as AuditEvent[]
   } catch (error) {
     console.error('Error fetching audit history:', error)
     return []
@@ -94,7 +94,7 @@ export async function getRecentAuditEvents(limit: number = 50): Promise<AuditEve
       return []
     }
 
-    return data || []
+    return (data || []) as AuditEvent[]
   } catch (error) {
     console.error('Error fetching recent audit events:', error)
     return []

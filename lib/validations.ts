@@ -38,10 +38,11 @@ export async function validateDrawRequest(drawId: string): Promise<ValidationRes
     const lines = (drawRequest as any).draw_request_lines || []
 
     // Fetch invoices for this draw request
-    const { data: invoices } = await supabase
+    const { data: invoicesData } = await supabase
       .from('invoices')
       .select('*')
       .eq('draw_request_id', drawId)
+    const invoices = invoicesData as Invoice[] | null
 
     const parseLineFlags = (flagsStr: string | null): string[] => {
       if (!flagsStr) return []
@@ -96,7 +97,7 @@ export async function validateDrawRequest(drawId: string): Promise<ValidationRes
     if (invoices && invoices.length > 0) {
       const duplicates = await checkDuplicateInvoices(
         invoices,
-        drawRequest.project_id
+        (drawRequest as DrawRequest).project_id || ''
       )
       result.duplicateInvoices = duplicates
       if (duplicates.length > 0) {
@@ -132,10 +133,11 @@ async function checkDuplicateInvoices(
   const duplicates: ValidationResult['duplicateInvoices'] = []
 
   // Get all existing invoices for this project
-  const { data: existingInvoices } = await supabase
+  const { data: existingData } = await supabase
     .from('invoices')
     .select('*')
     .eq('project_id', projectId)
+  const existingInvoices = existingData as Invoice[] | null
 
   if (!existingInvoices) return duplicates
 

@@ -80,7 +80,8 @@ export default function DrawsPage() {
 
   const statusCounts = draws.reduce(
     (acc, d) => {
-      acc[d.status] = (acc[d.status] || 0) + 1
+      const status = d.status || 'draft'
+      acc[status] = (acc[status] || 0) + 1
       return acc
     },
     {} as Record<string, number>
@@ -166,14 +167,14 @@ export default function DrawsPage() {
                     <td className="table-cell font-medium">{draw.project_name || 'Unknown'}</td>
                     <td className="table-cell">#{draw.draw_number}</td>
                     <td className="table-cell" style={{ color: 'var(--text-secondary)' }}>
-                      {new Date(draw.request_date).toLocaleDateString()}
+                      {draw.request_date ? new Date(draw.request_date).toLocaleDateString() : '-'}
                     </td>
                     <td className="table-cell text-right font-medium financial-value">
                       {formatCurrency(draw.total_amount)}
                     </td>
                     <td className="table-cell">
-                      <span className={getStatusClass(draw.status === 'paid' ? 'funded' : draw.status)}>
-                        {draw.status === 'paid' ? 'funded' : draw.status}
+                      <span className={getStatusClass(draw.status === 'paid' ? 'funded' : (draw.status || 'draft'))}>
+                        {draw.status === 'paid' ? 'funded' : (draw.status || 'draft')}
                       </span>
                     </td>
                     <td className="table-cell text-sm max-w-xs truncate" style={{ color: 'var(--text-muted)' }}>
