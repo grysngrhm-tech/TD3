@@ -52,4 +52,4 @@ n8n/workflows/td3-*.json
 .env.local.txt
 n8n/workflows/README.md
 types/README.md
-supabase/README.md
+supabase/README.md.mcp.json

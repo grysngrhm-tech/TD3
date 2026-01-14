@@ -9,9 +9,7 @@
       "Bash(gh auth:*)",
       "Bash(git fetch:*)",
       "Bash(git checkout:*)",
-      "mcp__filesystem__directory_tree",
       "Bash(find:*)",
-      "Bash(dir \"C:\\\\Users\\\\Grays\\\\OneDrive\\\\Documents\\\\TD3\\\\supabase\")",
       "Bash(test:*)",
       "Bash(git push:*)",
       "Bash(curl:*)",
@@ -19,7 +17,36 @@
       "Bash(timeout:*)",
       "Bash(npx tsc:*)",
       "Bash(git diff:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "mcp__filesystem__directory_tree",
+      "mcp__supabase__list_organizations",
+      "mcp__supabase__list_projects",
+      "mcp__supabase__get_project",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__get_logs",
+      "mcp__supabase__get_schemas",
+      "mcp__supabase__search_docs",
+      "mcp__n8n-mcp__n8n_health_check",
+      "mcp__n8n-mcp__n8n_list_workflows",
+      "mcp__n8n-mcp__n8n_get_workflow",
+      "mcp__n8n-mcp__n8n_create_workflow",
+      "mcp__n8n-mcp__n8n_update_workflow",
+      "mcp__n8n-mcp__n8n_delete_workflow",
+      "mcp__n8n-mcp__n8n_activate_workflow",
+      "mcp__n8n-mcp__n8n_deactivate_workflow",
+      "mcp__n8n-mcp__n8n_list_executions",
+      "mcp__n8n-mcp__n8n_get_execution",
+      "mcp__n8n-mcp__n8n_run_workflow",
+      "mcp__n8n-mcp__n8n_list_credentials",
+      "mcp__n8n-mcp__n8n_update_full_workflow",
+      "mcp__n8n-mcp__n8n_update_partial_workflow",
+      "mcp__n8n-mcp__tools_documentation"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "supabase",
+    "n8n-mcp"
+  ]
 }
