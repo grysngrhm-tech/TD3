@@ -336,7 +336,11 @@ export default function DrawDetailPage() {
   // Get subcategories for a selected NAHB category
   const getSubcategoriesForCategory = (categoryName: string | null) => {
     if (!categoryName) return []
-    return nahbSubcategories.filter(s => s.category_name === categoryName)
+    // Find the category ID by name
+    const category = nahbCategories.find(c => c.name === categoryName)
+    if (!category) return []
+    // Filter subcategories by category_id
+    return nahbSubcategories.filter(s => s.category_id === category.id)
   }
 
   // Handle category selection for an unmatched line

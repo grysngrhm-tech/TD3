@@ -6,6 +6,7 @@ import type {
   MatchStatus,
   Budget,
   DrawRequestLine,
+  Json,
 } from '@/types/database'
 import {
   generateMatchCandidates,
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
         invoice_number: extractedData.invoiceNumber,
         invoice_date: extractedData.invoiceDate,
         extraction_status: 'extracted',
-        extracted_data: extractedData,
+        extracted_data: extractedData as unknown as Record<string, unknown>,
         updated_at: new Date().toISOString(),
       })
       .eq('id', invoiceId)
@@ -169,11 +170,11 @@ export async function POST(request: NextRequest) {
         draw_request_line_id: matchedDrawLineId,
         decision_type: 'auto_single',
         decision_source: 'system',
-        candidates: candidates,
+        candidates: candidates as unknown as Json,
         selected_draw_line_id: matchedDrawLineId,
         selected_confidence: classification.topCandidate.scores.composite,
-        selection_factors: classification.topCandidate.scores,
-        flags: [],
+        selection_factors: classification.topCandidate.scores as unknown as Json,
+        flags: [] as Json,
       })
 
     } else if (classification.status === 'MULTIPLE_CANDIDATES') {
@@ -186,10 +187,10 @@ export async function POST(request: NextRequest) {
         invoice_id: invoiceId,
         decision_type: 'auto_single', // Will be updated when AI selects
         decision_source: 'system',
-        candidates: candidates.slice(0, 5),
+        candidates: candidates.slice(0, 5) as unknown as Json,
         selected_draw_line_id: null,
         selected_confidence: null,
-        flags: ['MULTIPLE_CANDIDATES'],
+        flags: ['MULTIPLE_CANDIDATES'] as Json,
       })
 
     } else if (classification.status === 'NO_CANDIDATES') {

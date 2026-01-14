@@ -707,6 +707,156 @@ export type Database = {
           }
         ]
       }
+      invoice_match_decisions: {
+        Row: {
+          id: string
+          invoice_id: string
+          draw_request_line_id: string | null
+          decision_type: string
+          decision_source: string
+          decided_by: string | null
+          decided_at: string | null
+          candidates: Json | null
+          selected_draw_line_id: string | null
+          selected_confidence: number | null
+          selection_factors: Json | null
+          ai_reasoning: string | null
+          flags: Json | null
+          previous_draw_line_id: string | null
+          correction_reason: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          invoice_id: string
+          draw_request_line_id?: string | null
+          decision_type: string
+          decision_source: string
+          decided_by?: string | null
+          decided_at?: string | null
+          candidates?: Json | null
+          selected_draw_line_id?: string | null
+          selected_confidence?: number | null
+          selection_factors?: Json | null
+          ai_reasoning?: string | null
+          flags?: Json | null
+          previous_draw_line_id?: string | null
+          correction_reason?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          invoice_id?: string
+          draw_request_line_id?: string | null
+          decision_type?: string
+          decision_source?: string
+          decided_by?: string | null
+          decided_at?: string | null
+          candidates?: Json | null
+          selected_draw_line_id?: string | null
+          selected_confidence?: number | null
+          selection_factors?: Json | null
+          ai_reasoning?: string | null
+          flags?: Json | null
+          previous_draw_line_id?: string | null
+          correction_reason?: string | null
+          created_at?: string | null
+        }
+        Relationships: []
+      }
+      invoice_match_training: {
+        Row: {
+          id: string
+          invoice_id: string | null
+          draw_request_id: string | null
+          approved_at: string | null
+          vendor_name_normalized: string
+          amount: number
+          context: string | null
+          keywords: Json | null
+          trade: string | null
+          work_type: string | null
+          budget_category: string
+          nahb_category: string | null
+          nahb_subcategory: string | null
+          match_method: string | null
+          confidence_at_match: number | null
+          was_corrected: boolean | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          invoice_id?: string | null
+          draw_request_id?: string | null
+          approved_at?: string | null
+          vendor_name_normalized: string
+          amount: number
+          context?: string | null
+          keywords?: Json | null
+          trade?: string | null
+          work_type?: string | null
+          budget_category: string
+          nahb_category?: string | null
+          nahb_subcategory?: string | null
+          match_method?: string | null
+          confidence_at_match?: number | null
+          was_corrected?: boolean | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          invoice_id?: string | null
+          draw_request_id?: string | null
+          approved_at?: string | null
+          vendor_name_normalized?: string
+          amount?: number
+          context?: string | null
+          keywords?: Json | null
+          trade?: string | null
+          work_type?: string | null
+          budget_category?: string
+          nahb_category?: string | null
+          nahb_subcategory?: string | null
+          match_method?: string | null
+          confidence_at_match?: number | null
+          was_corrected?: boolean | null
+          created_at?: string | null
+        }
+        Relationships: []
+      }
+      vendor_category_associations: {
+        Row: {
+          id: string
+          vendor_name_normalized: string
+          budget_category: string
+          nahb_category: string | null
+          match_count: number | null
+          total_amount: number | null
+          last_matched_at: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          vendor_name_normalized: string
+          budget_category: string
+          nahb_category?: string | null
+          match_count?: number | null
+          total_amount?: number | null
+          last_matched_at?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          vendor_name_normalized?: string
+          budget_category?: string
+          nahb_category?: string | null
+          match_count?: number | null
+          total_amount?: number | null
+          last_matched_at?: string | null
+          created_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
