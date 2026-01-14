@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { Invoice, Budget, MatchCandidate, InvoiceMatchDecision } from '@/types/database'
+import type { Invoice, Budget, MatchCandidate, InvoiceMatchDecision, Json } from '@/types/database'
 import { supabase } from '@/lib/supabase'
 import { recordMatchCorrection } from '@/lib/invoiceLearning'
 
@@ -78,23 +78,25 @@ export function InvoiceMatchPanel({
   const [customReason, setCustomReason] = useState('')
 
   // Is this a correction (changing from a previous match)?
-  const isCorrection = invoice.draw_request_line_id && selectedLineId !== invoice.draw_request_line_id
+  const isCorrection = Boolean(invoice.draw_request_line_id && selectedLineId !== invoice.draw_request_line_id)
   const needsCorrectionReason = isCorrection && !correctionReason
 
   // Load candidates and last decision on mount
   useEffect(() => {
     async function loadMatchData() {
       // Load last decision (which contains candidates)
-      const { data: decision } = await supabase
+      const { data } = await supabase
         .from('invoice_match_decisions')
         .select('*')
         .eq('invoice_id', invoice.id)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
 
-      if (decision) {
-        setLastDecision(decision as InvoiceMatchDecision)
+      if (data) {
+        // Type assertion for the decision data
+        const decision = data as unknown as InvoiceMatchDecision
+        setLastDecision(decision)
         if (decision.candidates && Array.isArray(decision.candidates)) {
           setCandidates(decision.candidates as MatchCandidate[])
         }
@@ -208,10 +210,10 @@ export function InvoiceMatchPanel({
           draw_request_line_id: selectedLineId,
           decision_type: isCorrection ? 'manual_override' : 'manual_initial',
           decision_source: 'user',
-          candidates: candidates,
+          candidates: candidates as unknown as Json,
           selected_draw_line_id: selectedLineId,
           selected_confidence: 1.0,
-          selection_factors: { manual_selection: true },
+          selection_factors: { manual_selection: true } as Json,
           previous_draw_line_id: isCorrection ? invoice.draw_request_line_id : null,
           correction_reason: isCorrection ? (correctionReason === 'other' ? customReason : correctionReason) : null,
           decided_at: new Date().toISOString(),
