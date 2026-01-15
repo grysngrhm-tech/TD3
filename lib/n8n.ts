@@ -111,6 +111,11 @@ export type InvoiceProcessPayload = {
   }>
 }
 
+// Internal payload with webhook secret added
+type InvoiceProcessPayloadWithSecret = InvoiceProcessPayload & {
+  webhookSecret?: string
+}
+
 export async function triggerBudgetImport(payload: BudgetImportPayload): Promise<{ success: boolean; message: string; projectId?: string }> {
   try {
     const response = await fetch(`${N8N_BASE_URL}/td3-budget-import`, {
@@ -161,12 +166,18 @@ export async function triggerDrawImport(payload: DrawImportPayload): Promise<{ s
 
 export async function triggerInvoiceProcess(payload: InvoiceProcessPayload): Promise<{ success: boolean; message: string }> {
   try {
+    // Add webhook secret to payload for n8n to use in callback
+    const payloadWithSecret: InvoiceProcessPayloadWithSecret = {
+      ...payload,
+      webhookSecret: process.env.N8N_CALLBACK_SECRET || undefined,
+    }
+
     const response = await fetch(`${N8N_BASE_URL}/td3-invoice-process`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payloadWithSecret),
     })
 
     if (!response.ok) {
