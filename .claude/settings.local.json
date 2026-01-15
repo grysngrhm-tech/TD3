@@ -43,7 +43,8 @@
       "mcp__n8n-mcp__n8n_update_full_workflow",
       "mcp__n8n-mcp__n8n_update_partial_workflow",
       "mcp__n8n-mcp__tools_documentation",
-      "WebFetch(domain:td3-f15m5beb1-grayson-grahams-projects.vercel.app)"
+      "WebFetch(domain:td3-f15m5beb1-grayson-grahams-projects.vercel.app)",
+      "Bash(node:*)"
     ]
   },
   "enabledMcpjsonServers": [
