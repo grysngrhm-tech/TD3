@@ -55,16 +55,9 @@ type ImportStats = {
   zeroAmountRows: number
 }
 
-// Get webhook URLs from environment
-// Prefer explicit full URLs, but allow deriving from a base webhook URL for simpler configuration.
-// Expected base form: https://<your-n8n-host>/webhook
-const N8N_BASE_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || ''
-const BUDGET_WEBHOOK_URL =
-  process.env.NEXT_PUBLIC_N8N_BUDGET_WEBHOOK ||
-  (N8N_BASE_WEBHOOK_URL ? `${N8N_BASE_WEBHOOK_URL}/budget-import` : '')
-const DRAW_WEBHOOK_URL =
-  process.env.NEXT_PUBLIC_N8N_DRAW_WEBHOOK ||
-  (N8N_BASE_WEBHOOK_URL ? `${N8N_BASE_WEBHOOK_URL}/td3-draw-process` : '')
+// API routes that proxy n8n webhook calls (avoids CORS issues)
+const BUDGET_WEBHOOK_URL = '/api/n8n/budget-import'
+const DRAW_WEBHOOK_URL = '/api/n8n/draw-process'
 
 // Exaggerated task messages for the processing animation
 const PROCESSING_TASKS = [
@@ -776,26 +769,10 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
         }
         
       } else {
-        // === BUDGET IMPORT: Use existing webhook flow ===
+        // === BUDGET IMPORT: Use API route that proxies to n8n ===
         const webhookUrl = BUDGET_WEBHOOK_URL
-        
-        // Validate webhook URL is configured and looks valid
-        if (!webhookUrl) {
-          setError(
-            'Budget import webhook URL not configured. Set NEXT_PUBLIC_N8N_BUDGET_WEBHOOK (full URL) or NEXT_PUBLIC_N8N_WEBHOOK_URL (base URL) in environment variables.'
-          )
-          setImporting(false)
-          return
-        }
-        
-        if (!webhookUrl.startsWith('http')) {
-          console.error('[Budget Import] Invalid webhook URL:', webhookUrl)
-          setError('Budget import webhook URL is invalid. It should start with https://')
-          setImporting(false)
-          return
-        }
-        
-        console.log('[Budget Import] Using webhook URL:', webhookUrl)
+
+        console.log('[Budget Import] Using API route:', webhookUrl)
         
         // Delete existing budget if checkbox is checked (excluding protected budgets)
         if (deleteExistingBudget && existingBudgetCount > 0) {
