@@ -16,11 +16,17 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { normalizeVendorName } from './invoiceMatching'
 import type { ExtractedInvoiceData } from '@/types/database'
 
-// Initialize Supabase admin client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Lazy-initialize Supabase admin client to avoid runtime errors when imported from client components
+let _supabaseAdmin: SupabaseClient | null = null
+function getSupabaseAdmin(): SupabaseClient {
+  if (!_supabaseAdmin) {
+    _supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+  }
+  return _supabaseAdmin
+}
 
 interface MatchedInvoice {
   id: string
@@ -51,8 +57,9 @@ interface TrainingCaptureResult {
  */
 export async function captureTrainingDataForDraw(
   drawId: string,
-  supabase: SupabaseClient = supabaseAdmin
+  supabase?: SupabaseClient
 ): Promise<TrainingCaptureResult> {
+  const client = supabase || getSupabaseAdmin()
   const result: TrainingCaptureResult = {
     success: true,
     invoicesProcessed: 0,
@@ -65,7 +72,7 @@ export async function captureTrainingDataForDraw(
     console.log(`[Learning] Capturing training data for draw ${drawId}`)
 
     // Get all invoices matched to this draw's lines
-    const { data: invoices, error: invoicesError } = await supabase
+    const { data: invoices, error: invoicesError } = await client
       .from('invoices')
       .select(`
         id,
@@ -140,7 +147,7 @@ export async function captureTrainingDataForDraw(
           was_corrected: invoice.was_manually_corrected || false,
         }
 
-        const { error: insertError } = await supabase
+        const { error: insertError } = await client
           .from('invoice_match_training')
           .insert(trainingRecord)
 
@@ -158,7 +165,7 @@ export async function captureTrainingDataForDraw(
 
         // Update vendor association (aggregated lookup table)
         const vendorAssocResult = await upsertVendorAssociation(
-          supabase,
+          client,
           normalizeVendorName(invoice.vendor_name || 'Unknown'),
           invoice.matched_to_category!,
           invoice.matched_to_nahb_code || null,
@@ -273,18 +280,19 @@ export async function recordMatchCorrection(
   newCategory: string,
   correctionReason: string | null,
   userId: string,
-  supabase: SupabaseClient = supabaseAdmin
+  supabase?: SupabaseClient
 ): Promise<boolean> {
+  const client = supabase || getSupabaseAdmin()
   try {
     // Get the invoice's current candidates
-    const { data: invoice } = await supabase
+    const { data: invoice } = await client
       .from('invoices')
       .select('extracted_data, confidence_score')
       .eq('id', invoiceId)
       .single()
 
     // Get candidate info from the decision history
-    const { data: lastDecision } = await supabase
+    const { data: lastDecision } = await client
       .from('invoice_match_decisions')
       .select('candidates')
       .eq('invoice_id', invoiceId)
@@ -293,7 +301,7 @@ export async function recordMatchCorrection(
       .single()
 
     // Record the correction decision
-    const { error } = await supabase
+    const { error } = await client
       .from('invoice_match_decisions')
       .insert({
         invoice_id: invoiceId,
@@ -315,7 +323,7 @@ export async function recordMatchCorrection(
     }
 
     // Mark the invoice as manually corrected
-    await supabase
+    await client
       .from('invoices')
       .update({
         was_manually_corrected: true,
@@ -342,13 +350,14 @@ export async function recordMatchCorrection(
  */
 export async function getVendorHistory(
   vendorName: string,
-  supabase: SupabaseClient = supabaseAdmin
+  supabase?: SupabaseClient
 ): Promise<Map<string, { matchCount: number; totalAmount: number }>> {
+  const client = supabase || getSupabaseAdmin()
   const normalized = normalizeVendorName(vendorName)
   const history = new Map<string, { matchCount: number; totalAmount: number }>()
 
   try {
-    const { data: associations } = await supabase
+    const { data: associations } = await client
       .from('vendor_category_associations')
       .select('budget_category, match_count, total_amount')
       .eq('vendor_name_normalized', normalized)
@@ -376,12 +385,13 @@ export async function getVendorHistory(
  */
 export async function getTradePatterns(
   trade: string,
-  supabase: SupabaseClient = supabaseAdmin
+  supabase?: SupabaseClient
 ): Promise<Map<string, number>> {
+  const client = supabase || getSupabaseAdmin()
   const patterns = new Map<string, number>()
 
   try {
-    const { data: training } = await supabase
+    const { data: training } = await client
       .from('invoice_match_training')
       .select('budget_category')
       .eq('trade', trade)
@@ -408,15 +418,17 @@ export async function getTradePatterns(
 export async function getKeywordPatterns(
   keywords: string[],
   budgetCategory: string,
-  supabase: SupabaseClient = supabaseAdmin
+  supabase?: SupabaseClient
 ): Promise<number> {
   if (!keywords || keywords.length === 0) {
     return 0
   }
 
+  const client = supabase || getSupabaseAdmin()
+
   try {
     // Find training records for this category that have overlapping keywords
-    const { data: training } = await supabase
+    const { data: training } = await client
       .from('invoice_match_training')
       .select('keywords')
       .eq('budget_category', budgetCategory)
