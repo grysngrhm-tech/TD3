@@ -48,7 +48,8 @@
       "mcp__n8n-mcp__n8n_executions",
       "mcp__n8n-mcp__n8n_validate_workflow",
       "Bash(git pull:*)",
-      "Bash(git cherry-pick:*)"
+      "Bash(git cherry-pick:*)",
+      "Bash(npm install:*)"
     ]
   },
   "enabledMcpjsonServers": [
