@@ -1,9 +1,9 @@
 # TD3 Development Roadmap
 
-**Version:** 1.0  
-**Last Updated:** January 8, 2026  
-**Target Launch:** Q1 2026  
-**Status:** Planning Complete - Ready for Team Review
+**Version:** 1.2
+**Last Updated:** January 18, 2026
+**Target Launch:** Q1 2026
+**Status:** Authentication Complete - Ready for Data Migration
 
 ---
 
@@ -43,7 +43,7 @@ TD3 is **substantially complete** for core functionality:
 | Financial Calculations | ✅ Complete | Amortization, payoff, IRR |
 | Wire Batch Funding | ✅ Complete | Builder grouping, audit trail |
 | Invoice AI Matching | ✅ Complete | Deterministic scoring, narrow AI, learning |
-| User Authentication | ❌ Not Started | RLS placeholders in schema |
+| User Authentication | ✅ Complete | Passwordless auth, allowlist, stackable permissions, RLS |
 | DocuSign Integration | ❌ Not Started | Placeholder in origination |
 | External Portals | ❌ Not Started | Builder/lender access |
 
@@ -53,17 +53,15 @@ TD3 is **substantially complete** for core functionality:
 Categories Finalized → Data Migration → Full Adoption
          ↓
 Calculations Verified → Payoff Production Ready
-         ↓
-Authentication → User Access Control
 ```
 
-**Key Insight:** Team input on categories and calculation verification are the primary blockers. Development can proceed in parallel, but data migration cannot begin until categories are finalized.
+**Key Insight:** Team input on categories and calculation verification are the primary blockers. Authentication is complete, so development can proceed in parallel. Data migration cannot begin until categories are finalized.
 
 ### Three-Phase Approach
 
 | Phase | Timeline | Focus | Team Involvement |
 |-------|----------|-------|------------------|
-| **Pre-Launch** | Weeks 1-6 | Finalize database, verify calculations, add authentication | Category review, calculation sign-off |
+| **Pre-Launch** | Weeks 1-6 | Finalize database, verify calculations | Category review, calculation sign-off |
 | **Adoption** | Weeks 7-12 | Migrate data, enhance AI, train team | Data verification, training participation |
 | **Continued Development** | Post-Launch | Add advanced features (DocuSign, portals, mobile app) | Feature prioritization feedback |
 
@@ -108,12 +106,12 @@ Authentication → User Access Control
 gantt
     title TD3 Launch Roadmap - Q1 2026
     dateFormat YYYY-MM-DD
-    
+
     section Pre-Launch
     Categories Review (TEAM INPUT)     :crit, cat, 2026-01-08, 7d
     Amortization Verification (TEAM)   :crit, amort, 2026-01-08, 14d
-    Dev/Prod Branch Setup              :branches, 2026-01-08, 3d
-    Authentication System              :auth, 2026-01-11, 14d
+    Dev/Prod Branch Setup              :done, branches, 2026-01-08, 3d
+    Authentication System              :done, auth, 2026-01-11, 14d
     
     section Adoption
     Invoice AI Enhancement             :done, invoice, 2026-01-08, 5d
@@ -233,30 +231,44 @@ Step 4: Document any discrepancies
 | **Team Input Required** | No |
 | **Estimated Duration** | 2-3 weeks |
 | **Owner** | Development |
+| **Status** | ✅ COMPLETE (Jan 18, 2026) |
 
-**Implementation Approach:**
+**Implementation Summary:**
 
-1. **Supabase Auth** - Email/password login for TD staff
-2. **Row Level Security (RLS)** - Database-level access control
-3. **Role-Based Permissions** - Different capabilities by role
+TD3 now uses **passwordless authentication** with stackable permissions:
 
-**Initial Roles (Phase 1 - Internal Only):**
+1. **Supabase Auth** - Magic link (passwordless) login
+2. **Allowlist-Based Access** - Only pre-approved emails can sign in
+3. **Stackable Permissions** - Four independent permissions, any combination
+4. **Row Level Security (RLS)** - Database-level access control
 
-| Role | Permissions |
-|------|-------------|
-| **Admin** | Full access, user management |
-| **Staff** | View portfolio, create loans, process draws, stage for funding |
-| **Signer** | All Staff permissions + approve funded draws |
-| **Payoff Approver** | All Staff permissions + approve payoffs before sending |
-| **View Only** | Read-only access to portfolio data |
+**Permission System (Implemented):**
 
-**Database Changes Required:**
-- Enable RLS on all tables (currently commented out in schema)
-- Create `users` table linked to Supabase Auth
-- Create `user_roles` junction table
-- Create RLS policies for each table/role combination
+| Permission Code | Label | Controls |
+|-----------------|-------|----------|
+| `processor` | Loan Processor | INSERT/UPDATE/DELETE on business tables |
+| `fund_draws` | Fund Draws | Transition draws/batches to 'funded' status |
+| `approve_payoffs` | Approve Payoffs | Approve payoffs before sending to title |
+| `users.manage` | Manage Users | Access to /admin/users, manage allowlist |
 
-**Estimated Development Cost:** 20-30 hours
+**Key Features Implemented:**
+
+- **Middleware route protection** - Redirects unauthenticated users to `/login`
+- **AuthContext** - Global auth state (user, profile, permissions)
+- **PermissionGate component** - Declarative permission-based UI rendering
+- **FirstLoginModal** - Prompts new users to complete profile (name, phone)
+- **Admin user management** - `/admin/users` for managing users and permissions
+- **Header integration** - User avatar dropdown with sign out
+
+**Database Changes Applied:**
+- New tables: `profiles`, `permissions`, `user_permissions`, `allowlist`
+- Helper functions: `has_permission()`, `is_allowlisted()`, `get_user_permissions()`
+- RLS policies on all auth and business tables
+- Trigger for auto-profile creation on user signup
+
+**Documentation:**
+- Full technical details in `docs/ARCHITECTURE.md` (Authentication & Authorization section)
+- Quick reference in `CLAUDE.md` (Authentication & Authorization pattern)
 
 ---
 
@@ -1029,8 +1041,14 @@ Development time estimates assume **AI-assisted development using Cursor** (Clau
 | `lib/calculations.ts` | Compound interest amortization, payoff breakdown |
 | `lib/loanTerms.ts` | Fee escalation formula, term resolution |
 | `lib/validations.ts` | Draw request validation and flag generation |
-| `supabase/001_schema.sql` | Database schema with RLS placeholders |
-| `docs/ARCHITECTURE.md` | Current system architecture |
+| `lib/supabase.ts` | Supabase clients, auth types, permission constants |
+| `supabase/001_schema.sql` | Core database schema |
+| `supabase/004_auth.sql` | Authentication tables, RLS policies, helper functions |
+| `middleware.ts` | Route protection, session refresh |
+| `app/context/AuthContext.tsx` | Global auth state (user, profile, permissions) |
+| `app/components/auth/` | Auth UI components (PermissionGate, FirstLoginModal) |
+| `app/admin/users/page.tsx` | User & permission management UI |
+| `docs/ARCHITECTURE.md` | Current system architecture (includes auth details) |
 | `types/database.ts` | TypeScript types and constants |
 | `n8n/workflows/` | AI workflow definitions |
 
@@ -1040,6 +1058,7 @@ Development time estimates assume **AI-assisted development using Cursor** (Clau
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.2 | 2026-01-18 | Grayson Graham | Marked Authentication System as COMPLETE; Updated status and documentation references |
 | 1.1 | 2026-01-08 | Grayson Graham | Reordered adoption phase (Invoice AI before Migration); Updated migration approach to use existing TD3 systems; Reduced dev hours for AI-assisted development; Added Mobile Inspection App |
 | 1.0 | 2026-01-08 | Development | Initial roadmap creation |
 

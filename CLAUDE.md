@@ -6,6 +6,7 @@ TD3 is a construction loan management system built for Tennant Development. It r
 ## Tech Stack
 - **Frontend**: Next.js 14 (App Router), React 18, Tailwind CSS, Framer Motion
 - **Database**: Supabase (PostgreSQL) - Project ID: uewqcbmaiuofdfvqmbmq
+- **Auth**: Supabase Auth (passwordless magic links) + RLS
 - **AI Workflows**: n8n (self-hosted at https://n8n.srv1208741.hstgr.cloud)
 - **Charts**: Nivo (Sankey, Bar, Line, Pie)
 - **UI Components**: Radix UI (Dialog, Accordion, Tabs)
@@ -14,9 +15,16 @@ TD3 is a construction loan management system built for Tennant Development. It r
 
 ## Key Directories
 - `app/` - Next.js App Router pages and components
+  - `app/(auth)/` - Auth route group (login page with centered layout)
+  - `app/admin/` - Admin pages (user management)
+  - `app/auth/` - Auth callback route for magic link handling
   - `app/components/` - React components (builders, draws, import, projects, ui)
+  - `app/components/auth/` - Auth UI components (FirstLoginModal, PermissionGate)
+  - `app/context/` - React contexts (AuthContext, NavigationContext)
   - `app/api/` - API routes (webhooks, validations, reports, invoices)
+- `middleware.ts` - Next.js middleware for route protection
 - `lib/` - Core business logic
+  - `supabase.ts` - Supabase clients, auth types, and permission constants
   - `calculations.ts` - Financial calculations (IRR, amortization, payoff)
   - `loanTerms.ts` - Fee escalation formulas and term resolution
   - `spreadsheet.ts` - Excel parsing with column/row detection
@@ -26,12 +34,23 @@ TD3 is a construction loan management system built for Tennant Development. It r
   - `invoiceLearning.ts` - Match correction learning and training data
   - `n8n.ts` - n8n webhook integration and payload types
 - `types/` - TypeScript type definitions (`database.ts`)
-- `supabase/` - Database migrations and schema (001_schema.sql, 002_seed.sql)
+- `supabase/` - Database migrations and schema
+  - `001_schema.sql` - Core tables (projects, budgets, draws, etc.)
+  - `002_seed.sql` - NAHB categories and reference data
+  - `004_auth.sql` - Authentication tables, RLS policies, and helper functions
 - `n8n/workflows/` - n8n workflow documentation
 - `n8n-workflows/` - n8n workflow JSON exports
 - `docs/` - Documentation (ARCHITECTURE.md, DESIGN_LANGUAGE.md, ROADMAP.md)
 
 ## Database Schema (Key Tables)
+
+### Auth & Authorization (supabase/004_auth.sql)
+- `profiles` - User profiles linked to auth.users (name, phone, first_login_completed)
+- `permissions` - Permission catalog (processor, fund_draws, approve_payoffs, users.manage)
+- `user_permissions` - Junction table for stackable user permissions
+- `allowlist` - Pre-authorized emails that can sign in
+
+### Core Business Tables
 - `projects` - Construction loans with lifecycle_stage (pending/active/historic)
 - `builders` - Builder/contractor companies with banking info
 - `budgets` - Line items with NAHB cost codes and AI confidence scores
@@ -45,6 +64,91 @@ TD3 is a construction loan management system built for Tennant Development. It r
 - `vendor_category_associations` - Vendor-to-category mappings for training
 
 ## Important Patterns
+
+### Authentication & Authorization
+
+#### Architecture: Passwordless + Allowlist + Stackable Permissions + RLS
+
+TD3 uses Supabase Auth with magic link (passwordless) authentication. Only pre-approved email addresses in the `allowlist` table can sign in. Users are assigned stackable permissions that control access at both UI and database levels.
+
+#### Auth Flow
+```
+1. User visits protected route
+2. Middleware redirects to /login (preserves redirect param)
+3. User enters email → allowlist check → magic link sent
+4. User clicks link → /auth/callback → session created
+5. First login? → FirstLoginModal prompts for name/phone
+6. Redirect to original destination
+```
+
+#### Permission System
+| Code | Label | Controls |
+|------|-------|----------|
+| `processor` | Loan Processor | INSERT/UPDATE/DELETE on business tables |
+| `fund_draws` | Fund Draws | Transition draws/batches to 'funded' status |
+| `approve_payoffs` | Approve Payoffs | Approve payoffs before sending to title |
+| `users.manage` | Manage Users | Access to `/admin/users` page |
+
+#### RLS Policy Pattern
+- **SELECT**: All authenticated users can read portfolio data
+- **INSERT/UPDATE/DELETE**: Requires `processor` permission
+- **Funding transitions**: Requires `fund_draws` permission (gated in policy)
+- **User/allowlist management**: Requires `users.manage` permission
+- **Service role**: Bypasses RLS for API routes and n8n callbacks
+
+#### Key Auth Files
+| File | Purpose |
+|------|---------|
+| `middleware.ts` | Route protection, session refresh, redirect handling |
+| `app/context/AuthContext.tsx` | Global auth state (user, profile, permissions) |
+| `app/components/auth/PermissionGate.tsx` | Conditional rendering by permission |
+| `app/components/auth/FirstLoginModal.tsx` | Profile completion on first sign-in |
+| `app/(auth)/login/page.tsx` | Passwordless login page |
+| `app/auth/callback/route.ts` | Magic link code exchange |
+| `app/admin/users/page.tsx` | User & permission management UI |
+| `lib/supabase.ts` | Browser client, Permission type, labels/descriptions |
+| `supabase/004_auth.sql` | Schema, RLS policies, helper functions |
+
+#### Database Helper Functions
+```sql
+has_permission(user_id, permission_code) → BOOLEAN  -- Used in RLS policies
+is_allowlisted(email) → BOOLEAN                     -- Called during login
+get_user_permissions(user_id) → TEXT[]              -- Returns all permissions
+```
+
+#### Usage Examples
+
+**Check permission in component:**
+```tsx
+import { PermissionGate, useHasPermission } from '@/app/components/auth'
+
+// Declarative
+<PermissionGate permission="fund_draws">
+  <FundButton />
+</PermissionGate>
+
+// Imperative
+const canFund = useHasPermission('fund_draws')
+```
+
+**Get current user in component:**
+```tsx
+import { useAuth } from '@/app/context/AuthContext'
+
+const { user, profile, permissions, hasPermission, signOut } = useAuth()
+```
+
+#### First Admin Bootstrap
+After applying `004_auth.sql`, bootstrap the first admin:
+```sql
+-- 1. Add to allowlist
+INSERT INTO allowlist (email, notes) VALUES ('admin@example.com', 'Initial admin');
+
+-- 2. After first login, grant all permissions
+INSERT INTO user_permissions (user_id, permission_code)
+SELECT u.id, p.code FROM auth.users u CROSS JOIN permissions p
+WHERE u.email = 'admin@example.com';
+```
 
 ### Loan Lifecycle
 ```
@@ -176,12 +280,13 @@ npm run start    # Start production server
 ```
 
 ## Key Features to Understand
-1. **Smart Import**: Excel parsing with multi-signal row boundary detection
-2. **Fuzzy Matching**: Levenshtein + tokenized word matching for category assignment
-3. **Polymorphic Reports**: Budget/Amortization/Payoff reports with Table/Chart views
-4. **Wire Batch System**: Groups multiple draws per builder into single wire transfers
-5. **Audit Trail**: Every action logged with timestamps and user attribution
-6. **Invoice Matching**: AI extraction + deterministic scoring with learning flywheel
+1. **Authentication**: Passwordless (magic link) with allowlist and stackable permissions
+2. **Smart Import**: Excel parsing with multi-signal row boundary detection
+3. **Fuzzy Matching**: Levenshtein + tokenized word matching for category assignment
+4. **Polymorphic Reports**: Budget/Amortization/Payoff reports with Table/Chart views
+5. **Wire Batch System**: Groups multiple draws per builder into single wire transfers
+6. **Audit Trail**: Every action logged with timestamps and user attribution
+7. **Invoice Matching**: AI extraction + deterministic scoring with learning flywheel
 
 ## Owner
 Grayson Graham (grysngrhm-tech on GitHub)

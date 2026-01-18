@@ -106,12 +106,14 @@ Future: Separate staging Supabase project for isolated testing.
 
 ### 3. Supabase (Database + Auth)
 
-**Purpose:** PostgreSQL database storing all application data with Row Level Security.
+**Purpose:** PostgreSQL database storing all application data with Row Level Security and user authentication.
 
 **Key Responsibilities:**
 - Store projects, budgets, draw requests, invoices
 - Maintain audit trail of all changes
 - Provide real-time subscriptions for UI updates
+- **Authenticate users** via passwordless magic links
+- **Authorize access** via stackable permissions and RLS policies
 
 ### 4. OpenAI (AI Processing)
 
@@ -165,6 +167,436 @@ TD3 tracks loans through three stages:
 - **Dashboard Page**: Staging area for draw management and builder operations
 - **Loan Page**: Tabbed interface with progressive disclosure based on stage
 - **Stage Indicator**: Visual badges on project tiles
+
+---
+
+## Authentication & Authorization
+
+TD3 implements a comprehensive authentication and authorization system using Supabase Auth with passwordless magic links, an email allowlist for access control, stackable permissions for fine-grained authorization, and Row Level Security (RLS) for database-level enforcement.
+
+### Design Principles
+
+1. **Passwordless Authentication** - Magic links eliminate password management and phishing risks
+2. **Allowlist-Based Access** - Only pre-approved emails can sign in (no self-registration)
+3. **Stackable Permissions** - Users can have any combination of permissions
+4. **Database-Level Enforcement** - RLS policies enforce permissions at the database level
+5. **Progressive Profile Completion** - First login prompts for profile information
+
+### System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              AUTHENTICATION FLOW                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  User visits      Middleware        Login Page       Supabase Auth      Callback
+  protected   ──►  redirects    ──►  checks      ──►  sends magic   ──►  exchanges
+  route            to /login         allowlist        link               code
+
+                                         │
+                                         ▼
+                               ┌─────────────────┐
+                               │   is_allowlisted │
+                               │   (check_email)  │
+                               └────────┬────────┘
+                                        │
+                        ┌───────────────┴───────────────┐
+                        ▼                               ▼
+                   ✅ Allowed                      ❌ Not Allowed
+                   Send magic link                 Show error
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              AUTHORIZATION FLOW                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  Authenticated     AuthContext        PermissionGate       RLS Policy
+  user makes   ──►  loads user    ──►  checks client   ──►  enforces at
+  request           permissions        permissions          database
+
+                                              │
+                                              ▼
+                                    ┌───────────────────┐
+                                    │   has_permission   │
+                                    │   (user_id, code)  │
+                                    └─────────┬─────────┘
+                                              │
+                              ┌───────────────┴───────────────┐
+                              ▼                               ▼
+                         ✅ Allowed                      ❌ Denied
+                         Execute query                   Return error
+```
+
+### Database Schema
+
+#### Tables (supabase/004_auth.sql)
+
+```sql
+-- User profiles linked to Supabase Auth
+CREATE TABLE profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL UNIQUE,
+  full_name TEXT,
+  phone TEXT,
+  is_active BOOLEAN DEFAULT true,
+  first_login_completed BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Permission catalog
+CREATE TABLE permissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT NOT NULL UNIQUE,           -- 'processor', 'fund_draws', etc.
+  name TEXT NOT NULL,                   -- 'Loan Processor'
+  description TEXT,                     -- Human-readable description
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- User-permission junction table (stackable)
+CREATE TABLE user_permissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  permission_code TEXT NOT NULL REFERENCES permissions(code) ON DELETE CASCADE,
+  granted_by UUID REFERENCES auth.users(id),
+  granted_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, permission_code)
+);
+
+-- Email allowlist for access control
+CREATE TABLE allowlist (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT NOT NULL UNIQUE,
+  invited_by UUID REFERENCES auth.users(id),
+  invited_at TIMESTAMPTZ DEFAULT now(),
+  notes TEXT
+);
+```
+
+#### Helper Functions
+
+```sql
+-- Check if user has specific permission (used in RLS policies)
+CREATE FUNCTION has_permission(check_user_id UUID, required_permission TEXT)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM user_permissions
+    WHERE user_id = check_user_id AND permission_code = required_permission
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- Check if email is in allowlist (called during login)
+CREATE FUNCTION is_allowlisted(check_email TEXT)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM allowlist WHERE lower(email) = lower(check_email)
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- Get all permissions for a user
+CREATE FUNCTION get_user_permissions(check_user_id UUID)
+RETURNS TEXT[] AS $$
+BEGIN
+  RETURN ARRAY(
+    SELECT permission_code FROM user_permissions WHERE user_id = check_user_id
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+```
+
+#### Triggers
+
+```sql
+-- Auto-create profile when user signs up
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- Auto-update timestamps on profile changes
+CREATE TRIGGER update_profiles_timestamp
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION update_profile_timestamp();
+```
+
+### Permission System
+
+TD3 uses four stackable permissions:
+
+| Code | Label | Description | Controls |
+|------|-------|-------------|----------|
+| `processor` | Loan Processor | Core processing work | INSERT/UPDATE/DELETE on business tables |
+| `fund_draws` | Fund Draws | Record draws as funded | Transition draws/batches to 'funded' status |
+| `approve_payoffs` | Approve Payoffs | Approve payoff statements | Approve payoffs before title company |
+| `users.manage` | Manage Users | Admin panel access | Access to /admin/users, manage allowlist |
+
+#### Permission Combinations
+
+Users can have any combination of permissions:
+
+| Role Pattern | Permissions | Typical User |
+|--------------|-------------|--------------|
+| **Full Admin** | all 4 | Owner, senior manager |
+| **Processor** | processor | Loan processor staff |
+| **Processor + Funder** | processor, fund_draws | Staff who can fund |
+| **View Only** | (none) | Read-only access |
+
+### Row Level Security (RLS)
+
+All tables have RLS enabled. Policies follow these patterns:
+
+#### Auth Tables
+
+```sql
+-- Users can read their own profile
+CREATE POLICY "profiles_select_own" ON profiles
+  FOR SELECT TO authenticated
+  USING (id = auth.uid());
+
+-- Admins can read all profiles
+CREATE POLICY "profiles_select_admin" ON profiles
+  FOR SELECT TO authenticated
+  USING (has_permission(auth.uid(), 'users.manage'));
+
+-- User permissions: Only admins can modify
+CREATE POLICY "user_permissions_insert_admin" ON user_permissions
+  FOR INSERT TO authenticated
+  WITH CHECK (has_permission(auth.uid(), 'users.manage'));
+```
+
+#### Business Tables
+
+```sql
+-- All authenticated users can read portfolio data
+CREATE POLICY "projects_select" ON projects
+  FOR SELECT TO authenticated USING (true);
+
+-- Only processors can write
+CREATE POLICY "projects_insert" ON projects
+  FOR INSERT TO authenticated
+  WITH CHECK (has_permission(auth.uid(), 'processor'));
+
+-- Special: Funding transition requires fund_draws permission
+CREATE POLICY "draw_requests_update" ON draw_requests
+  FOR UPDATE TO authenticated
+  USING (
+    CASE
+      WHEN status = 'funded' THEN has_permission(auth.uid(), 'fund_draws')
+      ELSE has_permission(auth.uid(), 'processor')
+    END
+  );
+```
+
+### Frontend Components
+
+#### AuthContext (app/context/AuthContext.tsx)
+
+Provides global authentication state:
+
+```tsx
+interface AuthContextType {
+  user: User | null              // Supabase auth user
+  profile: Profile | null        // Extended profile data
+  permissions: Permission[]      // User's permission codes
+  isLoading: boolean             // Auth state loading
+  isAuthenticated: boolean       // Shorthand for !!user
+  signOut: () => Promise<void>   // Sign out function
+  hasPermission: (p: Permission | Permission[]) => boolean
+  refreshProfile: () => Promise<void>
+  refreshPermissions: () => Promise<void>
+}
+```
+
+#### PermissionGate (app/components/auth/PermissionGate.tsx)
+
+Conditional rendering based on permissions:
+
+```tsx
+// Single permission
+<PermissionGate permission="processor">
+  <EditButton />
+</PermissionGate>
+
+// Any of multiple permissions (OR)
+<PermissionGate permission={['processor', 'fund_draws']}>
+  <ActionButton />
+</PermissionGate>
+
+// All permissions required (AND)
+<PermissionGate permission={['processor', 'users.manage']} requireAll>
+  <AdminProcessorButton />
+</PermissionGate>
+
+// With fallback
+<PermissionGate permission="fund_draws" fallback={<ReadOnlyView />}>
+  <FundingControls />
+</PermissionGate>
+```
+
+#### useHasPermission Hook
+
+For programmatic permission checks:
+
+```tsx
+const canFund = useHasPermission('fund_draws')
+const canProcess = useHasPermission(['processor', 'fund_draws'])
+const isAdmin = useHasPermission('users.manage')
+```
+
+#### FirstLoginModal (app/components/auth/FirstLoginModal.tsx)
+
+Prompts new users to complete their profile:
+
+- Shown when `profile.first_login_completed === false`
+- Collects full name (required) and phone (optional)
+- Updates profile and sets `first_login_completed = true`
+
+### Middleware (middleware.ts)
+
+Next.js middleware handles route protection:
+
+```typescript
+// Public routes (no auth required)
+const publicRoutes = ['/login', '/auth/callback']
+
+// API routes handle their own auth
+const isApiRoute = pathname.startsWith('/api/')
+
+// Protected routes redirect to login
+if (!user) {
+  const loginUrl = new URL('/login', request.url)
+  loginUrl.searchParams.set('redirect', pathname)
+  return NextResponse.redirect(loginUrl)
+}
+```
+
+### Login Flow (app/(auth)/login/page.tsx)
+
+1. **Email Input** - User enters email address
+2. **Allowlist Check** - Calls `is_allowlisted()` RPC function
+3. **Magic Link** - If allowed, Supabase sends magic link email
+4. **Callback** - `/auth/callback` exchanges code for session
+5. **Redirect** - Redirects to original destination (or home)
+
+### Admin User Management (app/admin/users/page.tsx)
+
+Requires `users.manage` permission. Provides:
+
+- **Active Users List** - All users who have signed in
+- **Permission Toggles** - Click to grant/revoke permissions
+- **Invite User** - Add email to allowlist with initial permissions
+- **Pending Invites** - Users invited but not yet signed in
+- **Remove from Allowlist** - Revoke access
+
+### Header Integration (app/components/ui/Header.tsx)
+
+- **User Avatar** - Displays initials from profile name or email
+- **Dropdown Menu** - Shows user info, admin link (if permitted), sign out
+
+### Supabase Client Configuration (lib/supabase.ts)
+
+```typescript
+// Legacy client (doesn't persist sessions properly)
+export const supabase = createClient<Database>(...)
+
+// Browser client for auth flows (use this for login/logout)
+export function createSupabaseBrowserClient() {
+  return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey)
+}
+
+// Permission types and labels
+export type Permission = 'processor' | 'fund_draws' | 'approve_payoffs' | 'users.manage'
+
+export const PERMISSION_LABELS: Record<Permission, string> = {
+  'processor': 'Loan Processor',
+  'fund_draws': 'Fund Draws',
+  'approve_payoffs': 'Approve Payoffs',
+  'users.manage': 'Manage Users'
+}
+```
+
+### Setup & Bootstrap
+
+#### 1. Apply Migration
+
+Run `supabase/004_auth.sql` against your Supabase database.
+
+#### 2. Configure Supabase Auth
+
+In Supabase Dashboard → Authentication → Providers:
+- Enable Email provider
+- Disable "Confirm email" (magic links handle verification)
+- Set site URL to your deployment URL
+
+#### 3. Bootstrap First Admin
+
+```sql
+-- Add first admin to allowlist
+INSERT INTO allowlist (email, notes)
+VALUES ('admin@tennantdev.com', 'Initial admin');
+```
+
+Have the admin sign in, then grant all permissions:
+
+```sql
+-- Grant all permissions to first admin
+INSERT INTO user_permissions (user_id, permission_code)
+SELECT u.id, p.code
+FROM auth.users u
+CROSS JOIN permissions p
+WHERE u.email = 'admin@tennantdev.com'
+ON CONFLICT (user_id, permission_code) DO NOTHING;
+```
+
+### Common Operations
+
+#### Add New User
+
+1. Admin navigates to `/admin/users`
+2. Clicks "Invite User"
+3. Enters email and selects initial permissions
+4. User receives magic link when they try to sign in
+
+#### Grant Permission
+
+```sql
+INSERT INTO user_permissions (user_id, permission_code, granted_by)
+VALUES ('user-uuid', 'fund_draws', 'admin-uuid');
+```
+
+Or via Admin UI: Click the permission toggle button.
+
+#### Revoke Permission
+
+```sql
+DELETE FROM user_permissions
+WHERE user_id = 'user-uuid' AND permission_code = 'fund_draws';
+```
+
+Or via Admin UI: Click the active permission toggle to deactivate.
+
+#### Remove User Access
+
+```sql
+-- Remove from allowlist (prevents future logins)
+DELETE FROM allowlist WHERE email = 'user@example.com';
+
+-- Optionally deactivate profile (for audit trail)
+UPDATE profiles SET is_active = false WHERE email = 'user@example.com';
+```
+
+### Troubleshooting
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| "Email not authorized" | Email not in allowlist | Add to allowlist via Admin UI |
+| User can't access pages | No `processor` permission | Grant permission via Admin UI |
+| User can't fund draws | Missing `fund_draws` permission | Grant the specific permission |
+| RLS denying access | Permission not granted | Check `user_permissions` table |
+| Session not persisting | Using legacy `supabase` client | Use `createSupabaseBrowserClient()` |
+| Middleware not protecting | Route matches public pattern | Check publicRoutes array |
 
 ---
 
