@@ -49,7 +49,11 @@
       "mcp__n8n-mcp__n8n_validate_workflow",
       "Bash(git pull:*)",
       "Bash(git cherry-pick:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(while read file)",
+      "Bash(do if ! grep -q \"const supabase = createSupabaseBrowserClient\\(\\)\" \"$file\")",
+      "Bash(then echo \"Needs update: $file\" fi done)",
+      "Bash(do sed -i \"s/import { createSupabaseBrowserClient } from ''''@\\\\/lib\\\\/supabase''''/import { supabase } from ''''@\\\\/lib\\\\/supabase''''/g\" \"$file\" echo \"Reverted: $file\" done)"
     ]
   },
   "enabledMcpjsonServers": [
