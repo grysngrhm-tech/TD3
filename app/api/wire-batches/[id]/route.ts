@@ -1,11 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { captureTrainingDataForDraw } from '@/lib/invoiceLearning'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+
+/**
+ * Get the authenticated user from the request cookies
+ */
+async function getAuthenticatedUser() {
+  const cookieStore = await cookies()
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll() {
+          // Not needed for read-only operations
+        },
+      },
+    }
+  )
+
+  const { data: { user } } = await supabase.auth.getUser()
+  return user
+}
+
+/**
+ * Check if a user has a specific permission
+ */
+async function checkPermission(userId: string, permission: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin.rpc('has_permission', {
+    check_user_id: userId,
+    required_permission: permission,
+  })
+
+  if (error) {
+    console.error('Error checking permission:', error)
+    return false
+  }
+
+  return data === true
+}
 
 /**
  * Update budget spent amounts when a draw is funded
@@ -167,8 +211,29 @@ export async function PATCH(
     const { action, wire_reference, notes, funded_by, funded_at } = body
 
     if (action === 'fund') {
+      // Verify user has fund_draws permission
+      const user = await getAuthenticatedUser()
+
+      if (!user) {
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401 }
+        )
+      }
+
+      const hasFundPermission = await checkPermission(user.id, 'fund_draws')
+
+      if (!hasFundPermission) {
+        return NextResponse.json(
+          { error: 'Permission denied: fund_draws permission required to record funding' },
+          { status: 403 }
+        )
+      }
+
       // Use provided funded_at date or default to now
       const fundedAt = funded_at ? new Date(funded_at).toISOString() : new Date().toISOString()
+      // Use actual user email for audit trail
+      const actorEmail = user.email || funded_by || 'unknown'
 
       // Update wire batch
       const { error: batchError } = await supabaseAdmin
@@ -176,7 +241,7 @@ export async function PATCH(
         .update({
           status: 'funded',
           funded_at: fundedAt,
-          funded_by: funded_by || 'bookkeeper',
+          funded_by: actorEmail,
           wire_reference: wire_reference || null,
           notes: notes || null
         })
@@ -204,13 +269,13 @@ export async function PATCH(
           entity_type: 'draw_request',
           entity_id: draw.id,
           action: 'funded',
-          actor: funded_by || 'bookkeeper',
+          actor: actorEmail,
           old_data: { status: 'pending_wire' },
           new_data: { status: 'funded', funded_at: fundedAt }
         })
 
         // Update budget spent amounts for each draw line
-        await updateBudgetSpendForDraw(draw.id, funded_by || 'bookkeeper')
+        await updateBudgetSpendForDraw(draw.id, actorEmail)
 
         // Capture invoice training data (learning system)
         // Every approved draw becomes training data for future matching
@@ -233,7 +298,7 @@ export async function PATCH(
         entity_type: 'wire_batch',
         entity_id: batchId,
         action: 'funded',
-        actor: funded_by || 'bookkeeper',
+        actor: actorEmail,
         new_data: { 
           status: 'funded',
           funded_at: fundedAt,
