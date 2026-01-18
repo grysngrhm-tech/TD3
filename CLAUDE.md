@@ -22,6 +22,15 @@ TD3 is a construction loan management system built for Tennant Development. It r
   - `app/components/auth/` - Auth UI components (FirstLoginModal, PermissionGate)
   - `app/context/` - React contexts (AuthContext, NavigationContext)
   - `app/api/` - API routes (webhooks, validations, reports, invoices)
+- `public/` - Static assets served directly
+  - `favicon.png` - 32x32 browser tab icon
+  - `favicon.svg` - Vector favicon for modern browsers
+  - `apple-touch-icon.png` - 180x180 iOS home screen icon
+  - `icon-192.png` - 192x192 PWA icon
+  - `icon-512.png` - 512x512 PWA icon
+  - `manifest.json` - PWA manifest for installable app
+- `scripts/` - Development utilities
+  - `generate-icons.js` - Regenerate icon PNGs from brand colors
 - `middleware.ts` - Next.js middleware for route protection
 - `lib/` - Core business logic
   - `supabase.ts` - Supabase clients, auth types, and permission constants
@@ -320,6 +329,24 @@ npm run lint     # ESLint check
 npm run start    # Start production server
 ```
 
+## Branding & Theming
+
+### Brand Colors
+- **Primary/Accent**: Maroon `#950606` - Used for CTAs, active states, icons
+- **Theme Default**: Light mode (can toggle to dark after login)
+
+### Icons & PWA
+Icons are static PNGs in `/public`, generated from `scripts/generate-icons.js`:
+```bash
+node scripts/generate-icons.js  # Regenerate all icons
+```
+
+### Metadata
+SEO and social sharing metadata is defined in `app/layout.tsx`:
+- Open Graph (Facebook, LinkedIn)
+- Twitter Cards
+- PWA manifest for "Add to Home Screen"
+
 ## Key Features to Understand
 1. **Authentication**: Passwordless (magic link) with allowlist and stackable permissions
 2. **Smart Import**: Excel parsing with multi-signal row boundary detection
@@ -328,6 +355,7 @@ npm run start    # Start production server
 5. **Wire Batch System**: Groups multiple draws per builder into single wire transfers
 6. **Audit Trail**: Every action logged with timestamps and user attribution
 7. **Invoice Matching**: AI extraction + deterministic scoring with learning flywheel
+8. **PWA Support**: Installable app with proper icons and manifest
 
 ## Owner
 Grayson Graham (grysngrhm-tech on GitHub)
