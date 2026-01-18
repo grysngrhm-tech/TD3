@@ -28,6 +28,13 @@ export const metadata: Metadata = {
   description: 'Streamline construction lending with intelligent budget tracking, draw automation, and real-time portfolio visibility.',
   metadataBase: new URL('https://td3.tennantdevelopments.com'),
   manifest: '/manifest.json',
+  icons: {
+    icon: [
+      { url: '/favicon.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
   openGraph: {
     title: 'TD3 - Construction Draw Management',
     description: 'Streamline construction lending with intelligent budget tracking, draw automation, and real-time portfolio visibility.',

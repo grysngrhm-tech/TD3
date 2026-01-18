@@ -40,10 +40,6 @@ export async function middleware(request: NextRequest) {
   const publicRoutes = ['/login', '/auth/callback']
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
 
-  // Generated image routes (Next.js image generation)
-  const imageRoutes = ['/icon', '/apple-icon', '/opengraph-image', '/twitter-image', '/icon-192.png', '/icon-512.png']
-  const isImageRoute = imageRoutes.includes(pathname)
-
   // API routes handle their own auth via service role key
   const isApiRoute = pathname.startsWith('/api/')
 
@@ -53,8 +49,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/favicon') ||
     pathname.includes('.')
 
-  // Allow public routes, API routes, image routes, and static assets
-  if (isPublicRoute || isApiRoute || isImageRoute || isStaticOrInternal) {
+  // Allow public routes, API routes, and static assets
+  if (isPublicRoute || isApiRoute || isStaticOrInternal) {
     return supabaseResponse
   }
 
