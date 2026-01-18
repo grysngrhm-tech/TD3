@@ -2,6 +2,8 @@
 
 **Draw Management Built for How We Actually Work**
 
+🔗 **Live Application:** [td3.tennantdevelopments.com](https://td3.tennantdevelopments.com)
+
 TD3 is an internal system that brings order to construction loan servicing. It replaces scattered spreadsheets, buried emails, and manual reconciliation with a single place where every loan, budget, draw, and approval is visible, trackable, and auditable.
 
 This isn't about adopting more software. It's about reducing the mental overhead of keeping everything straight—so we can focus on decisions instead of data entry.
@@ -254,7 +256,7 @@ See the full [Development Roadmap](docs/ROADMAP.md) for detailed timeline, cost 
 ### Branch Structure
 
 ```
-main (production)     → Protected, deploys to td3.vercel.app
+main (production)     → Protected, deploys to td3.tennantdevelopments.com
   └── develop (staging) → Preview deployments for testing
        └── feature/*    → Local development branches
 ```

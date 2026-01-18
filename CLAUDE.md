@@ -138,17 +138,58 @@ import { useAuth } from '@/app/context/AuthContext'
 const { user, profile, permissions, hasPermission, signOut } = useAuth()
 ```
 
-#### First Admin Bootstrap
-After applying `004_auth.sql`, bootstrap the first admin:
-```sql
--- 1. Add to allowlist
-INSERT INTO allowlist (email, notes) VALUES ('admin@example.com', 'Initial admin');
+#### Complete Auth Setup Process
 
--- 2. After first login, grant all permissions
-INSERT INTO user_permissions (user_id, permission_code)
-SELECT u.id, p.code FROM auth.users u CROSS JOIN permissions p
-WHERE u.email = 'admin@example.com';
+**Step 1: Apply Database Migration**
+
+Run `supabase/004_auth.sql` in Supabase SQL Editor. This creates:
+- Tables: `profiles`, `permissions`, `user_permissions`, `allowlist`
+- Functions: `has_permission()`, `is_allowlisted()`, `get_user_permissions()`
+- RLS policies on all tables
+- Trigger for auto-profile creation
+
+**Step 2: Configure Supabase Auth URLs**
+
+In Supabase Dashboard → Authentication → URL Configuration:
+- **Site URL**: `https://td3.tennantdevelopments.com`
+  - ⚠️ No leading/trailing spaces!
+  - Must match your custom domain exactly
+- **Redirect URLs**: Add:
+  - `https://td3.tennantdevelopments.com/**`
+  - `http://localhost:3000/**` (for local dev)
+
+**Step 3: Configure Email Provider**
+
+In Supabase Dashboard → Authentication → Providers → Email:
+- Enable Email provider: ON
+- Confirm email: OFF (magic links handle verification)
+
+**Step 4: Add First Admin to Allowlist**
+```sql
+INSERT INTO allowlist (email, notes)
+VALUES ('admin@example.com', 'Initial admin')
+ON CONFLICT (email) DO NOTHING;
 ```
+
+**Step 5: First Admin Sign In**
+1. Navigate to your app URL
+2. Enter admin email → receive magic link
+3. Click link → complete profile form
+
+**Step 6: Grant Admin All Permissions**
+```sql
+INSERT INTO user_permissions (user_id, permission_code)
+SELECT u.id, p.code
+FROM auth.users u
+CROSS JOIN permissions p
+WHERE u.email = 'admin@example.com'
+ON CONFLICT (user_id, permission_code) DO NOTHING;
+```
+
+**Step 7: Verify Setup**
+- Refresh the app
+- You should see the full dashboard
+- Admin link appears in header dropdown
 
 ### Loan Lifecycle
 ```
@@ -218,13 +259,13 @@ NEXT_PUBLIC_N8N_WEBHOOK_URL=https://n8n.srv1208741.hstgr.cloud/webhook
 N8N_CALLBACK_SECRET=your-shared-secret  # Must match n8n's TD3_WEBHOOK_SECRET
 
 # Optional
-NEXT_PUBLIC_APP_URL=https://td3.vercel.app  # For callback URLs
+NEXT_PUBLIC_APP_URL=https://td3.tennantdevelopments.com  # For callback URLs
 ```
 
 **n8n Environment (set in n8n instance):**
 ```
 TD3_WEBHOOK_SECRET=your-shared-secret  # Must match TD3's N8N_CALLBACK_SECRET
-TD3_API_URL=https://td3.vercel.app     # Base URL for callbacks
+TD3_API_URL=https://td3.tennantdevelopments.com     # Base URL for callbacks
 ```
 
 ## Code Style & Conventions
