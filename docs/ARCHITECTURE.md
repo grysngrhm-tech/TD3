@@ -521,34 +521,67 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
 
 #### 1. Apply Migration
 
-Run `supabase/004_auth.sql` against your Supabase database.
+Run `supabase/004_auth.sql` in Supabase SQL Editor. This creates all auth tables, functions, and RLS policies.
 
-#### 2. Configure Supabase Auth
+#### 2. Configure Supabase Auth URLs
 
-In Supabase Dashboard → Authentication → Providers:
-- Enable Email provider
-- Disable "Confirm email" (magic links handle verification)
-- Set site URL to your deployment URL
+**This is critical for magic links to work!**
 
-#### 3. Bootstrap First Admin
+Go to: **Supabase Dashboard → Authentication → URL Configuration**
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| **Site URL** | `https://your-app.vercel.app` | Must match your EXACT Vercel deployment URL. No spaces! |
+| **Redirect URLs** | `https://your-app.vercel.app/**` | Add your production URL pattern |
+| | `http://localhost:3000/**` | Add for local development |
+
+**Common mistake**: Having a space before/after the Site URL will cause "otp_expired" errors.
+
+#### 3. Configure Email Provider
+
+Go to: **Supabase Dashboard → Authentication → Providers → Email**
+
+| Setting | Value |
+|---------|-------|
+| Enable Email | ON |
+| Confirm email | OFF |
+| Secure email change | ON (recommended) |
+
+#### 4. Add First Admin to Allowlist
 
 ```sql
--- Add first admin to allowlist
 INSERT INTO allowlist (email, notes)
-VALUES ('admin@tennantdev.com', 'Initial admin');
+VALUES ('admin@yourcompany.com', 'Initial admin')
+ON CONFLICT (email) DO NOTHING;
 ```
 
-Have the admin sign in, then grant all permissions:
+#### 5. First Admin Sign In
+
+1. Navigate to your deployed app
+2. Enter admin email at login
+3. Check email for magic link
+4. Click link to complete sign in
+5. Fill out profile form (name, phone)
+
+#### 6. Grant Admin All Permissions
+
+After the admin has signed in (user exists in `auth.users`):
 
 ```sql
--- Grant all permissions to first admin
 INSERT INTO user_permissions (user_id, permission_code)
 SELECT u.id, p.code
 FROM auth.users u
 CROSS JOIN permissions p
-WHERE u.email = 'admin@tennantdev.com'
+WHERE u.email = 'admin@yourcompany.com'
 ON CONFLICT (user_id, permission_code) DO NOTHING;
 ```
+
+#### 7. Verify Setup
+
+1. Refresh the app in browser
+2. Dashboard should load with all data visible
+3. Click avatar → should see "Admin" link in dropdown
+4. Navigate to `/admin/users` → should see user management page
 
 ### Common Operations
 
@@ -589,14 +622,76 @@ UPDATE profiles SET is_active = false WHERE email = 'user@example.com';
 
 ### Troubleshooting
 
+#### Common Issues
+
 | Issue | Cause | Solution |
 |-------|-------|----------|
-| "Email not authorized" | Email not in allowlist | Add to allowlist via Admin UI |
-| User can't access pages | No `processor` permission | Grant permission via Admin UI |
-| User can't fund draws | Missing `fund_draws` permission | Grant the specific permission |
-| RLS denying access | Permission not granted | Check `user_permissions` table |
-| Session not persisting | Using legacy `supabase` client | Use `createSupabaseBrowserClient()` |
-| Middleware not protecting | Route matches public pattern | Check publicRoutes array |
+| "Email not authorized" | Email not in allowlist | Add to allowlist via Admin UI or SQL |
+| "Email link is invalid or has expired" | Site URL mismatch | Check Supabase URL Configuration matches your Vercel URL exactly |
+| Magic link redirects to wrong URL | Site URL has spaces | Remove leading/trailing spaces from Site URL in Supabase |
+| Blank screen after login | No permissions granted | Grant permissions via SQL after first login |
+| Loading spinner stuck | RLS blocking data access | Check user has `processor` permission |
+| User can't fund draws | Missing `fund_draws` | Grant the specific permission |
+| Data not loading | Using wrong Supabase client | Ensure `lib/supabase.ts` exports browser client |
+
+#### Magic Link / OTP Errors
+
+**"otp_expired" or "Email link is invalid"**
+
+This occurs when:
+1. **Site URL mismatch**: The Supabase Site URL doesn't match your actual deployment URL
+   - Check: Supabase Dashboard → Authentication → URL Configuration
+   - Site URL must be EXACTLY your Vercel domain (e.g., `https://td3-iota.vercel.app`)
+   - No spaces before or after the URL
+
+2. **Clicking old magic links**: Each new magic link invalidates previous ones
+   - Solution: Always use the NEWEST email, click immediately
+
+3. **Preview vs Production URL**: Testing on a Vercel preview URL but Site URL is set to production
+   - Either test on production, or temporarily change Site URL to match preview
+
+#### Blank Screen After Login
+
+If authenticated but seeing blank screen/spinner:
+
+1. **Check browser console** for errors (F12 → Console tab)
+
+2. **Verify profile exists**:
+   ```sql
+   SELECT * FROM profiles WHERE email = 'your@email.com';
+   ```
+
+3. **Verify permissions granted**:
+   ```sql
+   SELECT * FROM user_permissions up
+   JOIN auth.users u ON up.user_id = u.id
+   WHERE u.email = 'your@email.com';
+   ```
+
+4. **Grant permissions if missing**:
+   ```sql
+   INSERT INTO user_permissions (user_id, permission_code)
+   SELECT u.id, p.code
+   FROM auth.users u
+   CROSS JOIN permissions p
+   WHERE u.email = 'your@email.com'
+   ON CONFLICT (user_id, permission_code) DO NOTHING;
+   ```
+
+5. **Check RLS is working**: The `supabase` export in `lib/supabase.ts` must use `createBrowserClient` (not `createClient`) to properly handle authenticated sessions.
+
+#### Supabase Client Configuration
+
+**Critical**: The exported `supabase` client must use `createBrowserClient` from `@supabase/ssr`:
+
+```typescript
+// lib/supabase.ts - CORRECT
+import { createBrowserClient } from '@supabase/ssr'
+
+export const supabase = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey)
+```
+
+Using `createClient` from `@supabase/supabase-js` will NOT work with RLS because it doesn't handle session cookies properly in the browser.
 
 ---
 

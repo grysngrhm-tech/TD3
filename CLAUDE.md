@@ -138,17 +138,58 @@ import { useAuth } from '@/app/context/AuthContext'
 const { user, profile, permissions, hasPermission, signOut } = useAuth()
 ```
 
-#### First Admin Bootstrap
-After applying `004_auth.sql`, bootstrap the first admin:
-```sql
--- 1. Add to allowlist
-INSERT INTO allowlist (email, notes) VALUES ('admin@example.com', 'Initial admin');
+#### Complete Auth Setup Process
 
--- 2. After first login, grant all permissions
-INSERT INTO user_permissions (user_id, permission_code)
-SELECT u.id, p.code FROM auth.users u CROSS JOIN permissions p
-WHERE u.email = 'admin@example.com';
+**Step 1: Apply Database Migration**
+
+Run `supabase/004_auth.sql` in Supabase SQL Editor. This creates:
+- Tables: `profiles`, `permissions`, `user_permissions`, `allowlist`
+- Functions: `has_permission()`, `is_allowlisted()`, `get_user_permissions()`
+- RLS policies on all tables
+- Trigger for auto-profile creation
+
+**Step 2: Configure Supabase Auth URLs**
+
+In Supabase Dashboard → Authentication → URL Configuration:
+- **Site URL**: Your production URL (e.g., `https://td3-iota.vercel.app`)
+  - ⚠️ No leading/trailing spaces!
+  - Must match your actual Vercel deployment URL
+- **Redirect URLs**: Add:
+  - `https://your-domain.vercel.app/**`
+  - `http://localhost:3000/**` (for local dev)
+
+**Step 3: Configure Email Provider**
+
+In Supabase Dashboard → Authentication → Providers → Email:
+- Enable Email provider: ON
+- Confirm email: OFF (magic links handle verification)
+
+**Step 4: Add First Admin to Allowlist**
+```sql
+INSERT INTO allowlist (email, notes)
+VALUES ('admin@example.com', 'Initial admin')
+ON CONFLICT (email) DO NOTHING;
 ```
+
+**Step 5: First Admin Sign In**
+1. Navigate to your app URL
+2. Enter admin email → receive magic link
+3. Click link → complete profile form
+
+**Step 6: Grant Admin All Permissions**
+```sql
+INSERT INTO user_permissions (user_id, permission_code)
+SELECT u.id, p.code
+FROM auth.users u
+CROSS JOIN permissions p
+WHERE u.email = 'admin@example.com'
+ON CONFLICT (user_id, permission_code) DO NOTHING;
+```
+
+**Step 7: Verify Setup**
+- Refresh the app
+- You should see the full dashboard
+- Admin link appears in header dropdown
 
 ### Loan Lifecycle
 ```
