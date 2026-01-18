@@ -151,11 +151,11 @@ Run `supabase/004_auth.sql` in Supabase SQL Editor. This creates:
 **Step 2: Configure Supabase Auth URLs**
 
 In Supabase Dashboard → Authentication → URL Configuration:
-- **Site URL**: Your production URL (e.g., `https://td3-iota.vercel.app`)
+- **Site URL**: `https://td3.tennantdevelopments.com`
   - ⚠️ No leading/trailing spaces!
-  - Must match your actual Vercel deployment URL
+  - Must match your custom domain exactly
 - **Redirect URLs**: Add:
-  - `https://your-domain.vercel.app/**`
+  - `https://td3.tennantdevelopments.com/**`
   - `http://localhost:3000/**` (for local dev)
 
 **Step 3: Configure Email Provider**
@@ -259,13 +259,13 @@ NEXT_PUBLIC_N8N_WEBHOOK_URL=https://n8n.srv1208741.hstgr.cloud/webhook
 N8N_CALLBACK_SECRET=your-shared-secret  # Must match n8n's TD3_WEBHOOK_SECRET
 
 # Optional
-NEXT_PUBLIC_APP_URL=https://td3.vercel.app  # For callback URLs
+NEXT_PUBLIC_APP_URL=https://td3.tennantdevelopments.com  # For callback URLs
 ```
 
 **n8n Environment (set in n8n instance):**
 ```
 TD3_WEBHOOK_SECRET=your-shared-secret  # Must match TD3's N8N_CALLBACK_SECRET
-TD3_API_URL=https://td3.vercel.app     # Base URL for callbacks
+TD3_API_URL=https://td3.tennantdevelopments.com     # Base URL for callbacks
 ```
 
 ## Code Style & Conventions

@@ -641,7 +641,7 @@ UPDATE profiles SET is_active = false WHERE email = 'user@example.com';
 This occurs when:
 1. **Site URL mismatch**: The Supabase Site URL doesn't match your actual deployment URL
    - Check: Supabase Dashboard → Authentication → URL Configuration
-   - Site URL must be EXACTLY your Vercel domain (e.g., `https://td3-iota.vercel.app`)
+   - Site URL must be EXACTLY your custom domain (e.g., `https://td3.tennantdevelopments.com`)
    - No spaces before or after the URL
 
 2. **Clicking old magic links**: Each new magic link invalidates previous ones
