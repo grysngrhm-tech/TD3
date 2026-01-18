@@ -18,6 +18,30 @@ function LoginContent() {
 
   const supabase = createSupabaseBrowserClient()
 
+  // Check for errors in URL (query params or hash fragment)
+  useEffect(() => {
+    // Check query params
+    const errorParam = searchParams.get('error')
+    if (errorParam) {
+      setErrorMessage(decodeURIComponent(errorParam))
+      setState('error')
+      return
+    }
+
+    // Check hash fragment (Supabase implicit flow errors)
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      const hashError = hashParams.get('error_description') || hashParams.get('error')
+      if (hashError) {
+        setErrorMessage(decodeURIComponent(hashError.replace(/\+/g, ' ')))
+        setState('error')
+        // Clean up the URL
+        window.history.replaceState(null, '', window.location.pathname)
+        return
+      }
+    }
+  }, [searchParams])
+
   // Check if user is already logged in
   useEffect(() => {
     async function checkSession() {
