@@ -5,9 +5,10 @@ import { Database } from '@/types/database'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-// Legacy client export for backward compatibility
-// This client doesn't persist sessions properly for auth flows
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+// Browser client singleton for client components
+// Uses createBrowserClient which properly handles cookies and session persistence
+// This is safe to use at module level in 'use client' components
+export const supabase = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey)
 
 // Browser client for auth - use this for login/logout and session management
 // This client properly handles cookies and session persistence
