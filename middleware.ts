@@ -41,7 +41,7 @@ export async function middleware(request: NextRequest) {
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
 
   // Generated image routes (Next.js image generation)
-  const imageRoutes = ['/icon', '/apple-icon', '/opengraph-image', '/twitter-image']
+  const imageRoutes = ['/icon', '/apple-icon', '/opengraph-image', '/twitter-image', '/icon-192.png', '/icon-512.png']
   const isImageRoute = imageRoutes.includes(pathname)
 
   // API routes handle their own auth via service role key
