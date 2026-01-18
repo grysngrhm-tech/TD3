@@ -1,9 +1,9 @@
 # TD3 Development Roadmap
 
-**Version:** 1.0  
-**Last Updated:** January 8, 2026  
-**Target Launch:** Q1 2026  
-**Status:** Planning Complete - Ready for Team Review
+**Version:** 1.2
+**Last Updated:** January 18, 2026
+**Target Launch:** Q1 2026
+**Status:** Authentication Complete - Ready for Data Migration
 
 ---
 
@@ -42,7 +42,8 @@ TD3 is **substantially complete** for core functionality:
 | Draw Request Processing | ✅ Complete | Full workflow with staging |
 | Financial Calculations | ✅ Complete | Amortization, payoff, IRR |
 | Wire Batch Funding | ✅ Complete | Builder grouping, audit trail |
-| User Authentication | ❌ Not Started | RLS placeholders in schema |
+| Invoice AI Matching | ✅ Complete | Deterministic scoring, narrow AI, learning |
+| User Authentication | ✅ Complete | Passwordless auth, allowlist, stackable permissions, RLS |
 | DocuSign Integration | ❌ Not Started | Placeholder in origination |
 | External Portals | ❌ Not Started | Builder/lender access |
 
@@ -52,17 +53,15 @@ TD3 is **substantially complete** for core functionality:
 Categories Finalized → Data Migration → Full Adoption
          ↓
 Calculations Verified → Payoff Production Ready
-         ↓
-Authentication → User Access Control
 ```
 
-**Key Insight:** Team input on categories and calculation verification are the primary blockers. Development can proceed in parallel, but data migration cannot begin until categories are finalized.
+**Key Insight:** Team input on categories and calculation verification are the primary blockers. Authentication is complete, so development can proceed in parallel. Data migration cannot begin until categories are finalized.
 
 ### Three-Phase Approach
 
 | Phase | Timeline | Focus | Team Involvement |
 |-------|----------|-------|------------------|
-| **Pre-Launch** | Weeks 1-6 | Finalize database, verify calculations, add authentication | Category review, calculation sign-off |
+| **Pre-Launch** | Weeks 1-6 | Finalize database, verify calculations | Category review, calculation sign-off |
 | **Adoption** | Weeks 7-12 | Migrate data, enhance AI, train team | Data verification, training participation |
 | **Continued Development** | Post-Launch | Add advanced features (DocuSign, portals, mobile app) | Feature prioritization feedback |
 
@@ -107,15 +106,15 @@ Authentication → User Access Control
 gantt
     title TD3 Launch Roadmap - Q1 2026
     dateFormat YYYY-MM-DD
-    
+
     section Pre-Launch
     Categories Review (TEAM INPUT)     :crit, cat, 2026-01-08, 7d
     Amortization Verification (TEAM)   :crit, amort, 2026-01-08, 14d
-    Dev/Prod Branch Setup              :branches, 2026-01-08, 3d
-    Authentication System              :auth, 2026-01-11, 14d
+    Dev/Prod Branch Setup              :done, branches, 2026-01-08, 3d
+    Authentication System              :done, auth, 2026-01-11, 14d
     
     section Adoption
-    Invoice AI Enhancement (TEAM)      :invoice, 2026-01-15, 10d
+    Invoice AI Enhancement             :done, invoice, 2026-01-08, 5d
     Historical Data Migration          :crit, migrate, 2026-01-25, 14d
     Payoff Production Ready            :payoff, 2026-01-22, 7d
     Team Training                      :training, 2026-02-08, 5d
@@ -232,30 +231,44 @@ Step 4: Document any discrepancies
 | **Team Input Required** | No |
 | **Estimated Duration** | 2-3 weeks |
 | **Owner** | Development |
+| **Status** | ✅ COMPLETE (Jan 18, 2026) |
 
-**Implementation Approach:**
+**Implementation Summary:**
 
-1. **Supabase Auth** - Email/password login for TD staff
-2. **Row Level Security (RLS)** - Database-level access control
-3. **Role-Based Permissions** - Different capabilities by role
+TD3 now uses **passwordless authentication** with stackable permissions:
 
-**Initial Roles (Phase 1 - Internal Only):**
+1. **Supabase Auth** - Magic link (passwordless) login
+2. **Allowlist-Based Access** - Only pre-approved emails can sign in
+3. **Stackable Permissions** - Four independent permissions, any combination
+4. **Row Level Security (RLS)** - Database-level access control
 
-| Role | Permissions |
-|------|-------------|
-| **Admin** | Full access, user management |
-| **Staff** | View portfolio, create loans, process draws, stage for funding |
-| **Signer** | All Staff permissions + approve funded draws |
-| **Payoff Approver** | All Staff permissions + approve payoffs before sending |
-| **View Only** | Read-only access to portfolio data |
+**Permission System (Implemented):**
 
-**Database Changes Required:**
-- Enable RLS on all tables (currently commented out in schema)
-- Create `users` table linked to Supabase Auth
-- Create `user_roles` junction table
-- Create RLS policies for each table/role combination
+| Permission Code | Label | Controls |
+|-----------------|-------|----------|
+| `processor` | Loan Processor | INSERT/UPDATE/DELETE on business tables |
+| `fund_draws` | Fund Draws | Transition draws/batches to 'funded' status |
+| `approve_payoffs` | Approve Payoffs | Approve payoffs before sending to title |
+| `users.manage` | Manage Users | Access to /admin/users, manage allowlist |
 
-**Estimated Development Cost:** 20-30 hours
+**Key Features Implemented:**
+
+- **Middleware route protection** - Redirects unauthenticated users to `/login`
+- **AuthContext** - Global auth state (user, profile, permissions)
+- **PermissionGate component** - Declarative permission-based UI rendering
+- **FirstLoginModal** - Prompts new users to complete profile (name, phone)
+- **Admin user management** - `/admin/users` for managing users and permissions
+- **Header integration** - User avatar dropdown with sign out
+
+**Database Changes Applied:**
+- New tables: `profiles`, `permissions`, `user_permissions`, `allowlist`
+- Helper functions: `has_permission()`, `is_allowlisted()`, `get_user_permissions()`
+- RLS policies on all auth and business tables
+- Trigger for auto-profile creation on user signup
+
+**Documentation:**
+- Full technical details in `docs/ARCHITECTURE.md` (Authentication & Authorization section)
+- Quick reference in `CLAUDE.md` (Authentication & Authorization pattern)
 
 ---
 
@@ -267,8 +280,9 @@ Step 4: Document any discrepancies
 | **Team Input Required** | No |
 | **Estimated Duration** | 2-3 days |
 | **Owner** | Development |
+| **Status** | ✅ COMPLETE (Jan 13, 2026) |
 
-**Setup Required:**
+**Implemented Configuration:**
 
 ```
 GitHub Repository Structure:
@@ -282,16 +296,21 @@ GitHub Repository Structure:
 
 **Environment Configuration:**
 
-| Environment | Branch | Database | URL |
-|-------------|--------|----------|-----|
-| Production | main | Supabase prod project | td3.yourdomain.com |
-| Staging | develop | Supabase staging project | staging.td3.yourdomain.com |
-| Development | feature/* | Local or dev project | localhost:3000 |
+| Environment | Branch | Database | Deployment |
+|-------------|--------|----------|------------|
+| Production | main | Supabase (shared) | Vercel auto-deploy |
+| Staging | develop | Supabase (shared) | Vercel preview URL |
+| Development | feature/* | Supabase (shared) | localhost:3000 |
 
 **Vercel Setup:**
-- Production deployment from `main`
-- Preview deployments from PRs
-- Environment variables per environment
+- Production deployment from `main` (auto)
+- Preview deployments from `develop` and PRs (auto)
+- Environment variables configured
+
+**Documentation Updated:**
+- `CLAUDE.md` - Git workflow section added
+- `README.md` - Development section added
+- `docs/ARCHITECTURE.md` - Development workflow section added
 
 ---
 
@@ -304,45 +323,63 @@ GitHub Repository Structure:
 | Attribute | Value |
 |-----------|-------|
 | **Priority** | HIGH |
-| **Team Input Required** | YES - Define review flags |
+| **Team Input Required** | NO (Implementation complete) |
 | **Estimated Duration** | 2 weeks |
 | **Owner** | Development |
+| **Status** | ✅ COMPLETE (Jan 13, 2026) |
+
+**Implementation Summary:**
+
+The invoice matching system has been completely redesigned with a "AI reads, application reasons" architecture:
+
+1. **n8n Extraction** (AI-only): GPT-4o-mini extracts structured signals from invoices - vendor, amount, semantic context, keywords, trade signals
+2. **Deterministic Matching**: Application scores candidates using weighted factors (Amount 50%, Trade 20%, Keywords 15%, Training 15%)
+3. **Narrow AI Selection**: AI only chooses among pre-validated candidates when scores are too close
+4. **Learning System**: Every approved draw becomes training data for future matching
+
+**New Modules Implemented:**
+
+| Module | Purpose |
+|--------|---------|
+| `lib/invoiceMatching.ts` | Deterministic candidate generation and scoring |
+| `lib/invoiceAISelection.ts` | Narrow AI selection from pre-scored candidates |
+| `lib/invoiceLearning.ts` | Training data capture on draw approval |
+
+**Database Tables Added:**
+
+| Table | Purpose |
+|-------|---------|
+| `invoices` | Invoice records with extraction and match data |
+| `invoice_match_decisions` | Audit trail for all match decisions |
+| `invoice_match_training` | Training data from approved draws |
+| `vendor_category_associations` | Aggregated vendor → category lookup |
 
 **Current Flags (Implemented):**
 
 | Flag | Description | Auto-Generated |
 |------|-------------|----------------|
-| `NO_BUDGET_MATCH` | Category not found in project budget | Yes |
-| `OVER_BUDGET` | Request exceeds remaining budget | Yes |
-| `AMOUNT_MISMATCH` | Invoice total doesn't match requested | n8n |
-| `NO_INVOICE` | No invoice attached to line | n8n |
-| `LOW_CONFIDENCE` | AI confidence < 70% | n8n |
-| `DUPLICATE_INVOICE` | Invoice already used in previous draw | n8n |
+| `NO_BUDGET_MATCH` | Category not found in project budget | Yes - import |
+| `OVER_BUDGET` | Request exceeds remaining budget | Yes - import |
+| `AMOUNT_MISMATCH` | Invoice total vs requested >10% variance | Invoice matching |
+| `NO_INVOICE` | No invoice for line with amount > 0 | Invoice matching |
+| `LOW_CONFIDENCE` | Match confidence < 70% | Invoice matching |
+| `DUPLICATE_INVOICE` | Invoice already used in previous draw | Invoice matching |
+| `EXTRACTION_FAILED` | Invoice extraction failed in n8n | Invoice matching |
+| `AI_SELECTED` | Match was selected by AI (not auto) | Invoice matching |
+| `NEEDS_REVIEW` | AI flagged for human review | Invoice matching |
 
-**Team Decision Required:**
+**Match Classification Thresholds:**
 
-> **QUESTION 1:** What additional conditions should trigger human review?
-> 
-> Suggestions to consider:
-> - Large single draw (>$X or >Y% of budget)
-> - First draw on a new loan
-> - Draw on loan past maturity date
-> - Vendor not seen before on this project
-> - Invoice date significantly before/after draw date
+| Threshold | Value | Purpose |
+|-----------|-------|---------|
+| `AUTO_MATCH_SCORE` | 0.85 | Above = auto-match without AI |
+| `CLEAR_WINNER_GAP` | 0.15 | Gap needed for single match |
+| `MIN_CANDIDATE_SCORE` | 0.35 | Below = not a candidate |
+| Amount variance | ±10% | Triggers `AMOUNT_MISMATCH` flag |
 
-> **QUESTION 2:** What thresholds should apply?
-> 
-> Current defaults:
-> - Over-budget: Any amount over remaining
-> - Low confidence: < 70%
-> - Amount mismatch: Any variance
-> 
-> Should we add:
-> - Acceptable variance threshold (e.g., within $50 or 2%)?
-> - Large draw threshold (e.g., >$25,000)?
-> - Invoice date range (e.g., within 30 days of draw)?
+**Documentation:** See [Invoice Matching Architecture](ARCHITECTURE.md#invoice-matching-architecture) for full technical details.
 
-**Deliverable:** Updated n8n workflow with configurable flag thresholds
+**Deliverable:** ✅ Complete - Deterministic matching with narrow AI assistance and learning flywheel
 
 ---
 
@@ -1004,8 +1041,14 @@ Development time estimates assume **AI-assisted development using Cursor** (Clau
 | `lib/calculations.ts` | Compound interest amortization, payoff breakdown |
 | `lib/loanTerms.ts` | Fee escalation formula, term resolution |
 | `lib/validations.ts` | Draw request validation and flag generation |
-| `supabase/001_schema.sql` | Database schema with RLS placeholders |
-| `docs/ARCHITECTURE.md` | Current system architecture |
+| `lib/supabase.ts` | Supabase clients, auth types, permission constants |
+| `supabase/001_schema.sql` | Core database schema |
+| `supabase/004_auth.sql` | Authentication tables, RLS policies, helper functions |
+| `middleware.ts` | Route protection, session refresh |
+| `app/context/AuthContext.tsx` | Global auth state (user, profile, permissions) |
+| `app/components/auth/` | Auth UI components (PermissionGate, FirstLoginModal) |
+| `app/admin/users/page.tsx` | User & permission management UI |
+| `docs/ARCHITECTURE.md` | Current system architecture (includes auth details) |
 | `types/database.ts` | TypeScript types and constants |
 | `n8n/workflows/` | AI workflow definitions |
 
@@ -1015,6 +1058,7 @@ Development time estimates assume **AI-assisted development using Cursor** (Clau
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.2 | 2026-01-18 | Grayson Graham | Marked Authentication System as COMPLETE; Updated status and documentation references |
 | 1.1 | 2026-01-08 | Grayson Graham | Reordered adoption phase (Invoice AI before Migration); Updated migration approach to use existing TD3 systems; Reduced dev hours for AI-assisted development; Added Mobile Inspection App |
 | 1.0 | 2026-01-08 | Development | Initial roadmap creation |
 

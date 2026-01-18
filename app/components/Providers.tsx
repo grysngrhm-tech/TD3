@@ -2,6 +2,8 @@
 
 import { ReactNode } from 'react'
 import { NavigationProvider } from '@/app/context/NavigationContext'
+import { AuthProvider } from '@/app/context/AuthContext'
+import { FirstLoginModal } from '@/app/components/auth/FirstLoginModal'
 
 type ProvidersProps = {
   children: ReactNode
@@ -9,9 +11,12 @@ type ProvidersProps = {
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    <NavigationProvider>
-      {children}
-    </NavigationProvider>
+    <AuthProvider>
+      <NavigationProvider>
+        {children}
+        <FirstLoginModal />
+      </NavigationProvider>
+    </AuthProvider>
   )
 }
 

@@ -35,6 +35,8 @@ Base URL: `https://n8n.srv1208741.hstgr.cloud/webhook`
 |----------|--------|---------|
 | `/budget-import` | POST | Import budget spreadsheet data |
 | `/td3-draw-process` | POST | AI invoice matching for draws (post-creation) |
+| `/td3-invoice-process` | POST | Extract data from invoice PDFs and callback to TD3 |
+| `/td3-invoice-disambiguate` | POST | AI disambiguation when multiple candidates score similarly |
 | `/td3-wire-notification` | POST | Notify bookkeeper of pending wires |
 
 **Note:** The webapp now creates `draw_request` and `draw_request_lines` directly in Supabase with client-side fuzzy matching. N8N is called *after* creation for optional AI invoice matching.
@@ -367,6 +369,93 @@ The webapp pre-filters data before sending to N8N:
 
 ---
 
+## Invoice Processing Webhook
+
+**URL:** `POST https://n8n.srv1208741.hstgr.cloud/webhook/td3-invoice-process`
+
+This workflow extracts data from uploaded invoice files using GPT-4o-mini and sends the results back to TD3 for deterministic matching.
+
+### Environment Variables
+
+**TD3 side (.env.local / Vercel):**
+```
+NEXT_PUBLIC_N8N_WEBHOOK_URL=https://n8n.srv1208741.hstgr.cloud/webhook
+N8N_CALLBACK_SECRET=your-shared-secret-here
+```
+
+**n8n side (Environment Settings):**
+```
+TD3_WEBHOOK_SECRET=your-shared-secret-here   # Must match TD3's N8N_CALLBACK_SECRET
+TD3_API_URL=https://td3.vercel.app           # Base URL for callbacks
+```
+
+### Payload Format
+
+```json
+{
+  "invoiceId": "uuid-of-invoice-record",
+  "fileUrl": "https://supabase.co/storage/v1/object/sign/documents/...",
+  "fileName": "invoice-001.pdf",
+  "callbackUrl": "https://td3.vercel.app/api/invoices/process-callback",
+  "drawRequestId": "uuid-of-draw-request",
+  "projectId": "uuid-of-project",
+  "projectCode": "DW-244"
+}
+```
+
+### Workflow Processing Steps
+
+1. **Receive Webhook** - Parse JSON payload
+2. **Download Invoice** - Fetch file from signed URL
+3. **Upload to OpenAI** - Send file to OpenAI Files API
+4. **Extract with GPT-4o-mini** - Extract structured data:
+   - vendorName, invoiceNumber, invoiceDate, amount
+   - context (semantic description of work)
+   - keywords (normalized search terms)
+   - trade (electrical, plumbing, hvac, etc.)
+   - workType (labor, materials, equipment, mixed)
+5. **Callback to TD3** - Send extracted data to callbackUrl:
+
+```json
+{
+  "invoiceId": "uuid",
+  "n8nExecutionId": "execution-id",
+  "success": true,
+  "extractedData": {
+    "vendorName": "ABC Electric LLC",
+    "invoiceNumber": "INV-2024-001",
+    "invoiceDate": "2024-01-15",
+    "amount": 12500.00,
+    "context": "Electrical panel upgrade and wiring for 200amp service",
+    "keywords": ["electrical", "panel", "wiring", "200amp"],
+    "trade": "electrical",
+    "workType": "mixed",
+    "confidence": 0.95
+  }
+}
+```
+
+6. **TD3 Matching** - TD3 runs deterministic matching:
+   - Amount score (50% weight): How close is invoice amount to draw line amount?
+   - Trade score (20% weight): Does extracted trade match budget category?
+   - Keyword score (15% weight): Do keywords overlap with category tokens?
+   - Training score (15% weight): Has this vendor matched this category before?
+
+7. **Classification & Application:**
+   - SINGLE_MATCH (≥85% score, ≥15% gap): Auto-apply match
+   - MULTIPLE_CANDIDATES (close scores): Flag for review
+   - AMBIGUOUS/NO_CANDIDATES: Flag for manual review
+
+### Security
+
+The callback endpoint verifies requests using a shared secret:
+- n8n sends: `X-TD3-Webhook-Secret: <TD3_WEBHOOK_SECRET>`
+- TD3 checks: `process.env.N8N_CALLBACK_SECRET`
+
+Both must be set to the same value for callbacks to succeed.
+
+---
+
 ## Testing
 
 ### Test Budget Import
@@ -399,5 +488,208 @@ curl -X POST https://n8n.srv1208741.hstgr.cloud/webhook/draw-import \
       "amount": {"header": "Draw 1", "values": [25000, 10000]}
     },
     "metadata": {"fileName": "draw1.csv", "sheetName": "Sheet1", "totalRows": 2}
+  }'
+```
+
+### Test Invoice Process
+
+```bash
+curl -X POST https://n8n.srv1208741.hstgr.cloud/webhook/td3-invoice-process \
+  -H "Content-Type: application/json" \
+  -d '{
+    "invoiceId": "test-invoice-id",
+    "fileUrl": "https://example.com/invoice.pdf",
+    "fileName": "invoice.pdf",
+    "callbackUrl": "https://td3.vercel.app/api/invoices/process-callback",
+    "drawRequestId": "test-draw-id",
+    "projectId": "test-project-id",
+    "projectCode": "TEST-001"
+  }'
+```
+
+---
+
+## Invoice Disambiguation Webhook
+
+**URL:** `POST https://n8n.srv1208741.hstgr.cloud/webhook/td3-invoice-disambiguate`
+
+This workflow is triggered when deterministic matching identifies multiple viable candidates with similar scores. It uses GPT-4o-mini to select the best match based on semantic analysis of the invoice context.
+
+### When This Workflow is Called
+
+After invoice extraction completes, TD3 classifies the match result:
+- **SINGLE_MATCH** (≥85% score, ≥15% gap): Auto-apply → No AI needed
+- **MULTIPLE_CANDIDATES** (close scores): → **Triggers this workflow**
+- **AMBIGUOUS/NO_CANDIDATES**: Flag for manual review → No AI needed
+
+### Payload Format
+
+```json
+{
+  "invoiceId": "uuid-of-invoice-record",
+  "callbackUrl": "https://td3.vercel.app/api/invoices/disambiguate-callback",
+  "extractedData": {
+    "vendorName": "ABC Electric LLC",
+    "amount": 12500.00,
+    "context": "Electrical panel upgrade and wiring for 200amp service",
+    "keywords": ["electrical", "panel", "wiring", "200amp"],
+    "trade": "electrical",
+    "workType": "mixed",
+    "vendorType": "subcontractor"
+  },
+  "candidates": [
+    {
+      "drawLineId": "uuid-of-draw-line-1",
+      "budgetId": "uuid-of-budget",
+      "budgetCategory": "Electrical - Rough",
+      "nahbCategory": "16000 - Electrical",
+      "amountRequested": 12000,
+      "scores": {
+        "amount": 0.85,
+        "trade": 0.90,
+        "keywords": 0.75,
+        "training": 0.60,
+        "composite": 0.82
+      },
+      "factors": {
+        "amountVariance": 0.042,
+        "amountVarianceAbsolute": 500,
+        "tradeMatch": true,
+        "keywordMatches": ["electrical", "wiring"],
+        "vendorPreviousMatch": false,
+        "trainingReason": null
+      }
+    },
+    {
+      "drawLineId": "uuid-of-draw-line-2",
+      "budgetId": "uuid-of-budget-2",
+      "budgetCategory": "Electrical - Finish",
+      "nahbCategory": "16000 - Electrical",
+      "amountRequested": 13000,
+      "scores": {
+        "amount": 0.80,
+        "trade": 0.90,
+        "keywords": 0.70,
+        "training": 0.60,
+        "composite": 0.79
+      },
+      "factors": {
+        "amountVariance": 0.038,
+        "amountVarianceAbsolute": 500,
+        "tradeMatch": true,
+        "keywordMatches": ["electrical"],
+        "vendorPreviousMatch": false,
+        "trainingReason": null
+      }
+    }
+  ]
+}
+```
+
+### Workflow Processing Steps
+
+1. **Receive Webhook** - Parse JSON payload with invoice data and candidates
+2. **Build AI Prompt** - Construct context-rich prompt with:
+   - Invoice vendor name, amount, work context
+   - Extracted trade and keywords
+   - All candidate categories with scores and factors
+3. **Call OpenAI** - GPT-4o-mini selects best match:
+   - Analyzes vendor name for trade hints (e.g., "ABC Electric" → electrical)
+   - Compares work context to candidate categories
+   - Considers keyword alignment and amount variance
+   - Returns structured JSON with selection and reasoning
+4. **Parse Response** - Validate AI selection:
+   - Ensure selected drawLineId exists in candidates
+   - Extract confidence score and reasoning
+5. **Callback to TD3** - Send result to `/api/invoices/disambiguate-callback`
+
+### Callback Payload
+
+**Success:**
+```json
+{
+  "invoiceId": "uuid",
+  "n8nExecutionId": "execution-id",
+  "success": true,
+  "disambiguation": {
+    "selectedDrawLineId": "uuid-of-best-match",
+    "selectedCategory": "Electrical - Rough",
+    "selectedBudgetId": "uuid-of-budget",
+    "confidence": 0.85,
+    "reasoning": "Invoice from ABC Electric for panel upgrade aligns with Electrical - Rough category which covers rough-in electrical work. The amount variance is minimal (4%) and trade match is exact.",
+    "factors": ["trade_match", "vendor_name_hint", "work_context_alignment"],
+    "originalScores": {
+      "amount": 0.85,
+      "trade": 0.90,
+      "keywords": 0.75,
+      "training": 0.60,
+      "composite": 0.82
+    }
+  }
+}
+```
+
+**Failure:**
+```json
+{
+  "invoiceId": "uuid",
+  "n8nExecutionId": "execution-id",
+  "success": false,
+  "error": "AI could not select a match"
+}
+```
+
+### TD3 Callback Handling
+
+The `/api/invoices/disambiguate-callback` endpoint:
+1. Verifies webhook secret
+2. Validates selected draw line exists
+3. Updates invoice with `ai_matched` status
+4. Updates draw line with invoice data
+5. Records decision in `invoice_match_decisions` audit trail
+6. Reconciles NO_INVOICE flags across the draw
+
+### Match Status Flow
+
+```
+pending → ai_processing → ai_matched (success)
+                       → needs_review (failure)
+```
+
+### Test Disambiguation
+
+```bash
+curl -X POST https://n8n.srv1208741.hstgr.cloud/webhook/td3-invoice-disambiguate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "invoiceId": "test-invoice-id",
+    "callbackUrl": "https://td3.vercel.app/api/invoices/disambiguate-callback",
+    "extractedData": {
+      "vendorName": "ABC Electric LLC",
+      "amount": 12500,
+      "context": "Electrical panel upgrade",
+      "keywords": ["electrical", "panel"],
+      "trade": "electrical"
+    },
+    "candidates": [
+      {
+        "drawLineId": "line-1",
+        "budgetId": "budget-1",
+        "budgetCategory": "Electrical - Rough",
+        "nahbCategory": "16000 - Electrical",
+        "amountRequested": 12000,
+        "scores": {"amount": 0.85, "trade": 0.9, "keywords": 0.75, "training": 0.6, "composite": 0.82},
+        "factors": {"amountVariance": 0.04, "amountVarianceAbsolute": 500, "tradeMatch": true, "keywordMatches": ["electrical"], "vendorPreviousMatch": false, "trainingReason": null}
+      },
+      {
+        "drawLineId": "line-2",
+        "budgetId": "budget-2",
+        "budgetCategory": "Electrical - Finish",
+        "nahbCategory": "16000 - Electrical",
+        "amountRequested": 13000,
+        "scores": {"amount": 0.80, "trade": 0.9, "keywords": 0.70, "training": 0.6, "composite": 0.79},
+        "factors": {"amountVariance": 0.04, "amountVarianceAbsolute": 500, "tradeMatch": true, "keywordMatches": ["electrical"], "vendorPreviousMatch": false, "trainingReason": null}
+      }
+    ]
   }'
 ```

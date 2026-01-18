@@ -249,6 +249,44 @@ See the full [Development Roadmap](docs/ROADMAP.md) for detailed timeline, cost 
 
 ---
 
+## Development
+
+### Branch Structure
+
+```
+main (production)     → Protected, deploys to td3.vercel.app
+  └── develop (staging) → Preview deployments for testing
+       └── feature/*    → Local development branches
+```
+
+### Development Workflow
+
+1. **Start from develop**: `git checkout develop && git pull`
+2. **Create feature branch**: `git checkout -b feature/my-feature`
+3. **Make changes and test locally**: `npm run dev`
+4. **Push to staging**: `git push origin develop` (or PR to develop)
+5. **Test on Vercel preview**: Check auto-generated preview URL
+6. **Promote to production**: Create PR from `develop` → `main`
+
+### Local Development
+
+```bash
+npm install          # Install dependencies
+npm run dev          # Start dev server at localhost:3000
+npm run build        # Test production build
+npm run lint         # Run ESLint
+```
+
+### Environment Setup
+
+Copy `.env.example` to `.env.local` and configure:
+- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anon key
+- `NEXT_PUBLIC_N8N_BUDGET_WEBHOOK` - n8n budget import webhook
+- `NEXT_PUBLIC_N8N_DRAW_WEBHOOK` - n8n draw processing webhook
+
+---
+
 ## Documentation
 
 | Document | Description |

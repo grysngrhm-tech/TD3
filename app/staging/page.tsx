@@ -79,23 +79,26 @@ function StagingDashboardContent() {
         .order('created_at', { ascending: false })
 
       setPendingReview(
-        (reviewDraws || []).map(d => ({
+        ((reviewDraws || []) as (DrawRequest & { projects: Project & { builder: Builder } })[]).map(d => ({
           ...d,
-          project: (d as any).projects
+          project: d.projects
         }))
       )
 
       // Load staged draws grouped by builder
-      const { data: stagedDraws } = await supabase
+      const { data: stagedDrawsRaw } = await supabase
         .from('draw_requests')
         .select('*, projects(*, builder:builders(*))')
         .eq('status', 'staged')
         .order('created_at', { ascending: false })
 
+      type StagedDrawWithProject = DrawRequest & { projects: Project & { builder: Builder } }
+      const stagedDraws = (stagedDrawsRaw || []) as StagedDrawWithProject[]
+
       // Group by builder
       const builderMap = new Map<string, BuilderWithDraws>()
-      for (const draw of (stagedDraws || [])) {
-        const project = (draw as any).projects
+      for (const draw of stagedDraws) {
+        const project = draw.projects
         const builder = project?.builder
         if (!builder) continue
 
@@ -115,26 +118,30 @@ function StagingDashboardContent() {
       setStagedByBuilder(Array.from(builderMap.values()))
 
       // Load pending wire batches
-      const { data: wireBatches } = await supabase
+      const { data: wireBatchesRaw } = await supabase
         .from('wire_batches')
         .select('*, builder:builders(*)')
         .eq('status', 'pending')
         .order('submitted_at', { ascending: false })
 
+      type WireBatchWithBuilder = WireBatch & { builder: Builder }
+      const wireBatches = (wireBatchesRaw || []) as WireBatchWithBuilder[]
+
       // Get draws for each batch
       const batchesWithDraws: WireBatchWithDetails[] = []
-      for (const batch of (wireBatches || [])) {
-        const { data: draws } = await supabase
+      for (const batch of wireBatches) {
+        const { data: drawsRaw } = await supabase
           .from('draw_requests')
           .select('*, projects(*)')
           .eq('wire_batch_id', batch.id)
 
+        const draws = (drawsRaw || []) as (DrawRequest & { projects: Project })[]
         batchesWithDraws.push({
           ...batch,
-          builder: (batch as any).builder,
-          draws: (draws || []).map(d => ({
+          builder: batch.builder,
+          draws: draws.map(d => ({
             ...d,
-            project: (d as any).projects
+            project: d.projects
           }))
         })
       }

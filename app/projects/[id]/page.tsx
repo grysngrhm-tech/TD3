@@ -51,60 +51,64 @@ export default function ProjectDetailPage() {
         .single()
 
       if (projectError) throw projectError
-      
+
+      // Type assertion for project data
+      const typedProjectData = projectData as Project
+
       // Ensure lifecycle_stage has a default value
       const projectWithLifecycle: ProjectWithLifecycle = {
-        ...projectData,
-        lifecycle_stage: (projectData.lifecycle_stage || 'active') as LifecycleStage,
+        ...typedProjectData,
+        lifecycle_stage: (typedProjectData.lifecycle_stage || 'active') as LifecycleStage,
       }
       setProject(projectWithLifecycle)
 
       // Fetch builder if project has builder_id
-      if (projectData.builder_id) {
+      if (typedProjectData.builder_id) {
         const { data: builderData } = await supabase
           .from('builders')
           .select('*')
-          .eq('id', projectData.builder_id)
+          .eq('id', typedProjectData.builder_id)
           .single()
 
-        setBuilder(builderData || null)
+        setBuilder((builderData as Builder) || null)
       } else {
         setBuilder(null)
       }
 
       // Fetch lender if project has lender_id
-      if (projectData.lender_id) {
+      if (typedProjectData.lender_id) {
         const { data: lenderData } = await supabase
           .from('lenders')
           .select('*')
-          .eq('id', projectData.lender_id)
+          .eq('id', typedProjectData.lender_id)
           .single()
 
-        setLender(lenderData || null)
+        setLender((lenderData as Lender) || null)
       } else {
         setLender(null)
       }
 
       // Fetch budgets
-      const { data: budgetsData } = await supabase
+      const { data: budgetsRaw } = await supabase
         .from('budgets')
         .select('*')
         .eq('project_id', projectId)
         .order('sort_order', { ascending: true })
 
-      setBudgets(budgetsData || [])
+      setBudgets((budgetsRaw || []) as Budget[])
 
       // Fetch draws
-      const { data: drawsData } = await supabase
+      const { data: drawsRaw } = await supabase
         .from('draw_requests')
         .select('*')
         .eq('project_id', projectId)
         .order('draw_number', { ascending: false })
 
-      setDraws(drawsData || [])
+      const drawsData = (drawsRaw || []) as DrawRequest[]
+      setDraws(drawsData)
 
       // Fetch draw request lines with budget relations for the new reports
-      if (drawsData && drawsData.length > 0) {
+      if (drawsData.length > 0) {
         const drawIds = drawsData.map(d => d.id)
         const { data: drawLinesData } = await supabase
           .from('draw_request_lines')
