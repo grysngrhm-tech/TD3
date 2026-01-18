@@ -131,12 +131,18 @@ function LoginContent() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
         className="card-ios p-8"
+        style={{
+          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06)',
+        }}
       >
         {/* Logo/Header */}
         <div className="text-center mb-8">
           <div
             className="w-16 h-16 rounded-ios mx-auto mb-4 flex items-center justify-center"
-            style={{ background: 'var(--accent)' }}
+            style={{
+              background: 'var(--accent)',
+              boxShadow: '0 4px 16px rgba(149, 6, 6, 0.25)',
+            }}
           >
             <span className="text-2xl font-bold text-white">TD3</span>
           </div>
