@@ -1,0 +1,601 @@
+# TD3 Authentication System
+
+Complete documentation for the TD3 authentication system, including architecture decisions, troubleshooting, and common issues.
+
+---
+
+## Table of Contents
+
+1. [Architecture Overview](#architecture-overview)
+2. [Why OTP Codes Instead of Magic Links](#why-otp-codes-instead-of-magic-links)
+3. [Authentication Flow](#authentication-flow)
+4. [Key Files Reference](#key-files-reference)
+5. [Supabase Configuration](#supabase-configuration)
+6. [Email Templates](#email-templates)
+7. [Common Issues & Troubleshooting](#common-issues--troubleshooting)
+8. [Emergency Procedures](#emergency-procedures)
+9. [Development Guidelines](#development-guidelines)
+
+---
+
+## Architecture Overview
+
+TD3 uses **Supabase Auth** with a **passwordless OTP code** authentication flow. Key architectural decisions:
+
+| Component | Choice | Rationale |
+|-----------|--------|-----------|
+| Auth Method | OTP Codes (8-digit) | Email security scanners can't consume codes |
+| Session Storage | Browser localStorage | Supabase SSR client handles automatically |
+| Route Protection | Next.js Middleware | Server-side redirect before page loads |
+| Permissions | Stackable DB-level | RLS policies + UI gates for defense-in-depth |
+| Allowlist | Pre-approved emails only | Prevents unauthorized signups |
+
+### Auth Stack
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Browser (Client)                          │
+├─────────────────────────────────────────────────────────────────┤
+│  Login Page          │  AuthContext        │  PermissionGate    │
+│  (OTP code entry)    │  (global state)     │  (UI access)       │
+├─────────────────────────────────────────────────────────────────┤
+│                     Next.js Middleware                           │
+│              (route protection, session refresh)                 │
+├─────────────────────────────────────────────────────────────────┤
+│                      Supabase Auth                               │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │   Sessions   │  │   Profiles   │  │  Permissions │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
+├─────────────────────────────────────────────────────────────────┤
+│                    Row Level Security                            │
+│           (has_permission() function in policies)                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Why OTP Codes Instead of Magic Links
+
+### The Problem with Magic Links
+
+Magic links (clickable email links) are vulnerable to **email security scanners**:
+
+1. **Microsoft SafeLinks** (Office 365, Outlook)
+2. **Google Safe Browsing** (Gmail)
+3. **Proofpoint URL Defense**
+4. **Mimecast**
+5. **Barracuda**
+
+These services **pre-click links** in emails to check for malware. When they click a magic link:
+- The one-time token is **consumed** by the scanner
+- The real user clicks the link and gets: `"Email link is invalid or has expired"`
+
+### Evidence from TD3 Debugging
+
+Supabase auth logs showed:
+```
+Login consumed by IP: 152.39.205.210  (Microsoft SafeLinks)
+User's actual IP: 75.164.180.179
+Error: "otp_expired" - Email link is invalid or has expired
+```
+
+### The Solution: OTP Codes
+
+OTP codes are immune to email scanners because:
+- Scanners can **read** the code but can't **enter** it
+- Only the real user typing the code can authenticate
+- No network request triggered by scanner
+
+### Trade-offs
+
+| Aspect | Magic Links | OTP Codes |
+|--------|-------------|-----------|
+| User Experience | Click link | Type 8 digits |
+| Scanner Resistant | No | Yes |
+| Works Offline | No | No |
+| Expiration | 1 hour | 5 minutes |
+| Security | Lower (prefetch attacks) | Higher |
+
+---
+
+## Authentication Flow
+
+### Complete Flow Diagram
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                      USER JOURNEY                                 │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  1. User visits protected route (e.g., /)                        │
+│     │                                                             │
+│     ▼                                                             │
+│  2. Middleware checks session                                     │
+│     │                                                             │
+│     ├── Has valid session? ──────────────────┐                   │
+│     │   YES                                   │                   │
+│     │                                         ▼                   │
+│     │                              Allow access to route          │
+│     │                                                             │
+│     └── NO session ──────────────────────────┐                   │
+│                                               │                   │
+│                                               ▼                   │
+│  3. Redirect to /login?redirect=/original-path                   │
+│     │                                                             │
+│     ▼                                                             │
+│  4. User enters email                                             │
+│     │                                                             │
+│     ▼                                                             │
+│  5. Check allowlist (is_allowlisted RPC)                         │
+│     │                                                             │
+│     ├── Not allowed? ────────────────────────┐                   │
+│     │                                         ▼                   │
+│     │                           Show "not authorized" error       │
+│     │                                                             │
+│     └── Allowed ─────────────────────────────┐                   │
+│                                               │                   │
+│                                               ▼                   │
+│  6. Call signInWithOtp({ email }) - NO emailRedirectTo!          │
+│     │                                                             │
+│     ▼                                                             │
+│  7. Supabase sends email with 8-digit code                       │
+│     │                                                             │
+│     ▼                                                             │
+│  8. User receives email, reads code                              │
+│     │                                                             │
+│     ▼                                                             │
+│  9. User types code in 8-digit input UI                          │
+│     │                                                             │
+│     ▼                                                             │
+│  10. Call verifyOtp({ email, token, type: 'email' })             │
+│      │                                                            │
+│      ├── Invalid/expired? ───────────────────┐                   │
+│      │                                        ▼                   │
+│      │                           Show error, clear inputs         │
+│      │                                                            │
+│      └── Success ────────────────────────────┐                   │
+│                                               │                   │
+│                                               ▼                   │
+│  11. Session created, redirect via window.location.href          │
+│      │                                                            │
+│      ▼                                                            │
+│  12. First login? Show FirstLoginModal for profile               │
+│      │                                                            │
+│      ▼                                                            │
+│  13. User is authenticated and on original destination           │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Code Flow
+
+**Step 1: Send OTP Code**
+```typescript
+// app/(auth)/login/page.tsx
+const { error } = await supabase.auth.signInWithOtp({
+  email: trimmedEmail,
+  // NO emailRedirectTo - this sends code instead of link
+})
+```
+
+**Step 2: Verify OTP Code**
+```typescript
+// app/(auth)/login/page.tsx
+const { data, error } = await supabase.auth.verifyOtp({
+  email: email.trim().toLowerCase(),
+  token: verifyCode,  // The 8-digit code
+  type: 'email',
+})
+```
+
+**Step 3: Redirect (using window.location for reliability)**
+```typescript
+if (data.session || data.user) {
+  window.location.href = redirectTo
+}
+```
+
+---
+
+## Key Files Reference
+
+### Authentication Files
+
+| File | Purpose | Key Functions |
+|------|---------|---------------|
+| `app/(auth)/login/page.tsx` | Login UI with OTP code entry | `handleSubmit`, `handleVerifyOtp`, `handleOtpChange` |
+| `app/(auth)/layout.tsx` | Centered layout for auth pages | Layout wrapper |
+| `app/auth/callback/page.tsx` | Legacy callback handler (PKCE) | `exchangeCodeForSession` |
+| `app/context/AuthContext.tsx` | Global auth state provider | `useAuth`, `AuthProvider` |
+| `app/components/auth/FirstLoginModal.tsx` | Profile completion modal | Profile form on first login |
+| `app/components/auth/PermissionGate.tsx` | Conditional render by permission | `PermissionGate`, `useHasPermission` |
+| `middleware.ts` | Route protection | Session check, redirects |
+
+### Supabase Client Files
+
+| File | Purpose |
+|------|---------|
+| `lib/supabase.ts` | Client factory, types, permission constants |
+
+### Database Files
+
+| File | Purpose |
+|------|---------|
+| `supabase/004_auth.sql` | Auth schema, RLS policies, helper functions |
+
+---
+
+## Supabase Configuration
+
+### Dashboard Settings
+
+**Authentication → URL Configuration:**
+| Setting | Value |
+|---------|-------|
+| Site URL | `https://td3.tennantdevelopments.com` |
+| Redirect URLs | `https://td3.tennantdevelopments.com/**`, `http://localhost:3000/**` |
+
+**Authentication → Providers → Email:**
+| Setting | Value |
+|---------|-------|
+| Enable Email | ON |
+| Confirm Email | OFF |
+| Secure email change | ON |
+
+**SMTP Configuration (for Resend):**
+| Setting | Value |
+|---------|-------|
+| Host | `smtp.resend.com` |
+| Port | `465` |
+| Sender email | `bot@mail.td3.tennantdevelopments.com` |
+| Sender name | `TD3` |
+| Username | `resend` |
+| Password | Resend API key |
+
+---
+
+## Email Templates
+
+### Magic Link Template (OTP Code)
+
+Go to **Authentication → Email Templates → Magic Link**
+
+**Subject:** `Your TD3 verification code`
+
+**Body:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in to TD3</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F9FAFB; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F9FAFB;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 480px; background-color: #FFFFFF; border-radius: 12px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);">
+          <tr>
+            <td align="center" style="padding: 40px 40px 24px 40px;">
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="background-color: #950606; border-radius: 8px; padding: 12px 20px;">
+                    <span style="font-size: 24px; font-weight: 700; color: #FFFFFF; letter-spacing: -0.5px;">TD3</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 40px 24px 40px; text-align: center;">
+              <h1 style="margin: 0 0 12px 0; font-size: 22px; font-weight: 600; color: #111827;">
+                Your verification code
+              </h1>
+              <p style="margin: 0; font-size: 15px; line-height: 24px; color: #6B7280;">
+                Enter this code to sign in to your TD3 account. This code will expire in 5 minutes.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding: 0 40px 32px 40px;">
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="background-color: #F3F4F6; border-radius: 8px; padding: 20px 40px;">
+                    <span style="font-size: 32px; font-weight: 700; color: #111827; letter-spacing: 8px; font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;">{{ .Token }}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 40px 40px 40px; text-align: center;">
+              <p style="margin: 0; font-size: 13px; line-height: 20px; color: #9CA3AF;">
+                If you didn't request this code, you can safely ignore this email.
+              </p>
+            </td>
+          </tr>
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 480px;">
+          <tr>
+            <td align="center" style="padding: 24px 20px;">
+              <p style="margin: 0; font-size: 12px; color: #9CA3AF;">
+                TD3.TennantDevelopments.com
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+```
+
+**Key variable:** `{{ .Token }}` - The OTP code (8 digits)
+
+### Confirm Signup Template
+
+Same structure, update title to "Welcome to TD3" and adjust messaging.
+
+---
+
+## Common Issues & Troubleshooting
+
+### Issue 1: "Email link is invalid or has expired"
+
+**Symptom:** User clicks magic link but gets expiration error.
+
+**Cause:** Email security scanner pre-clicked the link.
+
+**Solution:** This is why we switched to OTP codes. If using magic links, switch to OTP.
+
+**How to identify:** Check Supabase auth logs - the consuming IP will be different from the user's IP.
+
+---
+
+### Issue 2: Page stuck on "Verifying..." after entering code
+
+**Symptom:** OTP verification succeeds but UI doesn't redirect.
+
+**Cause:** `router.push()` or `router.replace()` not triggering navigation.
+
+**Solution:** Use `window.location.href` for auth redirects:
+```typescript
+// DON'T do this
+router.push(redirectTo)
+
+// DO this instead
+window.location.href = redirectTo
+```
+
+**Why:** Next.js router can fail to trigger navigation when auth state changes, especially with client-side session updates.
+
+---
+
+### Issue 3: Blank page with loading spinner after login
+
+**Symptom:** User is authenticated but dashboard shows infinite loading.
+
+**Causes:**
+1. AuthContext `isLoading` stuck on true
+2. Dashboard data fetch failing silently
+3. Session not properly propagated
+
+**Debugging:**
+```javascript
+// In browser console
+console.log(localStorage.getItem('sb-uewqcbmaiuofdfvqmbmq-auth-token'))
+```
+
+**Solution:** Use emergency sign out (see below).
+
+---
+
+### Issue 4: Sign out button doesn't work
+
+**Symptom:** Clicking sign out does nothing or page stays stuck.
+
+**Cause:** `router.push('/login')` not navigating.
+
+**Solution:** Force hard redirect:
+```typescript
+// In Header.tsx signOut handler
+try {
+  await signOut()
+} catch (e) {
+  console.error(e)
+}
+localStorage.clear()
+sessionStorage.clear()
+window.location.href = '/login'
+```
+
+---
+
+### Issue 5: "Missing authentication code" error
+
+**Symptom:** Callback page shows no code parameter.
+
+**Context:** This is from the old magic link flow. With OTP codes, there's no callback URL.
+
+**If still seeing this:** User may have clicked an old magic link. Request new code.
+
+---
+
+### Issue 6: PKCE code_verifier error
+
+**Error:** `"both auth code and code verifier should be non-empty"`
+
+**Cause:** Server-side route trying to exchange code, but `code_verifier` is stored in browser.
+
+**Solution:** Callback must be client-side (`page.tsx` not `route.ts`) to access browser storage.
+
+**Current state:** We use OTP codes now, so this doesn't apply. But the callback page exists for legacy support.
+
+---
+
+### Issue 7: OTP code is 8 digits but UI expects 6
+
+**Symptom:** User can't enter full code.
+
+**Cause:** Supabase sends 8-digit codes (not 6 as documented).
+
+**Solution:** OTP input UI must have 8 input boxes:
+```typescript
+const [otpCode, setOtpCode] = useState(['', '', '', '', '', '', '', ''])
+```
+
+---
+
+## Emergency Procedures
+
+### Emergency Sign Out (User Stuck)
+
+If user is stuck on blank page or can't sign out normally:
+
+**Option 1: Browser Console**
+```javascript
+localStorage.clear()
+sessionStorage.clear()
+location.href = '/login'
+```
+
+**Option 2: Header Emergency Button**
+The header shows an emergency sign out button when `isLoading` is true. This button:
+1. Clears localStorage and sessionStorage
+2. Signs out via Supabase client
+3. Forces `window.location.href = '/login'`
+
+### Reset All Auth State (Development)
+
+```javascript
+// Clear everything and reload
+localStorage.clear()
+sessionStorage.clear()
+indexedDB.deleteDatabase('supabase-auth')
+location.reload()
+```
+
+### Check Current Session (Debugging)
+
+```javascript
+// Get current session
+const token = localStorage.getItem('sb-uewqcbmaiuofdfvqmbmq-auth-token')
+if (token) {
+  const parsed = JSON.parse(token)
+  console.log('User:', parsed.user?.email)
+  console.log('Expires:', new Date(parsed.expires_at * 1000))
+}
+```
+
+### View Supabase Auth Logs
+
+1. Go to Supabase Dashboard
+2. Navigate to **Authentication → Logs**
+3. Filter by email or time range
+4. Look for:
+   - `otp_expired` - Code was already used or expired
+   - `invalid_otp` - Wrong code entered
+   - IP addresses - Different IP = scanner consumed link
+
+---
+
+## Development Guidelines
+
+### Never Use router.push for Auth Redirects
+
+```typescript
+// BAD - can fail silently
+router.push('/login')
+router.replace('/')
+
+// GOOD - always works
+window.location.href = '/login'
+```
+
+### Always Wrap signOut in try/catch
+
+```typescript
+const handleSignOut = async () => {
+  try {
+    await signOut()
+  } catch (e) {
+    console.error('Sign out error:', e)
+  }
+  // Always redirect even if signOut fails
+  window.location.href = '/login'
+}
+```
+
+### OTP Code Validation
+
+```typescript
+// Verify code length matches Supabase config (currently 8)
+if (verifyCode.length !== 8) {
+  setErrorMessage('Please enter all 8 digits')
+  return
+}
+```
+
+### Check Both session AND user
+
+```typescript
+// Supabase may return user without session or vice versa
+if (data.session || data.user) {
+  // Success
+} else {
+  // Handle edge case
+}
+```
+
+### Clear Storage on Auth Errors
+
+When auth fails unexpectedly, clear storage to prevent stuck states:
+```typescript
+localStorage.clear()
+sessionStorage.clear()
+```
+
+### Use Client Components for Auth
+
+Auth components must be client-side (`'use client'`) to access:
+- Browser localStorage (session storage)
+- window.location (for redirects)
+- Supabase browser client
+
+---
+
+## Testing Checklist
+
+Before deploying auth changes:
+
+- [ ] Login with valid allowlisted email
+- [ ] Receive 8-digit code in email
+- [ ] Enter code and verify redirect works
+- [ ] Dashboard loads after redirect
+- [ ] Sign out button works
+- [ ] Emergency sign out works
+- [ ] Protected routes redirect to login
+- [ ] Login preserves redirect parameter
+- [ ] First login modal shows for new users
+- [ ] Permissions work (test with different permission levels)
+
+---
+
+## Version History
+
+| Date | Change | Reason |
+|------|--------|--------|
+| 2026-01-18 | Switch from magic links to OTP codes | Email scanners consuming magic links |
+| 2026-01-18 | Change OTP from 6 to 8 digits | Supabase sends 8-digit codes |
+| 2026-01-18 | Use window.location.href for redirects | router.push fails after auth state change |
+| 2026-01-18 | Add emergency sign out with storage clear | Users getting stuck on blank pages |
+
+---
+
+## Related Documentation
+
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - Full system architecture
+- [CLAUDE.md](../CLAUDE.md) - Project context for AI assistants
+- [supabase/004_auth.sql](../supabase/004_auth.sql) - Database schema and RLS policies
