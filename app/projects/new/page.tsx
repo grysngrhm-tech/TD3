@@ -4,15 +4,33 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { OriginationTab } from '@/app/components/projects/OriginationTab'
 import { useNavigation } from '@/app/context/NavigationContext'
+import { useAuth } from '@/app/context/AuthContext'
+import { useHasPermission } from '@/app/components/auth/PermissionGate'
+import { toast } from '@/app/components/ui/Toast'
 
 export default function NewLoanPage() {
   const router = useRouter()
   const { setCurrentPageTitle } = useNavigation()
+  const { isLoading } = useAuth()
+  const canProcess = useHasPermission('processor')
 
   // Register page title
   useEffect(() => {
     setCurrentPageTitle('New Loan')
   }, [setCurrentPageTitle])
+
+  // Redirect if no permission
+  useEffect(() => {
+    if (!canProcess && !isLoading) {
+      toast.error('Access denied', 'You do not have permission to create loans')
+      router.push('/')
+    }
+  }, [canProcess, isLoading, router])
+
+  // Don't render until we've verified permission
+  if (!canProcess) {
+    return null
+  }
 
   const handleSave = (projectId: string) => {
     // Navigate to the newly created project

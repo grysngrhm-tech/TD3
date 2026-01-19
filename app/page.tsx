@@ -11,6 +11,7 @@ import { DashboardHeader } from '@/app/components/ui/DashboardHeader'
 import { useFilters } from '@/app/hooks/useFilters'
 import { useNavigation } from '@/app/context/NavigationContext'
 import { useAuth } from '@/app/context/AuthContext'
+import { PermissionGate } from '@/app/components/auth/PermissionGate'
 import { calculateLoanIncome, calculateIRR } from '@/lib/calculations'
 import type { LifecycleStage, Builder, Lender, DrawRequest, Project } from '@/types/database'
 
@@ -448,9 +449,11 @@ export default function Dashboard() {
                       : 'No completed loans yet'}
               </p>
               {selectedStage === 'pending' && (
-                <button onClick={() => router.push('/projects/new')} className="btn-primary">
-                  New Loan
-                </button>
+                <PermissionGate permission="processor">
+                  <button onClick={() => router.push('/projects/new')} className="btn-primary">
+                    New Loan
+                  </button>
+                </PermissionGate>
               )}
             </div>
           ) : (

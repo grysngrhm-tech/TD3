@@ -5,12 +5,17 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { logAuditEvent } from '@/lib/audit'
 import { useNavigation } from '@/app/context/NavigationContext'
+import { useAuth } from '@/app/context/AuthContext'
+import { useHasPermission } from '@/app/components/auth/PermissionGate'
+import { toast } from '@/app/components/ui/Toast'
 import type { Project } from '@/types/database'
 
 export default function EditProjectPage() {
   const params = useParams()
   const router = useRouter()
   const { setCurrentPageTitle } = useNavigation()
+  const { isLoading: authLoading } = useAuth()
+  const canProcess = useHasPermission('processor')
   const projectId = params.id as string
 
   const [project, setProject] = useState<Project | null>(null)
@@ -34,6 +39,14 @@ export default function EditProjectPage() {
   useEffect(() => {
     loadProject()
   }, [projectId])
+
+  // Redirect if no permission
+  useEffect(() => {
+    if (!canProcess && !authLoading) {
+      toast.error('Access denied', 'You do not have permission to edit projects')
+      router.push('/')
+    }
+  }, [canProcess, authLoading, router])
 
   // Update page title when project loads
   useEffect(() => {
@@ -117,6 +130,11 @@ export default function EditProjectPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  // Don't render until we've verified permission
+  if (!canProcess) {
+    return null
   }
 
   if (loading) {
