@@ -105,16 +105,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function initializeAuth() {
       try {
-        // Get initial session
-        const { data: { session } } = await supabase.auth.getSession()
+        // Use getUser() instead of getSession() to validate the session with the server
+        // This ensures the session is actually valid, especially after magic link login
+        const { data: { user: authUser }, error: userError } = await supabase.auth.getUser()
 
-        if (session?.user && mounted) {
-          setUser(session.user)
+        if (userError) {
+          console.error('Error getting user:', userError.message)
+          // Session invalid or expired - clear state
+          if (mounted) {
+            setUser(null)
+            setProfile(null)
+            setPermissions([])
+          }
+          return
+        }
+
+        if (authUser && mounted) {
+          setUser(authUser)
 
           // Fetch profile and permissions in parallel
           const [fetchedProfile, fetchedPermissions] = await Promise.all([
-            fetchProfile(session.user.id),
-            fetchPermissions(session.user.id)
+            fetchProfile(authUser.id),
+            fetchPermissions(authUser.id)
           ])
 
           if (mounted) {
