@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { motion, AnimatePresence } from 'framer-motion'
-import { createSupabaseBrowserClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/app/context/AuthContext'
 import { toast } from '@/app/components/ui/Toast'
 
@@ -12,8 +12,6 @@ export function FirstLoginModal() {
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
   const [saving, setSaving] = useState(false)
-
-  const supabase = createSupabaseBrowserClient()
 
   // Show modal if user is logged in and hasn't completed first login
   const isOpen = !!user && !!profile && !profile.first_login_completed

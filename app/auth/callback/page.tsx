@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { createSupabaseBrowserClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 function AuthCallbackContent() {
   const router = useRouter()
@@ -41,8 +41,6 @@ function AuthCallbackContent() {
       }
 
       try {
-        const supabase = createSupabaseBrowserClient()
-
         console.log('Exchanging code for session...')
         const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
@@ -55,7 +53,8 @@ function AuthCallbackContent() {
         console.log('Successfully authenticated:', data.user?.email)
 
         // Redirect to the intended destination
-        router.push(redirect)
+        // Use window.location.href for reliable auth redirect
+        window.location.href = redirect
       } catch (err) {
         console.error('Unexpected error during auth callback:', err)
         setError('An unexpected error occurred')
@@ -63,7 +62,7 @@ function AuthCallbackContent() {
     }
 
     handleAuthCallback()
-  }, [searchParams, router])
+  }, [searchParams])
 
   // Show error state
   if (error) {
@@ -96,7 +95,7 @@ function AuthCallbackContent() {
             {error}
           </p>
           <button
-            onClick={() => router.push('/login')}
+            onClick={() => { window.location.href = '/login' }}
             className="btn-primary"
           >
             Return to Login

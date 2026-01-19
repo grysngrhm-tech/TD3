@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { createSupabaseBrowserClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { toast } from '@/app/components/ui/Toast'
 
 type LoginState = 'input' | 'checking' | 'sending' | 'verify' | 'verifying' | 'error'
@@ -17,8 +17,6 @@ function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect') || '/'
-
-  const supabase = createSupabaseBrowserClient()
 
   // Check for errors in URL (query params or hash fragment)
   useEffect(() => {
@@ -54,7 +52,7 @@ function LoginContent() {
       }
     }
     checkSession()
-  }, [supabase, redirectTo])
+  }, [redirectTo])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
