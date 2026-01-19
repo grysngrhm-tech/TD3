@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import * as Dialog from '@radix-ui/react-dialog'
-import { createSupabaseBrowserClient, Permission, PERMISSION_LABELS, PERMISSION_DESCRIPTIONS } from '@/lib/supabase'
+import { supabase, Permission, PERMISSION_LABELS, PERMISSION_DESCRIPTIONS } from '@/lib/supabase'
 import { useAuth } from '@/app/context/AuthContext'
 import { useHasPermission } from '@/app/components/auth/PermissionGate'
 import { toast } from '@/app/components/ui/Toast'
@@ -42,15 +42,13 @@ export default function AdminUsersPage() {
   const [saving, setSaving] = useState(false)
   const [updatingUser, setUpdatingUser] = useState<string | null>(null)
 
-  const supabase = createSupabaseBrowserClient()
-
   // Redirect if no permission
   useEffect(() => {
     if (!canManageUsers && !loading) {
       toast.error('Access denied', 'You do not have permission to access this page')
-      router.push('/')
+      window.location.href = '/'
     }
-  }, [canManageUsers, loading, router])
+  }, [canManageUsers, loading])
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -94,7 +92,7 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false)
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     if (canManageUsers) {

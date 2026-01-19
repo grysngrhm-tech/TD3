@@ -10,7 +10,7 @@ import { ThemeToggle } from './ThemeToggle'
 import { toast } from './Toast'
 import { useAuth } from '@/app/context/AuthContext'
 import { useHasPermission } from '@/app/components/auth/PermissionGate'
-import { createSupabaseBrowserClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 // Routes where Header should not be shown
 const AUTH_ROUTES = ['/login', '/auth/callback']
@@ -109,7 +109,6 @@ export function Header() {
 
     setIsSaving(true)
     try {
-      const supabase = createSupabaseBrowserClient()
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -302,7 +301,6 @@ export function Header() {
 
                         // Must await signOut to clear cookies (SSR client uses cookies)
                         try {
-                          const supabase = createSupabaseBrowserClient()
                           await supabase.auth.signOut()
                         } catch (e) {
                           console.error('Sign out error:', e)
