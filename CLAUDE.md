@@ -7,6 +7,7 @@ TD3 is a construction loan management system built for Tennant Development. It r
 - **Frontend**: Next.js 14 (App Router), React 18, Tailwind CSS, Framer Motion
 - **Database**: Supabase (PostgreSQL) - Project ID: uewqcbmaiuofdfvqmbmq
 - **Auth**: Supabase Auth (passwordless magic links) + RLS
+- **Email**: Resend (SMTP for auth emails via Supabase)
 - **AI Workflows**: n8n (self-hosted at https://n8n.srv1208741.hstgr.cloud)
 - **Charts**: Nivo (Sankey, Bar, Line, Pie)
 - **UI Components**: Radix UI (Dialog, Accordion, Tabs)
@@ -172,6 +173,29 @@ In Supabase Dashboard → Authentication → URL Configuration:
 In Supabase Dashboard → Authentication → Providers → Email:
 - Enable Email provider: ON
 - Confirm email: OFF (magic links handle verification)
+
+**Step 3b: Configure Custom SMTP (Resend)**
+
+Auth emails are sent via Resend from `bot@mail.td3.tennantdevelopments.com`.
+
+In Supabase Dashboard → Project Settings → Authentication → SMTP Settings:
+| Setting | Value |
+|---------|-------|
+| Enable Custom SMTP | ON |
+| Host | `smtp.resend.com` |
+| Port | `465` |
+| Sender email | `bot@mail.td3.tennantdevelopments.com` |
+| Sender name | `TD3` |
+| Username | `resend` |
+| Password | Resend API key (starts with `re_`) |
+
+**DNS Records Required** (in Squarespace for `mail.td3.tennantdevelopments.com`):
+- SPF (TXT record)
+- DKIM (CNAME records from Resend)
+
+**Email Templates** (in Authentication → Email Templates):
+- Magic Link: Custom branded template with TD3 logo
+- Confirm Sign Up: Welcome email for new users
 
 **Step 4: Add First Admin to Allowlist**
 ```sql
