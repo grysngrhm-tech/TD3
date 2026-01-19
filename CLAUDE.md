@@ -96,52 +96,55 @@ Email security scanners (Microsoft SafeLinks, Proofpoint, etc.) pre-click magic 
 6. Profile editing available anytime via header dropdown
 ```
 
-#### ⚠️ CRITICAL: Preventing Auth Timeout Bugs
+#### Resilient Auth Architecture
 
-**This bug has occurred multiple times. Follow these patterns exactly.**
+The AuthContext is designed to be **resilient** rather than defensive:
 
-The app can freeze with "Auth initialization timed out" errors if these patterns are violated:
+**Key Design Principles:**
+1. **Uses `getUser()` not `getSession()`** - validates with server, not stale local storage
+2. **Non-blocking profile/permissions** - auth completes immediately, profile loads async
+3. **Auto-recovery on timeout** - clears storage and redirects to login after 10s
+4. **No permanent blocking** - can re-initialize if needed (handles tab moves, window changes)
 
-**1. ALWAYS use the module-level supabase singleton in components:**
+**Best Practices:**
+
+**1. ALWAYS use the module-level supabase singleton:**
 ```tsx
-// ✅ CORRECT - use the singleton
+// ✅ CORRECT
 import { supabase } from '@/lib/supabase'
 
-// ❌ WRONG - creates new client, causes re-initialization
+// ❌ WRONG - creates new client
 import { createSupabaseBrowserClient } from '@/lib/supabase'
 const supabase = createSupabaseBrowserClient()
-
-// ❌ WRONG - even with useMemo, can cause issues
-const supabase = useMemo(() => createSupabaseBrowserClient(), [])
 ```
 
-**2. ALWAYS use Next.js Link or router.push() for internal navigation:**
+**2. Use Next.js Link or router.push() for navigation:**
 ```tsx
-// ✅ CORRECT - client-side navigation, preserves auth state
+// ✅ CORRECT - client-side navigation
 import Link from 'next/link'
 <Link href="/draws">Draws</Link>
-<Link href={`/projects/${id}`}>View Project</Link>
 
-// ✅ CORRECT - for buttons with Framer Motion animations
-import { useRouter } from 'next/navigation'
-const router = useRouter()
-<motion.button onClick={() => router.push('/staging')}>Go to Staging</motion.button>
-
-// ❌ WRONG - causes full page reload, re-triggers auth init
+// ❌ WRONG - full page reload
 <a href="/draws">Draws</a>
-<motion.a href="/staging">Go to Staging</motion.a>  // Even wrapped in motion!
 ```
 
-**3. AuthContext initialization guards (DO NOT MODIFY):**
-The AuthContext uses `initCompletedRef` and `initStartedRef` to prevent redundant initialization. These refs ensure auth only initializes once per session, even during React strict mode or re-renders. Do not remove or modify this pattern.
-
-**4. When auth redirects are needed, use window.location.href:**
+**3. For auth redirects, use window.location.href:**
 ```tsx
-// ✅ CORRECT - reliable redirect after auth state change
+// ✅ CORRECT - reliable after auth state change
 window.location.href = '/login'
 
-// ❌ WRONG - can fail silently after auth changes
+// ❌ Can fail silently
 router.push('/login')
+```
+
+**4. Handle missing profile gracefully:**
+Profile may be null briefly after login (trigger race condition). Components should handle this:
+```tsx
+// ✅ CORRECT
+{profile?.full_name || user?.email || 'Loading...'}
+
+// ❌ WRONG - will crash if profile is null
+{profile.full_name}
 ```
 
 #### Permission System
