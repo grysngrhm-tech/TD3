@@ -11,12 +11,32 @@ function AuthCallbackContent() {
 
   useEffect(() => {
     const handleAuthCallback = async () => {
+      // Debug: Log the full URL and all params
+      console.log('=== AUTH CALLBACK DEBUG ===')
+      console.log('Full URL:', window.location.href)
+      console.log('Search params:', window.location.search)
+      console.log('Hash:', window.location.hash)
+
       const code = searchParams.get('code')
       const redirect = searchParams.get('redirect') || '/'
 
+      console.log('Code from searchParams:', code)
+      console.log('Redirect:', redirect)
+      console.log('All params:', Object.fromEntries(searchParams.entries()))
+
+      // Check if there's an error in the URL (Supabase might send error params)
+      const errorParam = searchParams.get('error')
+      const errorDescription = searchParams.get('error_description')
+      if (errorParam || errorDescription) {
+        console.error('Supabase returned error:', errorParam, errorDescription)
+        setError(errorDescription || errorParam || 'Authentication error from provider')
+        return
+      }
+
       if (!code) {
         console.error('No code parameter in callback URL')
-        setError('Missing authentication code')
+        console.error('This usually means: 1) Old/expired link clicked, 2) Link already used, 3) Verification failed')
+        setError('Missing authentication code. Please request a new login link.')
         return
       }
 
