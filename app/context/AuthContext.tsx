@@ -1,8 +1,8 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react'
 import { User } from '@supabase/supabase-js'
-import { createSupabaseBrowserClient, Profile, Permission } from '@/lib/supabase'
+import { supabase, Profile, Permission } from '@/lib/supabase'
 
 interface AuthContextType {
   user: User | null
@@ -23,14 +23,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [isLoading, setIsLoading] = useState(true)
+
+  // Track whether auth initialization has ever completed successfully
+  // This persists across re-renders and prevents redundant re-initialization
   const initCompletedRef = useRef(false)
+  const initStartedRef = useRef(false)
 
-  // CRITICAL: Memoize supabase client to prevent infinite render loops
-  // Without this, every render creates a new client, which recreates callbacks,
-  // which triggers useEffect, which causes re-render = infinite loop
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
-
-  // Fetch user profile
+  // Fetch user profile - uses module-level supabase singleton
   const fetchProfile = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -49,9 +48,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Error in fetchProfile:', err)
       return null
     }
-  }, [supabase])
+  }, [])
 
-  // Fetch user permissions
+  // Fetch user permissions - uses module-level supabase singleton
   const fetchPermissions = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -69,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Error in fetchPermissions:', err)
       return []
     }
-  }, [supabase])
+  }, [])
 
   // Refresh profile data
   const refreshProfile = useCallback(async () => {
@@ -95,29 +94,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return permissions.includes(permission)
   }, [permissions])
 
-  // Sign out
+  // Sign out - uses module-level supabase singleton
   const signOut = useCallback(async () => {
     await supabase.auth.signOut()
     setUser(null)
     setProfile(null)
     setPermissions([])
-  }, [supabase])
+    // Reset init tracking so re-login works correctly
+    initCompletedRef.current = false
+    initStartedRef.current = false
+  }, [])
 
-  // Initialize auth state
+  // Initialize auth state - runs once on mount
+  // Uses module-level supabase singleton so no dependencies needed
   useEffect(() => {
     let mounted = true
-    initCompletedRef.current = false
 
-    // Safety timeout: If auth takes more than 8 seconds, stop loading
+    // Skip if already initialized or in progress
+    // This prevents redundant initialization during React strict mode or re-renders
+    if (initCompletedRef.current) {
+      setIsLoading(false)
+      return
+    }
+
+    if (initStartedRef.current) {
+      // Already in progress, wait for it to complete
+      return
+    }
+
+    initStartedRef.current = true
+
+    // Safety timeout: If auth takes more than 15 seconds, stop loading
     // This prevents the app from being stuck forever
-    // Increased from 5s to account for profile + permissions fetch
+    // Increased from 8s to be more tolerant of slow networks
     const timeoutId = setTimeout(() => {
       if (mounted && !initCompletedRef.current) {
-        console.warn('Auth initialization timed out after 8 seconds')
+        console.warn('Auth initialization timed out after 15 seconds')
         setIsLoading(false)
         initCompletedRef.current = true
       }
-    }, 8000)
+    }, 15000)
 
     async function initializeAuth() {
       try {
@@ -183,11 +199,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setProfile(fetchedProfile)
             setPermissions(fetchedPermissions)
             setIsLoading(false)
+            initCompletedRef.current = true
           }
         } else if (event === 'SIGNED_OUT') {
           setUser(null)
           setProfile(null)
           setPermissions([])
+          // Reset so re-login can initialize
+          initCompletedRef.current = false
+          initStartedRef.current = false
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           setUser(session.user)
         }
@@ -197,10 +217,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       mounted = false
       clearTimeout(timeoutId)
-      initCompletedRef.current = true // Prevent timeout from firing after unmount
       subscription.unsubscribe()
     }
-  }, [supabase, fetchProfile, fetchPermissions])
+  }, [fetchProfile, fetchPermissions]) // These have empty deps so this effect is stable
 
   const value: AuthContextType = {
     user,
