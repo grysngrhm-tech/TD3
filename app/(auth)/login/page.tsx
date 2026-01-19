@@ -12,7 +12,7 @@ function LoginContent() {
   const [email, setEmail] = useState('')
   const [state, setState] = useState<LoginState>('input')
   const [errorMessage, setErrorMessage] = useState('')
-  const [otpCode, setOtpCode] = useState(['', '', '', '', '', ''])
+  const [otpCode, setOtpCode] = useState(['', '', '', '', '', '', '', ''])
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([])
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -109,7 +109,7 @@ function LoginContent() {
       }
 
       setState('verify')
-      toast.success('Check your email', 'We sent you a 6-digit code')
+      toast.success('Check your email', 'We sent you an 8-digit code')
 
     } catch (err) {
       console.error('Login error:', err)
@@ -121,7 +121,7 @@ function LoginContent() {
   const handleRetry = () => {
     setEmail('')
     setErrorMessage('')
-    setOtpCode(['', '', '', '', '', ''])
+    setOtpCode(['', '', '', '', '', '', '', ''])
     setState('input')
   }
 
@@ -134,12 +134,12 @@ function LoginContent() {
     setOtpCode(newOtp)
 
     // Auto-focus next input
-    if (digit && index < 5) {
+    if (digit && index < 7) {
       otpInputRefs.current[index + 1]?.focus()
     }
 
-    // Auto-submit when all 6 digits entered
-    if (digit && index === 5 && newOtp.every(d => d !== '')) {
+    // Auto-submit when all 8 digits entered
+    if (digit && index === 7 && newOtp.every(d => d !== '')) {
       handleVerifyOtp(newOtp.join(''))
     }
   }
@@ -153,20 +153,20 @@ function LoginContent() {
 
   const handleOtpPaste = (e: React.ClipboardEvent) => {
     e.preventDefault()
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 8)
     if (pasted.length > 0) {
       const newOtp = [...otpCode]
-      for (let i = 0; i < pasted.length && i < 6; i++) {
+      for (let i = 0; i < pasted.length && i < 8; i++) {
         newOtp[i] = pasted[i]
       }
       setOtpCode(newOtp)
 
       // Focus appropriate input
-      const focusIndex = Math.min(pasted.length, 5)
+      const focusIndex = Math.min(pasted.length, 7)
       otpInputRefs.current[focusIndex]?.focus()
 
-      // Auto-submit if 6 digits pasted
-      if (pasted.length === 6) {
+      // Auto-submit if 8 digits pasted
+      if (pasted.length === 8) {
         handleVerifyOtp(pasted)
       }
     }
@@ -175,8 +175,8 @@ function LoginContent() {
   const handleVerifyOtp = async (code?: string) => {
     const verifyCode = code || otpCode.join('')
 
-    if (verifyCode.length !== 6) {
-      setErrorMessage('Please enter all 6 digits')
+    if (verifyCode.length !== 8) {
+      setErrorMessage('Please enter all 8 digits')
       setState('error')
       return
     }
@@ -193,7 +193,7 @@ function LoginContent() {
       if (verifyError) {
         console.error('OTP verification error:', verifyError)
         setErrorMessage(verifyError.message || 'Invalid or expired code. Please try again.')
-        setOtpCode(['', '', '', '', '', ''])
+        setOtpCode(['', '', '', '', '', '', '', ''])
         setState('verify')
         // Focus first input after error
         setTimeout(() => otpInputRefs.current[0]?.focus(), 100)
@@ -294,7 +294,7 @@ function LoginContent() {
               </button>
 
               <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
-                We&apos;ll send you a 6-digit code to sign in
+                We&apos;ll send you a verification code to sign in
               </p>
             </motion.form>
           )}
@@ -331,12 +331,12 @@ function LoginContent() {
                 Enter verification code
               </h2>
               <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-                We sent a 6-digit code to<br />
+                We sent an 8-digit code to<br />
                 <strong style={{ color: 'var(--text-primary)' }}>{email}</strong>
               </p>
 
-              {/* 6-digit OTP input */}
-              <div className="flex justify-center gap-2 mb-6">
+              {/* 8-digit OTP input */}
+              <div className="flex justify-center gap-1.5 mb-6">
                 {otpCode.map((digit, index) => (
                   <input
                     key={index}
@@ -350,7 +350,7 @@ function LoginContent() {
                     onPaste={index === 0 ? handleOtpPaste : undefined}
                     disabled={state === 'verifying'}
                     autoFocus={index === 0}
-                    className="w-12 h-14 text-center text-2xl font-mono rounded-ios"
+                    className="w-10 h-12 text-center text-xl font-mono rounded-ios"
                     style={{
                       background: 'var(--bg-secondary)',
                       border: '1px solid var(--border-secondary)',
