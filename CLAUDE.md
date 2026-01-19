@@ -6,7 +6,7 @@ TD3 is a construction loan management system built for Tennant Development. It r
 ## Tech Stack
 - **Frontend**: Next.js 14 (App Router), React 18, Tailwind CSS, Framer Motion
 - **Database**: Supabase (PostgreSQL) - Project ID: uewqcbmaiuofdfvqmbmq
-- **Auth**: Supabase Auth (passwordless magic links) + RLS
+- **Auth**: Supabase Auth (OTP code verification) + RLS
 - **Email**: Resend (SMTP for auth emails via Supabase)
 - **AI Workflows**: n8n (self-hosted at https://n8n.srv1208741.hstgr.cloud)
 - **Charts**: Nivo (Sankey, Bar, Line, Pie)
@@ -18,7 +18,7 @@ TD3 is a construction loan management system built for Tennant Development. It r
 - `app/` - Next.js App Router pages and components
   - `app/(auth)/` - Auth route group (login page with centered layout)
   - `app/admin/` - Admin pages (user management)
-  - `app/auth/` - Auth callback route for magic link handling
+  - `app/auth/callback/` - Auth callback page for PKCE code exchange (legacy support)
   - `app/components/` - React components (builders, draws, import, projects, ui)
   - `app/components/auth/` - Auth UI components (FirstLoginModal, PermissionGate)
   - `app/context/` - React contexts (AuthContext, NavigationContext)
@@ -50,7 +50,7 @@ TD3 is a construction loan management system built for Tennant Development. It r
   - `004_auth.sql` - Authentication tables, RLS policies, and helper functions
 - `n8n/workflows/` - n8n workflow documentation
 - `n8n-workflows/` - n8n workflow JSON exports
-- `docs/` - Documentation (ARCHITECTURE.md, DESIGN_LANGUAGE.md, ROADMAP.md)
+- `docs/` - Documentation (ARCHITECTURE.md, AUTH.md, DESIGN_LANGUAGE.md, ROADMAP.md)
 
 ## Database Schema (Key Tables)
 
@@ -77,18 +77,23 @@ TD3 is a construction loan management system built for Tennant Development. It r
 
 ### Authentication & Authorization
 
-#### Architecture: Passwordless + Allowlist + Stackable Permissions + RLS
+> **Detailed documentation:** See `docs/AUTH.md` for comprehensive troubleshooting and architecture details.
 
-TD3 uses Supabase Auth with magic link (passwordless) authentication. Only pre-approved email addresses in the `allowlist` table can sign in. Users are assigned stackable permissions that control access at both UI and database levels.
+#### Architecture: OTP Code + Allowlist + Stackable Permissions + RLS
+
+TD3 uses Supabase Auth with **OTP code verification** (not magic links). Only pre-approved email addresses in the `allowlist` table can sign in. Users are assigned stackable permissions that control access at both UI and database levels.
+
+**Why OTP codes instead of magic links?**
+Email security scanners (Microsoft SafeLinks, Proofpoint, etc.) pre-click magic links to verify safety. This "consumes" the one-time token before the user can use it, causing "invalid or expired" errors. OTP codes sent via email cannot be consumed by scanners.
 
 #### Auth Flow
 ```
 1. User visits protected route
 2. Middleware redirects to /login (preserves redirect param)
-3. User enters email → allowlist check → magic link sent
-4. User clicks link → /auth/callback → session created
+3. User enters email → allowlist check → 8-digit OTP code sent
+4. User enters code on login page → verifyOtp() → session created
 5. First login? → FirstLoginModal prompts for name/phone
-6. Redirect to original destination
+6. Hard redirect to original destination (window.location.href)
 ```
 
 #### Permission System
@@ -113,11 +118,12 @@ TD3 uses Supabase Auth with magic link (passwordless) authentication. Only pre-a
 | `app/context/AuthContext.tsx` | Global auth state (user, profile, permissions) |
 | `app/components/auth/PermissionGate.tsx` | Conditional rendering by permission |
 | `app/components/auth/FirstLoginModal.tsx` | Profile completion on first sign-in |
-| `app/(auth)/login/page.tsx` | Passwordless login page |
-| `app/auth/callback/route.ts` | Magic link code exchange |
+| `app/(auth)/login/page.tsx` | OTP code login page (email + 8-digit code verification) |
+| `app/auth/callback/page.tsx` | PKCE code exchange (legacy fallback, rarely used) |
 | `app/admin/users/page.tsx` | User & permission management UI |
 | `lib/supabase.ts` | Browser client, Permission type, labels/descriptions |
 | `supabase/004_auth.sql` | Schema, RLS policies, helper functions |
+| `docs/AUTH.md` | Comprehensive auth documentation and troubleshooting |
 
 #### Database Helper Functions
 ```sql
@@ -194,8 +200,8 @@ In Supabase Dashboard → Project Settings → Authentication → SMTP Settings:
 - DKIM (CNAME records from Resend)
 
 **Email Templates** (in Authentication → Email Templates):
-- Magic Link: Custom branded template with TD3 logo
-- Confirm Sign Up: Welcome email for new users
+- Magic Link: OTP code template using `{{ .Token }}` (8-digit code)
+- Confirm Sign Up: OTP code template for new user verification
 
 **Step 4: Add First Admin to Allowlist**
 ```sql
@@ -206,8 +212,8 @@ ON CONFLICT (email) DO NOTHING;
 
 **Step 5: First Admin Sign In**
 1. Navigate to your app URL
-2. Enter admin email → receive magic link
-3. Click link → complete profile form
+2. Enter admin email → receive 8-digit code via email
+3. Enter code → complete profile form
 
 **Step 6: Grant Admin All Permissions**
 ```sql
@@ -372,7 +378,7 @@ SEO and social sharing metadata is defined in `app/layout.tsx`:
 - PWA manifest for "Add to Home Screen"
 
 ## Key Features to Understand
-1. **Authentication**: Passwordless (magic link) with allowlist and stackable permissions
+1. **Authentication**: OTP code verification with allowlist and stackable permissions (see `docs/AUTH.md`)
 2. **Smart Import**: Excel parsing with multi-signal row boundary detection
 3. **Fuzzy Matching**: Levenshtein + tokenized word matching for category assignment
 4. **Polymorphic Reports**: Budget/Amortization/Payoff reports with Table/Chart views
