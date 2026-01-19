@@ -42,9 +42,9 @@ function NewDrawPageContent() {
   useEffect(() => {
     if (!canProcess && !authLoading) {
       toast.error('Access denied', 'You do not have permission to create draw requests')
-      router.push('/')
+      window.location.href = '/'
     }
-  }, [canProcess, authLoading, router])
+  }, [canProcess, authLoading])
   
   // Builder and project state
   const [builders, setBuilders] = useState<Builder[]>([])

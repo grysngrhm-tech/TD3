@@ -12,6 +12,7 @@ import { DrawStatsBar } from '@/app/components/ui/DrawStatsBar'
 import { FundAllModal } from '@/app/components/draws/FundAllModal'
 import { FundingReport } from '@/app/components/draws/FundingReport'
 import { useNavigation } from '@/app/context/NavigationContext'
+import { PermissionGate } from '@/app/components/auth/PermissionGate'
 
 type DrawStatus = 'all' | 'review' | 'staged' | 'pending_wire'
 
@@ -424,11 +425,13 @@ function StagingDashboardContent() {
               />
             }
             actions={
-              <>
-                <a href="/builders/new" className="btn-secondary">+ Builder</a>
-                <a href="/projects/new" className="btn-secondary">+ Project</a>
-                <a href="/draws/new" className="btn-primary">+ Draw Request</a>
-              </>
+              <PermissionGate permission="processor">
+                <>
+                  <a href="/builders/new" className="btn-secondary">+ Builder</a>
+                  <a href="/projects/new" className="btn-secondary">+ Project</a>
+                  <a href="/draws/new" className="btn-primary">+ Draw Request</a>
+                </>
+              </PermissionGate>
             }
           />
 

@@ -37,9 +37,9 @@ export default function NewBudgetPage() {
   useEffect(() => {
     if (!canProcess && !authLoading) {
       toast.error('Access denied', 'You do not have permission to create budgets')
-      router.push('/')
+      window.location.href = '/'
     }
-  }, [canProcess, authLoading, router])
+  }, [canProcess, authLoading])
 
   useEffect(() => {
     loadProjects()
