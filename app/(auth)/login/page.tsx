@@ -190,8 +190,24 @@ function LoginContent() {
       })
 
       if (verifyError) {
-        console.error('OTP verification error:', verifyError)
-        setErrorMessage(verifyError.message || 'Invalid or expired code. Please try again.')
+        console.error('OTP verification failed:', {
+          error: verifyError,
+          code: verifyError.code,
+          status: verifyError.status,
+          message: verifyError.message,
+        })
+
+        // Show user-friendly message based on error type
+        let userMessage = 'Invalid or expired code. Please try again.'
+        if (verifyError.message?.toLowerCase().includes('expired')) {
+          userMessage = 'Code expired. Please request a new one.'
+        } else if (verifyError.message?.toLowerCase().includes('invalid')) {
+          userMessage = 'Invalid code. Please check and try again.'
+        } else if (verifyError.message) {
+          userMessage = verifyError.message
+        }
+
+        setErrorMessage(userMessage)
         setOtpCode(['', '', '', '', '', '', '', ''])
         setState('verify')
         // Focus first input after error
@@ -202,6 +218,29 @@ function LoginContent() {
       // Verification succeeded - redirect to destination
       // Use session check as primary indicator, fall back to user check
       if (data.session || data.user) {
+        const userId = data.session?.user?.id || data.user?.id
+        const userEmail = data.session?.user?.email || data.user?.email
+
+        // Ensure profile exists (fallback if database trigger failed)
+        if (userId && userEmail) {
+          try {
+            const { error: profileError } = await supabase
+              .from('profiles')
+              .upsert(
+                { id: userId, email: userEmail },
+                { onConflict: 'id', ignoreDuplicates: true }
+              )
+
+            if (profileError) {
+              console.warn('Could not ensure profile exists:', profileError)
+              // Continue anyway - profile may already exist or trigger will create it
+            }
+          } catch (profileErr) {
+            console.warn('Profile creation fallback failed:', profileErr)
+            // Continue anyway - not blocking login
+          }
+        }
+
         toast.success('Signed in successfully')
         // Use hard redirect for reliability after auth state change
         window.location.href = redirectTo

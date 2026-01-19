@@ -29,25 +29,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const initCompletedRef = useRef(false)
   const initStartedRef = useRef(false)
 
-  // Fetch user profile - uses module-level supabase singleton
-  const fetchProfile = useCallback(async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
+  // Fetch user profile with retry logic - uses module-level supabase singleton
+  // Retries handle race condition where trigger may still be creating profile
+  const fetchProfile = useCallback(async (userId: string, maxRetries = 3): Promise<Profile | null> => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single()
 
-      if (error) {
-        console.error('Error fetching profile:', error)
-        return null
+        if (data) {
+          return data as Profile
+        }
+
+        // Profile not found - wait and retry (trigger may still be completing)
+        if (error && error.code === 'PGRST116' && attempt < maxRetries) {
+          console.log(`Profile not found for user ${userId}, retrying (${attempt}/${maxRetries})...`)
+          await new Promise(r => setTimeout(r, 500))
+          continue
+        }
+
+        if (error) {
+          console.error(`Error fetching profile (attempt ${attempt}):`, error)
+        }
+      } catch (err) {
+        console.error(`Error in fetchProfile (attempt ${attempt}):`, err)
       }
 
-      return data as Profile
-    } catch (err) {
-      console.error('Error in fetchProfile:', err)
-      return null
+      // Wait before retry (except on last attempt)
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 500))
+      }
     }
+
+    console.warn(`Profile not found after ${maxRetries} attempts for user ${userId}`)
+    return null
   }, [])
 
   // Fetch user permissions - uses module-level supabase singleton
