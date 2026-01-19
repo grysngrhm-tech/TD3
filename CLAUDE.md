@@ -115,16 +115,21 @@ const supabase = createSupabaseBrowserClient()
 const supabase = useMemo(() => createSupabaseBrowserClient(), [])
 ```
 
-**2. ALWAYS use Next.js Link for internal navigation:**
+**2. ALWAYS use Next.js Link or router.push() for internal navigation:**
 ```tsx
 // ✅ CORRECT - client-side navigation, preserves auth state
 import Link from 'next/link'
 <Link href="/draws">Draws</Link>
 <Link href={`/projects/${id}`}>View Project</Link>
 
+// ✅ CORRECT - for buttons with Framer Motion animations
+import { useRouter } from 'next/navigation'
+const router = useRouter()
+<motion.button onClick={() => router.push('/staging')}>Go to Staging</motion.button>
+
 // ❌ WRONG - causes full page reload, re-triggers auth init
 <a href="/draws">Draws</a>
-<a href={`/projects/${id}`}>View Project</a>
+<motion.a href="/staging">Go to Staging</motion.a>  // Even wrapped in motion!
 ```
 
 **3. AuthContext initialization guards (DO NOT MODIFY):**

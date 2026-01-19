@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 
 type NavButtonConfig = {
@@ -56,6 +57,7 @@ export function DrawStatsBar({
   pendingWireAmount,
   navButton,
 }: DrawStatsBarProps) {
+  const router = useRouter()
   const totalAmount = pendingReviewAmount + stagedAmount + pendingWireAmount
   const totalCount = pendingReviewCount + stagedCount + pendingWireCount
   
@@ -71,16 +73,17 @@ export function DrawStatsBar({
     const isLeft = navButton.position === 'left'
     
     return (
-      <motion.a
-        href={navButton.href}
-        className="flex items-center gap-3 px-6 py-3 font-semibold transition-all touch-target"
-        style={{ 
+      <motion.button
+        onClick={() => router.push(navButton.href)}
+        className="flex items-center gap-3 px-6 py-3 font-semibold transition-all touch-target cursor-pointer"
+        style={{
           background: 'var(--accent)',
           color: 'white',
           borderRadius: 'var(--radius-lg)',
           boxShadow: 'var(--elevation-2), 0 0 20px var(--accent-glow)',
+          border: 'none',
         }}
-        whileHover={{ 
+        whileHover={{
           scale: 1.03,
           boxShadow: 'var(--elevation-3), 0 0 30px var(--accent-glow)',
         }}
@@ -99,7 +102,7 @@ export function DrawStatsBar({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         )}
-      </motion.a>
+      </motion.button>
     )
   }
 
