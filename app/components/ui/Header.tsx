@@ -8,6 +8,7 @@ import { SmartLogo } from './SmartLogo'
 import { ThemeToggle } from './ThemeToggle'
 import { useAuth } from '@/app/context/AuthContext'
 import { useHasPermission } from '@/app/components/auth/PermissionGate'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 
 /**
  * Global header component with:
@@ -168,12 +169,65 @@ export function Header() {
           </div>
         )}
 
-        {/* Loading state placeholder */}
+        {/* Loading state - still allow emergency sign out */}
         {isLoading && (
-          <div
-            className="w-9 h-9 rounded-full animate-pulse"
-            style={{ background: 'var(--bg-hover)' }}
-          />
+          <div className="relative" ref={menuRef}>
+            <motion.button
+              className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer touch-target"
+              style={{
+                background: 'var(--bg-hover)',
+              }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              aria-label="User menu"
+              aria-expanded={isMenuOpen}
+            >
+              <div className="w-4 h-4 rounded-full animate-pulse" style={{ background: 'var(--text-muted)' }} />
+            </motion.button>
+
+            {/* Emergency Sign Out Menu */}
+            <AnimatePresence>
+              {isMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 top-full mt-2 w-48 rounded-ios-sm overflow-hidden"
+                  style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
+                    boxShadow: 'var(--elevation-3)',
+                  }}
+                >
+                  <div className="px-4 py-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      Loading session...
+                    </div>
+                  </div>
+                  <div className="py-1">
+                    <button
+                      onClick={async () => {
+                        setIsMenuOpen(false)
+                        // Direct sign out without relying on context
+                        const supabase = createSupabaseBrowserClient()
+                        await supabase.auth.signOut()
+                        router.push('/login')
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-[var(--bg-hover)]"
+                      style={{ color: 'var(--error)' }}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      Sign Out
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         )}
       </div>
     </motion.nav>
