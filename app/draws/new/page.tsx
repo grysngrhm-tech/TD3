@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Project, Builder } from '@/types/database'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -547,9 +548,9 @@ function NewDrawPageContent() {
 
         {/* Actions */}
         <div className="flex gap-4 justify-end">
-          <a href="/" className="btn-secondary">
+          <Link href="/" className="btn-secondary">
             Cancel
-          </a>
+          </Link>
         </div>
       </div>
 

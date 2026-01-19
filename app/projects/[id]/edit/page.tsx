@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { logAuditEvent } from '@/lib/audit'
 import { useNavigation } from '@/app/context/NavigationContext'
@@ -346,12 +347,12 @@ export default function EditProjectPage() {
               'Save Changes'
             )}
           </button>
-          <a
+          <Link
             href={`/projects/${projectId}`}
             className="btn-secondary flex-1 text-center"
           >
             Cancel
-          </a>
+          </Link>
         </div>
       </form>
     </div>
