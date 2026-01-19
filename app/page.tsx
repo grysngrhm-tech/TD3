@@ -10,6 +10,7 @@ import { StageStatsBar } from '@/app/components/ui/StageStatsBar'
 import { DashboardHeader } from '@/app/components/ui/DashboardHeader'
 import { useFilters } from '@/app/hooks/useFilters'
 import { useNavigation } from '@/app/context/NavigationContext'
+import { useAuth } from '@/app/context/AuthContext'
 import { calculateLoanIncome, calculateIRR } from '@/lib/calculations'
 import type { LifecycleStage, Builder, Lender, DrawRequest, Project } from '@/types/database'
 
@@ -46,6 +47,7 @@ type ProjectWithBudget = {
 export default function Dashboard() {
   const router = useRouter()
   const { setLastDashboard, setCurrentPageTitle } = useNavigation()
+  const { isLoading: authLoading } = useAuth()
   const [projects, setProjects] = useState<ProjectWithBudget[]>([])
   const [builders, setBuilders] = useState<Builder[]>([])
   const [lenders, setLenders] = useState<Lender[]>([])
@@ -59,10 +61,12 @@ export default function Dashboard() {
     setCurrentPageTitle('Portfolio')
   }, [setLastDashboard, setCurrentPageTitle])
 
-  // Load data on mount - middleware handles auth redirect
+  // Load data only after auth is ready - middleware handles auth redirect
   useEffect(() => {
-    loadData()
-  }, [])
+    if (!authLoading) {
+      loadData()
+    }
+  }, [authLoading])
 
   async function loadData() {
     try {
@@ -305,7 +309,8 @@ export default function Dashboard() {
     router.push(`/projects/${projectId}`)
   }
 
-  if (loading) {
+  // Show loading while auth or data is loading
+  if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)' }} />
