@@ -55,8 +55,13 @@ export function Header() {
 
   const handleSignOut = async () => {
     setIsMenuOpen(false)
-    await signOut()
-    router.push('/login')
+    try {
+      await signOut()
+    } catch (e) {
+      console.error('Sign out error:', e)
+    }
+    // Force hard redirect to ensure we get to login
+    window.location.href = '/login'
   }
 
   const handleNavigateToAdmin = () => {
@@ -210,10 +215,18 @@ export function Header() {
                     <button
                       onClick={async () => {
                         setIsMenuOpen(false)
-                        // Direct sign out without relying on context
-                        const supabase = createSupabaseBrowserClient()
-                        await supabase.auth.signOut()
-                        router.push('/login')
+                        // Emergency sign out - clear everything and force redirect
+                        try {
+                          const supabase = createSupabaseBrowserClient()
+                          await supabase.auth.signOut()
+                        } catch (e) {
+                          console.error('Sign out error:', e)
+                        }
+                        // Clear all storage to ensure clean state
+                        localStorage.clear()
+                        sessionStorage.clear()
+                        // Force hard redirect (don't rely on Next.js router)
+                        window.location.href = '/login'
                       }}
                       className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-[var(--bg-hover)]"
                       style={{ color: 'var(--error)' }}
@@ -221,7 +234,7 @@ export function Header() {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                       </svg>
-                      Sign Out
+                      Emergency Sign Out
                     </button>
                   </div>
                 </motion.div>
