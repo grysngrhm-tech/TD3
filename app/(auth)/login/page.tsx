@@ -1,17 +1,19 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
 import { toast } from '@/app/components/ui/Toast'
 
-type LoginState = 'input' | 'checking' | 'sending' | 'sent' | 'error'
+type LoginState = 'input' | 'checking' | 'sending' | 'verify' | 'verifying' | 'error'
 
 function LoginContent() {
   const [email, setEmail] = useState('')
   const [state, setState] = useState<LoginState>('input')
   const [errorMessage, setErrorMessage] = useState('')
+  const [otpCode, setOtpCode] = useState(['', '', '', '', '', ''])
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([])
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect') || '/'
@@ -93,23 +95,21 @@ function LoginContent() {
 
       setState('sending')
 
-      // Send magic link
+      // Send OTP code (no emailRedirectTo = sends 6-digit code instead of magic link)
+      // This prevents email security scanners from consuming the auth token
       const { error: signInError } = await supabase.auth.signInWithOtp({
         email: trimmedEmail,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirectTo)}`,
-        },
       })
 
       if (signInError) {
-        console.error('Error sending magic link:', signInError)
-        setErrorMessage('Failed to send login email. Please try again.')
+        console.error('Error sending OTP code:', signInError)
+        setErrorMessage('Failed to send verification code. Please try again.')
         setState('error')
         return
       }
 
-      setState('sent')
-      toast.success('Check your email', 'We sent you a login link')
+      setState('verify')
+      toast.success('Check your email', 'We sent you a 6-digit code')
 
     } catch (err) {
       console.error('Login error:', err)
@@ -121,7 +121,94 @@ function LoginContent() {
   const handleRetry = () => {
     setEmail('')
     setErrorMessage('')
+    setOtpCode(['', '', '', '', '', ''])
     setState('input')
+  }
+
+  const handleOtpChange = (index: number, value: string) => {
+    // Only allow digits
+    const digit = value.replace(/\D/g, '').slice(-1)
+
+    const newOtp = [...otpCode]
+    newOtp[index] = digit
+    setOtpCode(newOtp)
+
+    // Auto-focus next input
+    if (digit && index < 5) {
+      otpInputRefs.current[index + 1]?.focus()
+    }
+
+    // Auto-submit when all 6 digits entered
+    if (digit && index === 5 && newOtp.every(d => d !== '')) {
+      handleVerifyOtp(newOtp.join(''))
+    }
+  }
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Handle backspace - go to previous input
+    if (e.key === 'Backspace' && !otpCode[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus()
+    }
+  }
+
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault()
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    if (pasted.length > 0) {
+      const newOtp = [...otpCode]
+      for (let i = 0; i < pasted.length && i < 6; i++) {
+        newOtp[i] = pasted[i]
+      }
+      setOtpCode(newOtp)
+
+      // Focus appropriate input
+      const focusIndex = Math.min(pasted.length, 5)
+      otpInputRefs.current[focusIndex]?.focus()
+
+      // Auto-submit if 6 digits pasted
+      if (pasted.length === 6) {
+        handleVerifyOtp(pasted)
+      }
+    }
+  }
+
+  const handleVerifyOtp = async (code?: string) => {
+    const verifyCode = code || otpCode.join('')
+
+    if (verifyCode.length !== 6) {
+      setErrorMessage('Please enter all 6 digits')
+      setState('error')
+      return
+    }
+
+    setState('verifying')
+
+    try {
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        email: email.trim().toLowerCase(),
+        token: verifyCode,
+        type: 'email',
+      })
+
+      if (verifyError) {
+        console.error('OTP verification error:', verifyError)
+        setErrorMessage(verifyError.message || 'Invalid or expired code. Please try again.')
+        setOtpCode(['', '', '', '', '', ''])
+        setState('verify')
+        // Focus first input after error
+        setTimeout(() => otpInputRefs.current[0]?.focus(), 100)
+        return
+      }
+
+      if (data.user) {
+        toast.success('Signed in successfully')
+        router.push(redirectTo)
+      }
+    } catch (err) {
+      console.error('Verification error:', err)
+      setErrorMessage('An unexpected error occurred. Please try again.')
+      setState('error')
+    }
   }
 
   return (
@@ -200,22 +287,22 @@ function LoginContent() {
                 {state === 'sending' && (
                   <>
                     <LoadingSpinner />
-                    Sending link...
+                    Sending code...
                   </>
                 )}
                 {state === 'input' && 'Continue with Email'}
               </button>
 
               <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
-                We&apos;ll send you a magic link to sign in
+                We&apos;ll send you a 6-digit code to sign in
               </p>
             </motion.form>
           )}
 
-          {/* Success State */}
-          {state === 'sent' && (
+          {/* OTP Verification State */}
+          {(state === 'verify' || state === 'verifying') && (
             <motion.div
-              key="sent"
+              key="verify"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
@@ -223,11 +310,11 @@ function LoginContent() {
             >
               <div
                 className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
-                style={{ background: 'var(--success-muted)' }}
+                style={{ background: 'var(--accent-muted)' }}
               >
                 <svg
                   className="w-8 h-8"
-                  style={{ color: 'var(--success)' }}
+                  style={{ color: 'var(--accent)' }}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -236,26 +323,59 @@ function LoginContent() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
                   />
                 </svg>
               </div>
               <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                Check your email
+                Enter verification code
               </h2>
-              <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-                We sent a login link to<br />
+              <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
+                We sent a 6-digit code to<br />
                 <strong style={{ color: 'var(--text-primary)' }}>{email}</strong>
               </p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                Click the link in the email to sign in.
-                <br />
-                The link expires in 1 hour.
+
+              {/* 6-digit OTP input */}
+              <div className="flex justify-center gap-2 mb-6">
+                {otpCode.map((digit, index) => (
+                  <input
+                    key={index}
+                    ref={(el) => { otpInputRefs.current[index] = el }}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleOtpChange(index, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                    onPaste={index === 0 ? handleOtpPaste : undefined}
+                    disabled={state === 'verifying'}
+                    autoFocus={index === 0}
+                    className="w-12 h-14 text-center text-2xl font-mono rounded-ios"
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-secondary)',
+                      color: 'var(--text-primary)',
+                      outline: 'none',
+                    }}
+                    onFocus={(e) => e.target.select()}
+                  />
+                ))}
+              </div>
+
+              {state === 'verifying' && (
+                <div className="flex items-center justify-center gap-2 mb-4" style={{ color: 'var(--text-muted)' }}>
+                  <LoadingSpinner />
+                  <span className="text-sm">Verifying...</span>
+                </div>
+              )}
+
+              <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+                The code expires in 5 minutes.
               </p>
 
               <button
                 onClick={handleRetry}
-                className="btn-ghost mt-6 text-sm"
+                className="btn-ghost text-sm"
               >
                 Use a different email
               </button>
