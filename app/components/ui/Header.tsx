@@ -33,13 +33,11 @@ export function Header() {
   const menuRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
-  // Don't render Header on auth pages (login, callback)
+  // Check if on auth route (must be before any returns but after all hooks)
   const isAuthRoute = AUTH_ROUTES.some(route => pathname?.startsWith(route))
-  if (isAuthRoute) {
-    return null
-  }
 
   // Close menu when clicking outside
+  // NOTE: All hooks must be called before any conditional returns (Rules of Hooks)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -52,6 +50,11 @@ export function Header() {
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isMenuOpen])
+
+  // Don't render Header on auth pages (login, callback)
+  if (isAuthRoute) {
+    return null
+  }
 
   // Get user initials
   const getInitials = () => {
