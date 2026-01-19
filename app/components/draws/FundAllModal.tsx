@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Builder, DrawRequest, Project } from '@/types/database'
+import { useHasPermission } from '@/app/components/auth/PermissionGate'
 
 type DrawWithProject = DrawRequest & {
   project?: Project | null
@@ -41,6 +42,9 @@ export function FundAllModal({
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  // Permission check (defense in depth - button should already be hidden)
+  const canProcess = useHasPermission('processor')
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -102,7 +106,8 @@ export function FundAllModal({
     }
   }
 
-  if (!isOpen) return null
+  // Don't render if not open or user lacks permission
+  if (!isOpen || !canProcess) return null
 
   return (
     <AnimatePresence>
