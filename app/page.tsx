@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { createSupabaseBrowserClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { FilterSidebar } from '@/app/components/ui/FilterSidebar'
 import { ProjectTile } from '@/app/components/ui/ProjectTile'
 import { StageSelector } from '@/app/components/ui/StageSelector'
@@ -74,7 +74,6 @@ export default function Dashboard() {
   }, [authLoading, isAuthenticated])
 
   async function loadData() {
-    const supabase = createSupabaseBrowserClient()
     setError(null)
 
     try {
