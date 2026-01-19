@@ -56,7 +56,8 @@
       "Bash(do sed -i \"s/import { createSupabaseBrowserClient } from ''''@\\\\/lib\\\\/supabase''''/import { supabase } from ''''@\\\\/lib\\\\/supabase''''/g\" \"$file\" echo \"Reverted: $file\" done)",
       "Bash(ls:*)",
       "Bash(convert:*)",
-      "Bash(git remote set-url:*)"
+      "Bash(git remote set-url:*)",
+      "Bash(gh repo sync:*)"
     ]
   },
   "enabledMcpjsonServers": [
