@@ -18,58 +18,50 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+/**
+ * Resilient Auth Provider
+ *
+ * Key design principles:
+ * 1. Use getUser() for auth validation (server-validated, not local storage)
+ * 2. No blocking refs - allow re-initialization on any mount
+ * 3. Auto-recovery on timeout - sign out and redirect to clean state
+ * 4. Profile/permissions are non-blocking - auth state set immediately
+ * 5. onAuthStateChange handles ongoing state management
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  // Track whether auth initialization has ever completed successfully
-  // This persists across re-renders and prevents redundant re-initialization
-  const initCompletedRef = useRef(false)
-  const initStartedRef = useRef(false)
+  // Fetch user profile - non-blocking, called after auth is established
+  const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
 
-  // Fetch user profile with retry logic - uses module-level supabase singleton
-  // Retries handle race condition where trigger may still be creating profile
-  const fetchProfile = useCallback(async (userId: string, maxRetries = 3): Promise<Profile | null> => {
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single()
-
-        if (data) {
-          return data as Profile
+      if (error) {
+        // Profile not found is expected for brand new users (trigger might still be running)
+        if (error.code === 'PGRST116') {
+          console.log('Profile not found yet for user:', userId)
+          return null
         }
-
-        // Profile not found - wait and retry (trigger may still be completing)
-        if (error && error.code === 'PGRST116' && attempt < maxRetries) {
-          console.log(`Profile not found for user ${userId}, retrying (${attempt}/${maxRetries})...`)
-          await new Promise(r => setTimeout(r, 500))
-          continue
-        }
-
-        if (error) {
-          console.error(`Error fetching profile (attempt ${attempt}):`, error)
-        }
-      } catch (err) {
-        console.error(`Error in fetchProfile (attempt ${attempt}):`, err)
+        console.error('Error fetching profile:', error)
+        return null
       }
 
-      // Wait before retry (except on last attempt)
-      if (attempt < maxRetries) {
-        await new Promise(r => setTimeout(r, 500))
-      }
+      return data as Profile
+    } catch (err) {
+      console.error('Error in fetchProfile:', err)
+      return null
     }
-
-    console.warn(`Profile not found after ${maxRetries} attempts for user ${userId}`)
-    return null
   }, [])
 
-  // Fetch user permissions - uses module-level supabase singleton
-  const fetchPermissions = useCallback(async (userId: string) => {
+  // Fetch user permissions - non-blocking
+  const fetchPermissions = useCallback(async (userId: string): Promise<Permission[]> => {
     try {
       const { data, error } = await supabase
         .from('user_permissions')
@@ -88,13 +80,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Load profile and permissions for a user (non-blocking background task)
+  const loadUserData = useCallback(async (userId: string) => {
+    const [fetchedProfile, fetchedPermissions] = await Promise.all([
+      fetchProfile(userId),
+      fetchPermissions(userId)
+    ])
+    setProfile(fetchedProfile)
+    setPermissions(fetchedPermissions)
+  }, [fetchProfile, fetchPermissions])
+
   // Refresh profile data
   const refreshProfile = useCallback(async () => {
     if (!user) return
     const newProfile = await fetchProfile(user.id)
-    if (newProfile) {
-      setProfile(newProfile)
-    }
+    setProfile(newProfile)
   }, [user, fetchProfile])
 
   // Refresh permissions
@@ -112,121 +112,135 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return permissions.includes(permission)
   }, [permissions])
 
-  // Sign out - uses module-level supabase singleton
+  // Sign out - clears all state
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
+    try {
+      await supabase.auth.signOut()
+    } catch (err) {
+      console.error('Error signing out:', err)
+    }
     setUser(null)
     setProfile(null)
     setPermissions([])
-    // Reset init tracking so re-login works correctly
-    initCompletedRef.current = false
-    initStartedRef.current = false
   }, [])
 
-  // Initialize auth state - runs once on mount
-  // Uses module-level supabase singleton so no dependencies needed
+  // Force recovery - clears everything and redirects to login
+  const forceRecovery = useCallback(() => {
+    console.warn('Auth recovery triggered - clearing state and redirecting to login')
+
+    // Clear all storage to ensure clean slate
+    try {
+      localStorage.clear()
+      sessionStorage.clear()
+    } catch (e) {
+      console.error('Error clearing storage:', e)
+    }
+
+    // Clear state
+    setUser(null)
+    setProfile(null)
+    setPermissions([])
+    setIsLoading(false)
+
+    // Redirect to login
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+      window.location.href = '/login'
+    }
+  }, [])
+
+  // Track if initialization is in progress (prevents concurrent inits, but allows re-init)
+  const initInProgressRef = useRef(false)
+
+  // Main initialization effect - runs on mount
+  // Unlike the old implementation, this CAN re-run if needed (no permanent blocking)
   useEffect(() => {
     let mounted = true
+    let timeoutId: NodeJS.Timeout | null = null
 
-    // Skip if already initialized or in progress
-    // This prevents redundant initialization during React strict mode or re-renders
-    if (initCompletedRef.current) {
-      setIsLoading(false)
+    // Prevent concurrent initialization, but allow sequential re-initialization
+    if (initInProgressRef.current) {
       return
     }
 
-    if (initStartedRef.current) {
-      // Already in progress, wait for it to complete
-      return
-    }
-
-    initStartedRef.current = true
-
-    // Safety timeout: If auth takes more than 15 seconds, stop loading
-    // This prevents the app from being stuck forever
-    // Increased from 8s to be more tolerant of slow networks
-    const timeoutId = setTimeout(() => {
-      if (mounted && !initCompletedRef.current) {
-        console.warn('Auth initialization timed out after 15 seconds')
-        setIsLoading(false)
-        initCompletedRef.current = true
-      }
-    }, 15000)
+    initInProgressRef.current = true
 
     async function initializeAuth() {
       try {
-        // Get initial session - uses getSession() which reads from storage
-        // This is faster and doesn't require a network call
-        const { data: { session } } = await supabase.auth.getSession()
-
-        if (session?.user && mounted) {
-          setUser(session.user)
-
-          // Wait for profile and permissions before marking as loaded
-          // This ensures permission checks work correctly on gated pages
-          const [fetchedProfile, fetchedPermissions] = await Promise.all([
-            fetchProfile(session.user.id),
-            fetchPermissions(session.user.id)
-          ])
-
+        // Safety timeout: If auth takes more than 10 seconds, trigger recovery
+        // This is shorter than before because we want to fail fast and recover
+        timeoutId = setTimeout(() => {
           if (mounted) {
-            setProfile(fetchedProfile)
-            setPermissions(fetchedPermissions)
-            clearTimeout(timeoutId)
-            setIsLoading(false)
-            initCompletedRef.current = true
+            console.error('Auth initialization timed out - triggering recovery')
+            initInProgressRef.current = false
+            forceRecovery()
           }
+        }, 10000)
+
+        // Use getUser() instead of getSession() - this validates with the server
+        // getSession() only reads from local storage and can be stale/corrupted
+        const { data: { user: currentUser }, error } = await supabase.auth.getUser()
+
+        if (!mounted) {
+          initInProgressRef.current = false
+          return
+        }
+
+        if (error) {
+          console.error('Error getting user:', error)
+          // Auth error - user is not authenticated
+          if (timeoutId) clearTimeout(timeoutId)
+          setIsLoading(false)
+          initInProgressRef.current = false
+          return
+        }
+
+        if (currentUser) {
+          // User is authenticated - set user immediately (non-blocking)
+          setUser(currentUser)
+          if (timeoutId) clearTimeout(timeoutId)
+          setIsLoading(false)
+          initInProgressRef.current = false
+
+          // Load profile and permissions in background (non-blocking)
+          loadUserData(currentUser.id)
         } else {
-          // No session - still need to set loading false
-          if (mounted) {
-            clearTimeout(timeoutId)
-            setIsLoading(false)
-            initCompletedRef.current = true
-          }
+          // No user - not authenticated
+          if (timeoutId) clearTimeout(timeoutId)
+          setIsLoading(false)
+          initInProgressRef.current = false
         }
       } catch (err) {
         console.error('Error initializing auth:', err)
-        // On error, still stop loading
         if (mounted) {
-          clearTimeout(timeoutId)
+          if (timeoutId) clearTimeout(timeoutId)
           setIsLoading(false)
-          initCompletedRef.current = true
+          initInProgressRef.current = false
         }
       }
     }
 
     initializeAuth()
 
-    // Listen for auth changes - this handles login, logout, token refresh
+    // Listen for auth changes - this is the source of truth for ongoing state
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return
 
+        console.log('Auth state change:', event)
+
         if (event === 'SIGNED_IN' && session?.user) {
           setUser(session.user)
-          // Set loading while we fetch profile and permissions
-          setIsLoading(true)
-
-          // Fetch profile and permissions
-          const [fetchedProfile, fetchedPermissions] = await Promise.all([
-            fetchProfile(session.user.id),
-            fetchPermissions(session.user.id)
-          ])
-
-          if (mounted) {
-            setProfile(fetchedProfile)
-            setPermissions(fetchedPermissions)
-            setIsLoading(false)
-            initCompletedRef.current = true
-          }
+          setIsLoading(false)
+          // Load profile and permissions in background
+          loadUserData(session.user.id)
         } else if (event === 'SIGNED_OUT') {
           setUser(null)
           setProfile(null)
           setPermissions([])
-          // Reset so re-login can initialize
-          initCompletedRef.current = false
-          initStartedRef.current = false
+          setIsLoading(false)
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          setUser(session.user)
+        } else if (event === 'USER_UPDATED' && session?.user) {
           setUser(session.user)
         }
       }
@@ -234,10 +248,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false
-      clearTimeout(timeoutId)
+      if (timeoutId) clearTimeout(timeoutId)
       subscription.unsubscribe()
+      // Don't reset initInProgressRef here - cleanup runs before new effect starts
     }
-  }, [fetchProfile, fetchPermissions]) // These have empty deps so this effect is stable
+  }, [forceRecovery, loadUserData])
 
   const value: AuthContextType = {
     user,
