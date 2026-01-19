@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { validateDrawRequest } from '@/lib/validations'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -1286,18 +1287,18 @@ export default function DrawDetailPage() {
                   </p>
                   {project?.builder_id && (
                     <div className="mt-3 space-y-2">
-                      <a 
-                        href={`/staging?status=staged&builder=${project.builder_id}`} 
-                        className="btn-primary w-full text-sm"
+                      <Link
+                        href={`/staging?status=staged&builder=${project.builder_id}`}
+                        className="btn-primary w-full text-sm block text-center"
                       >
                         View staged draws for {project.builder?.company_name || 'Builder'}
-                      </a>
-                      <a 
-                        href={`/builders/${project.builder_id}`} 
-                        className="btn-secondary w-full text-sm"
+                      </Link>
+                      <Link
+                        href={`/builders/${project.builder_id}`}
+                        className="btn-secondary w-full text-sm block text-center"
                       >
                         View Builder →
-                      </a>
+                      </Link>
                     </div>
                   )}
                   <button
@@ -1320,12 +1321,12 @@ export default function DrawDetailPage() {
                   <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
                     Awaiting bookkeeper confirmation
                   </p>
-                  <a 
+                  <Link
                     href={`/staging?status=pending_wire${draw.wire_batch_id ? `&batch=${draw.wire_batch_id}` : ''}`}
-                    className="btn-primary w-full text-sm mt-3"
+                    className="btn-primary w-full text-sm mt-3 block text-center"
                   >
                     View Wire Batch
-                  </a>
+                  </Link>
                 </div>
               )}
               
@@ -1441,9 +1442,9 @@ export default function DrawDetailPage() {
                 <div>
                   <dt style={{ color: 'var(--text-muted)' }}>Builder</dt>
                   <dd style={{ color: 'var(--text-primary)' }}>
-                    <a href={`/builders/${project.builder.id}`} className="hover:underline" style={{ color: 'var(--accent)' }}>
+                    <Link href={`/builders/${project.builder.id}`} className="hover:underline" style={{ color: 'var(--accent)' }}>
                       {project.builder.company_name}
-                    </a>
+                    </Link>
                   </dd>
                 </div>
               )}
@@ -1460,13 +1461,13 @@ export default function DrawDetailPage() {
                 </div>
               )}
             </dl>
-            <a
+            <Link
               href={`/projects/${draw.project_id}`}
               className="text-sm font-medium mt-4 inline-block hover:underline"
               style={{ color: 'var(--accent)' }}
             >
               View Full Project →
-            </a>
+            </Link>
           </div>
 
           {/* All Invoices */}

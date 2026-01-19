@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
 import type { Builder, DrawRequest, Project } from '@/types/database'
@@ -210,13 +211,13 @@ export function StagedDrawsSection({ builder, stagedDraws, onRefresh }: StagedDr
               style={{ background: 'var(--bg-secondary)' }}
             >
               <div className="flex items-center gap-4">
-                <a
+                <Link
                   href={`/draws/${draw.id}`}
                   className="font-medium hover:underline"
                   style={{ color: 'var(--text-primary)' }}
                 >
                   {draw.project?.project_code || draw.project?.name || `Project ${draw.project_id?.slice(0, 8)}`}
-                </a>
+                </Link>
                 <span className="text-sm px-2 py-0.5 rounded" style={{ background: 'var(--bg-primary)', color: 'var(--text-muted)' }}>
                   Draw #{draw.draw_number}
                 </span>
@@ -226,7 +227,7 @@ export function StagedDrawsSection({ builder, stagedDraws, onRefresh }: StagedDr
                   {formatCurrency(draw.total_amount)}
                 </span>
                 <div className="flex items-center gap-1">
-                  <a
+                  <Link
                     href={`/draws/${draw.id}`}
                     className="p-1.5 rounded hover:opacity-70"
                     style={{ color: 'var(--text-muted)' }}
@@ -235,7 +236,7 @@ export function StagedDrawsSection({ builder, stagedDraws, onRefresh }: StagedDr
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                     </svg>
-                  </a>
+                  </Link>
                   <button
                     onClick={() => handleUnstage(draw.id)}
                     className="p-1.5 rounded hover:opacity-70"

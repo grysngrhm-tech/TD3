@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useNavigation } from '@/app/context/NavigationContext'
 import { DrawRequest } from '@/types/database'
@@ -106,9 +107,9 @@ export default function DrawsPage() {
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Draw Requests</h1>
           <p className="mt-1" style={{ color: 'var(--text-muted)' }}>Manage construction draw requests</p>
         </div>
-        <a href="/draws/new" className="btn-primary">
+        <Link href="/draws/new" className="btn-primary">
           + New Draw Request
-        </a>
+        </Link>
       </div>
 
       {/* Status Tabs */}
@@ -181,13 +182,13 @@ export default function DrawsPage() {
                       {draw.notes || '-'}
                     </td>
                     <td className="table-cell">
-                      <a
+                      <Link
                         href={`/draws/${draw.id}`}
                         className="text-sm font-medium transition-colors"
                         style={{ color: 'var(--accent)' }}
                       >
                         View →
-                      </a>
+                      </Link>
                     </td>
                   </tr>
                 ))}

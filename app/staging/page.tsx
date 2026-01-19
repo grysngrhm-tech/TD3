@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Builder, DrawRequest, Project, WireBatch } from '@/types/database'
@@ -431,9 +432,9 @@ function StagingDashboardContent() {
             actions={
               <PermissionGate permission="processor">
                 <>
-                  <a href="/builders/new" className="btn-secondary">+ Builder</a>
-                  <a href="/projects/new" className="btn-secondary">+ Project</a>
-                  <a href="/draws/new" className="btn-primary">+ Draw Request</a>
+                  <Link href="/builders/new" className="btn-secondary">+ Builder</Link>
+                  <Link href="/projects/new" className="btn-secondary">+ Project</Link>
+                  <Link href="/draws/new" className="btn-primary">+ Draw Request</Link>
                 </>
               </PermissionGate>
             }
@@ -567,7 +568,7 @@ function StagingDashboardContent() {
                     ) : (
                       <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                         {filteredPendingReview.map(draw => (
-                          <a
+                          <Link
                             key={draw.id}
                             href={`/draws/${draw.id}`}
                             className="flex items-center justify-between p-4 hover:opacity-80 transition-opacity"
@@ -594,7 +595,7 @@ function StagingDashboardContent() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                               </svg>
                             </div>
-                          </a>
+                          </Link>
                         ))}
                       </div>
                     )}
@@ -641,13 +642,13 @@ function StagingDashboardContent() {
                         {filteredStagedByBuilder.map(builder => (
                           <div key={builder.id} className="p-4">
                             <div className="flex items-center justify-between mb-3">
-                              <a
+                              <Link
                                 href={`/builders/${builder.id}`}
                                 className="font-semibold hover:underline"
                                 style={{ color: 'var(--text-primary)' }}
                               >
                                 {builder.company_name}
-                              </a>
+                              </Link>
                               <div className="flex items-center gap-3">
                                 <span className="font-bold" style={{ color: 'var(--success)' }}>
                                   {formatCurrency(builder.totalAmount)}
@@ -667,15 +668,15 @@ function StagingDashboardContent() {
                             </div>
                             <div className="space-y-1 text-sm">
                               {builder.stagedDraws.map(draw => (
-                                <a 
-                                  key={draw.id} 
+                                <Link
+                                  key={draw.id}
                                   href={`/draws/${draw.id}`}
                                   className="flex justify-between py-1 px-2 -mx-2 rounded hover:opacity-80 transition-opacity"
                                   style={{ color: 'var(--text-muted)' }}
                                 >
                                   <span className="hover:underline">{draw.project?.project_code || draw.project?.name} - Draw #{draw.draw_number}</span>
                                   <span>{formatCurrency(draw.total_amount)}</span>
-                                </a>
+                                </Link>
                               ))}
                             </div>
                           </div>
@@ -809,10 +810,10 @@ function StagingDashboardContent() {
                       </h4>
                       <div className="space-y-1 text-sm">
                         {selectedBatch.draws?.map(draw => (
-                          <a 
-                            key={draw.id} 
+                          <Link
+                            key={draw.id}
                             href={`/draws/${draw.id}`}
-                            className="flex justify-between p-2 rounded hover:opacity-80 transition-opacity" 
+                            className="flex justify-between p-2 rounded hover:opacity-80 transition-opacity"
                             style={{ background: 'var(--bg-secondary)' }}
                           >
                             <span style={{ color: 'var(--text-secondary)' }}>
@@ -821,7 +822,7 @@ function StagingDashboardContent() {
                             <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
                               {formatCurrency(draw.total_amount)}
                             </span>
-                          </a>
+                          </Link>
                         ))}
                       </div>
                     </div>
