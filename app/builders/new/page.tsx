@@ -4,16 +4,34 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { BuilderInfoCard } from '@/app/components/builders/BuilderInfoCard'
 import { useNavigation } from '@/app/context/NavigationContext'
+import { useAuth } from '@/app/context/AuthContext'
+import { useHasPermission } from '@/app/components/auth/PermissionGate'
+import { toast } from '@/app/components/ui/Toast'
 import type { Builder } from '@/types/database'
 
 export default function NewBuilderPage() {
   const router = useRouter()
   const { setCurrentPageTitle } = useNavigation()
+  const { isLoading } = useAuth()
+  const canProcess = useHasPermission('processor')
 
   // Register page title
   useEffect(() => {
     setCurrentPageTitle('New Builder')
   }, [setCurrentPageTitle])
+
+  // Redirect if no permission
+  useEffect(() => {
+    if (!canProcess && !isLoading) {
+      toast.error('Access denied', 'You do not have permission to create builders')
+      router.push('/')
+    }
+  }, [canProcess, isLoading, router])
+
+  // Don't render until we've verified permission
+  if (!canProcess) {
+    return null
+  }
 
   const handleSave = (builder: Builder) => {
     // Navigate to the newly created builder page
