@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
+import { useHasPermission } from '@/app/components/auth/PermissionGate'
 import type { Builder, DrawRequest, Project } from '@/types/database'
 
 type StagedDraw = DrawRequest & {
@@ -21,6 +22,7 @@ export function StagedDrawsSection({ builder, stagedDraws, onRefresh }: StagedDr
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const canProcess = useHasPermission('processor')
 
   const totalAmount = stagedDraws.reduce((sum, draw) => sum + draw.total_amount, 0)
 
@@ -66,74 +68,34 @@ export function StagedDrawsSection({ builder, stagedDraws, onRefresh }: StagedDr
 
   const handleSubmitForFunding = async () => {
     if (stagedDraws.length === 0) return
-    
+
     if (!confirm(`Submit ${stagedDraws.length} draw(s) totaling ${formatCurrency(totalAmount)} for funding?`)) return
 
     setIsSubmitting(true)
     setError('')
 
     try {
-      // Create wire batch
-      const { data: wireBatch, error: batchError } = await supabase
-        .from('wire_batches')
-        .insert({
+      // Use API endpoint which has proper permission checks
+      const response = await fetch('/api/wire-batches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'submit_for_wire',
           builder_id: builder.id,
-          total_amount: totalAmount,
-          status: 'pending',
-          submitted_by: 'user'
+          draw_ids: stagedDraws.map(d => d.id)
         })
-        .select()
-        .single()
-
-      if (batchError) throw batchError
-
-      // Update all staged draws to pending_wire and link to batch
-      for (const draw of stagedDraws) {
-        const { error: updateError } = await supabase
-          .from('draw_requests')
-          .update({ 
-            status: 'pending_wire',
-            wire_batch_id: wireBatch.id
-          })
-          .eq('id', draw.id)
-
-        if (updateError) throw updateError
-
-        // Log audit event
-        await supabase.from('audit_events').insert({
-          entity_type: 'draw_request',
-          entity_id: draw.id,
-          action: 'submitted_for_wire',
-          actor: 'user',
-          old_data: { status: 'staged' },
-          new_data: { status: 'pending_wire', wire_batch_id: wireBatch.id }
-        })
-      }
-
-      // Log wire batch creation
-      await supabase.from('audit_events').insert({
-        entity_type: 'wire_batch',
-        entity_id: wireBatch.id,
-        action: 'created',
-        actor: 'user',
-        new_data: { 
-          builder_id: builder.id,
-          total_amount: totalAmount,
-          draw_count: stagedDraws.length
-        }
       })
 
-      // Send notification to bookkeeper
-      try {
-        await fetch(`/api/wire-batches/${wireBatch.id}/notify`, {
-          method: 'POST'
-        })
-      } catch (notifyError) {
-        console.warn('Failed to send notification:', notifyError)
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to submit for funding')
       }
 
       // Navigate to staging page with batch highlighted
-      router.push(`/staging?batch=${wireBatch.id}`)
+      if (result.batch_id) {
+        router.push(`/staging?batch=${result.batch_id}`)
+      }
 
     } catch (err: any) {
       setError(err.message || 'Failed to submit for funding')
@@ -170,25 +132,27 @@ export function StagedDrawsSection({ builder, stagedDraws, onRefresh }: StagedDr
               </p>
             </div>
           </div>
-          <button
-            onClick={handleSubmitForFunding}
-            disabled={isSubmitting}
-            className="btn-primary flex items-center gap-2"
-          >
-            {isSubmitting ? (
-              <>
-                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                Submitting...
-              </>
-            ) : (
-              <>
-                Fund All
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </>
-            )}
-          </button>
+          {canProcess && (
+            <button
+              onClick={handleSubmitForFunding}
+              disabled={isSubmitting}
+              className="btn-primary flex items-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  Fund All
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -237,16 +201,18 @@ export function StagedDrawsSection({ builder, stagedDraws, onRefresh }: StagedDr
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                     </svg>
                   </Link>
-                  <button
-                    onClick={() => handleUnstage(draw.id)}
-                    className="p-1.5 rounded hover:opacity-70"
-                    style={{ color: 'var(--error)' }}
-                    title="Remove from staging"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+                  {canProcess && (
+                    <button
+                      onClick={() => handleUnstage(draw.id)}
+                      className="p-1.5 rounded hover:opacity-70"
+                      style={{ color: 'var(--error)' }}
+                      title="Remove from staging"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               </div>
             </motion.div>
