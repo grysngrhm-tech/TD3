@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useNavigation } from '@/app/context/NavigationContext'
 import { useAuth } from '@/app/context/AuthContext'
@@ -151,7 +152,7 @@ export default function NewBudgetPage() {
           </select>
           {projects.length === 0 && (
             <p className="text-sm text-amber-600 mt-2">
-              No active projects found. <a href="/projects/new" className="underline">Create a project first</a>
+              No active projects found. <Link href="/projects/new" className="underline">Create a project first</Link>
             </p>
           )}
         </div>
@@ -232,9 +233,9 @@ export default function NewBudgetPage() {
 
         {/* Actions */}
         <div className="flex gap-4 justify-end">
-          <a href="/budgets" className="btn-secondary">
+          <Link href="/budgets" className="btn-secondary">
             Cancel
-          </a>
+          </Link>
           <button type="submit" className="btn-primary" disabled={saving}>
             {saving ? 'Saving...' : 'Create Budget'}
           </button>

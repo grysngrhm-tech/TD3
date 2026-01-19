@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useNavigation } from '@/app/context/NavigationContext'
 import { Project } from '@/types/database'
@@ -72,18 +73,18 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Projects</h1>
           <p className="mt-1" style={{ color: 'var(--text-muted)' }}>Manage construction projects</p>
         </div>
-        <a href="/projects/new" className="btn-primary">
+        <Link href="/projects/new" className="btn-primary">
           + New Project
-        </a>
+        </Link>
       </div>
 
       {/* Projects Grid */}
       {projects.length === 0 ? (
         <div className="card text-center py-12">
           <p className="mb-4" style={{ color: 'var(--text-muted)' }}>No projects yet</p>
-          <a href="/projects/new" className="btn-primary">
+          <Link href="/projects/new" className="btn-primary">
             Create Your First Project
-          </a>
+          </Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -113,13 +114,13 @@ export default function ProjectsPage() {
                 </div>
                 
                 <div className="mt-4 flex gap-2">
-                  <a
+                  <Link
                     href={`/budgets?project=${project.id}`}
                     className="text-sm font-medium transition-colors"
                     style={{ color: 'var(--accent)' }}
                   >
                     View Budget →
-                  </a>
+                  </Link>
                 </div>
               </div>
             )

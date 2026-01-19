@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useNavigation } from '@/app/context/NavigationContext'
 import type { Project } from '@/types/database'
@@ -127,12 +128,12 @@ export default function ReportsPage() {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <a
+                  <Link
                     href={`/reports/progress/${project.id}`}
                     className="btn-primary text-sm px-3 py-1.5"
                   >
                     View Report
-                  </a>
+                  </Link>
                   <a
                     href={`/api/reports/progress/${project.id}?format=html`}
                     target="_blank"

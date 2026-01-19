@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useNavigation } from '@/app/context/NavigationContext'
 import { Project, Budget } from '@/types/database'
@@ -105,9 +106,9 @@ export default function BudgetsPage() {
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Budgets</h1>
           <p className="mt-1" style={{ color: 'var(--text-muted)' }}>Manage project budget line items</p>
         </div>
-        <a href="/budgets/new" className="btn-primary">
+        <Link href="/budgets/new" className="btn-primary">
           + New Budget
-        </a>
+        </Link>
       </div>
 
       {/* Filters */}
