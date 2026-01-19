@@ -127,7 +127,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user && mounted) {
           setUser(session.user)
 
-          // Fetch profile and permissions in parallel
+          // Set loading false immediately after getting user
+          // This unblocks the app - profile/permissions load in background
+          clearTimeout(timeoutId)
+          setIsLoading(false)
+          initCompletedRef.current = true
+
+          // Fetch profile and permissions in parallel (non-blocking)
           const [fetchedProfile, fetchedPermissions] = await Promise.all([
             fetchProfile(session.user.id),
             fetchPermissions(session.user.id)
@@ -137,10 +143,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setProfile(fetchedProfile)
             setPermissions(fetchedPermissions)
           }
+        } else {
+          // No session - still need to set loading false
+          if (mounted) {
+            clearTimeout(timeoutId)
+            setIsLoading(false)
+            initCompletedRef.current = true
+          }
         }
       } catch (err) {
         console.error('Error initializing auth:', err)
-      } finally {
+        // On error, still stop loading
         if (mounted) {
           clearTimeout(timeoutId)
           setIsLoading(false)

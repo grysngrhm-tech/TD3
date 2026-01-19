@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
 import { FilterSidebar } from '@/app/components/ui/FilterSidebar'
@@ -47,7 +47,7 @@ type ProjectWithBudget = {
 export default function Dashboard() {
   const router = useRouter()
   const { setLastDashboard, setCurrentPageTitle } = useNavigation()
-  const { isLoading: authLoading } = useAuth()
+  const { isLoading: authLoading, isAuthenticated } = useAuth()
   const [projects, setProjects] = useState<ProjectWithBudget[]>([])
   const [builders, setBuilders] = useState<Builder[]>([])
   const [lenders, setLenders] = useState<Lender[]>([])
@@ -55,6 +55,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null)
   const [selectedStage, setSelectedStage] = useState<LifecycleStage>('active')
   const { filters, toggleFilter, clearAll, clearSection } = useFilters()
+  const dataLoadedRef = useRef(false)
 
   // Register this as the Portfolio dashboard
   useEffect(() => {
@@ -62,12 +63,14 @@ export default function Dashboard() {
     setCurrentPageTitle('Portfolio')
   }, [setLastDashboard, setCurrentPageTitle])
 
-  // Load data only after auth is ready - middleware handles auth redirect
+  // Load data when auth is ready and user is authenticated
+  // Use ref to prevent double-loading
   useEffect(() => {
-    if (!authLoading) {
+    if (!authLoading && isAuthenticated && !dataLoadedRef.current) {
+      dataLoadedRef.current = true
       loadData()
     }
-  }, [authLoading])
+  }, [authLoading, isAuthenticated])
 
   async function loadData() {
     const supabase = createSupabaseBrowserClient()

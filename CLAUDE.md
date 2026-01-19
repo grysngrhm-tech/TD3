@@ -20,7 +20,7 @@ TD3 is a construction loan management system built for Tennant Development. It r
   - `app/admin/` - Admin pages (user management)
   - `app/auth/callback/` - Auth callback page for PKCE code exchange (legacy support)
   - `app/components/` - React components (builders, draws, import, projects, ui)
-  - `app/components/auth/` - Auth UI components (FirstLoginModal, PermissionGate)
+  - `app/components/auth/` - Auth UI components (PermissionGate)
   - `app/context/` - React contexts (AuthContext, NavigationContext)
   - `app/api/` - API routes (webhooks, validations, reports, invoices)
 - `public/` - Static assets served directly
@@ -92,8 +92,8 @@ Email security scanners (Microsoft SafeLinks, Proofpoint, etc.) pre-click magic 
 2. Middleware redirects to /login (preserves redirect param)
 3. User enters email → allowlist check → 8-digit OTP code sent
 4. User enters code on login page → verifyOtp() → session created
-5. First login? → FirstLoginModal prompts for name/phone
-6. Hard redirect to original destination (window.location.href)
+5. Hard redirect to original destination (window.location.href)
+6. Profile editing available anytime via header dropdown
 ```
 
 #### Permission System
@@ -115,13 +115,13 @@ Email security scanners (Microsoft SafeLinks, Proofpoint, etc.) pre-click magic 
 | File | Purpose |
 |------|---------|
 | `middleware.ts` | Route protection, session refresh, redirect handling |
-| `app/context/AuthContext.tsx` | Global auth state (user, profile, permissions) |
+| `app/context/AuthContext.tsx` | Global auth state (user, profile, permissions). Uses memoized supabase client. |
 | `app/components/auth/PermissionGate.tsx` | Conditional rendering by permission |
-| `app/components/auth/FirstLoginModal.tsx` | Profile completion on first sign-in |
+| `app/components/ui/Header.tsx` | User menu with profile editing modal and sign out |
 | `app/(auth)/login/page.tsx` | OTP code login page (email + 8-digit code verification) |
 | `app/auth/callback/page.tsx` | PKCE code exchange (legacy fallback, rarely used) |
 | `app/admin/users/page.tsx` | User & permission management UI |
-| `lib/supabase.ts` | Browser client, Permission type, labels/descriptions |
+| `lib/supabase.ts` | Browser client factory, Permission type, labels/descriptions |
 | `supabase/004_auth.sql` | Schema, RLS policies, helper functions |
 | `docs/AUTH.md` | Comprehensive auth documentation and troubleshooting |
 

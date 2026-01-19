@@ -342,7 +342,32 @@ Same structure, update title to "Welcome to TD3" and adjust messaging.
 
 ## Common Issues & Troubleshooting
 
-### Issue 1: "Email link is invalid or has expired"
+### Issue 1: Infinite Render Loop / "Auth initialization timed out"
+
+**Symptom:** Console shows "Auth initialization timed out after 5 seconds" with recursive `ol`/`or` function calls in stack trace.
+
+**Cause:** Supabase client created on every render, causing infinite loop:
+```typescript
+// BAD - creates new client every render
+const supabase = createSupabaseBrowserClient()
+
+// This causes:
+// 1. New client → useCallback deps change
+// 2. useEffect runs (its deps include callbacks)
+// 3. State updates → re-render → repeat forever
+```
+
+**Solution:** Memoize the supabase client:
+```typescript
+// GOOD - client created once
+const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+```
+
+**Key File:** `app/context/AuthContext.tsx`
+
+---
+
+### Issue 2: "Email link is invalid or has expired"
 
 **Symptom:** User clicks magic link but gets expiration error.
 
@@ -354,7 +379,7 @@ Same structure, update title to "Welcome to TD3" and adjust messaging.
 
 ---
 
-### Issue 2: Page stuck on "Verifying..." after entering code
+### Issue 3: Page stuck on "Verifying..." after entering code
 
 **Symptom:** OTP verification succeeds but UI doesn't redirect.
 
@@ -373,26 +398,82 @@ window.location.href = redirectTo
 
 ---
 
-### Issue 3: Blank page with loading spinner after login
+### Issue 4: Blank page after login (auth works but page doesn't load)
 
-**Symptom:** User is authenticated but dashboard shows infinite loading.
+**Symptom:** User is authenticated (header shows initials) but dashboard content is blank. Manual refresh fixes it.
 
 **Causes:**
-1. AuthContext `isLoading` stuck on true
-2. Dashboard data fetch failing silently
-3. Session not properly propagated
+1. Page useEffect only watches `authLoading`, not `isAuthenticated`
+2. When auth state changes, the effect doesn't re-run to load data
+3. AuthContext blocks too long on profile/permissions fetch
 
-**Debugging:**
-```javascript
-// In browser console
-console.log(localStorage.getItem('sb-uewqcbmaiuofdfvqmbmq-auth-token'))
+**Solution 1: Watch both authLoading AND isAuthenticated**
+```typescript
+// BAD - may not trigger when auth completes
+useEffect(() => {
+  if (!authLoading) loadData()
+}, [authLoading])
+
+// GOOD - triggers when user becomes authenticated
+useEffect(() => {
+  if (!authLoading && isAuthenticated && !dataLoadedRef.current) {
+    dataLoadedRef.current = true
+    loadData()
+  }
+}, [authLoading, isAuthenticated])
 ```
 
-**Solution:** Use emergency sign out (see below).
+**Solution 2: Don't block on profile/permissions in AuthContext**
+```typescript
+// Set isLoading=false immediately after getting user
+// Profile/permissions can load in background
+if (session?.user) {
+  setUser(session.user)
+  setIsLoading(false)  // Unblock immediately
+
+  // Non-blocking: fetch in background
+  Promise.all([fetchProfile(), fetchPermissions()])
+    .then(([profile, perms]) => { ... })
+}
+```
+
+**Key Files:** `app/page.tsx`, `app/context/AuthContext.tsx`
 
 ---
 
-### Issue 4: Sign out button doesn't work
+### Issue 5: Rules of Hooks violation causing blank page
+
+**Symptom:** Page crashes silently, shows blank content.
+
+**Cause:** useEffect placed AFTER an early return statement:
+```typescript
+// BAD - violates Rules of Hooks
+function Header() {
+  const [state, setState] = useState(false)
+
+  if (someCondition) return null  // Early return
+
+  useEffect(() => { ... }, [])  // Hook AFTER return = violation!
+}
+```
+
+**Solution:** All hooks must be called before any conditional returns:
+```typescript
+// GOOD - hooks before returns
+function Header() {
+  const [state, setState] = useState(false)
+
+  useEffect(() => { ... }, [])  // Hook BEFORE any returns
+
+  if (someCondition) return null  // Early return is now safe
+}
+```
+
+**Key File:** `app/components/ui/Header.tsx`
+
+---
+
+### Issue 6: Sign out button doesn't work
 
 **Symptom:** Clicking sign out does nothing or page stays stuck.
 
@@ -413,7 +494,7 @@ window.location.href = '/login'
 
 ---
 
-### Issue 5: "Missing authentication code" error
+### Issue 7: "Missing authentication code" error
 
 **Symptom:** Callback page shows no code parameter.
 
@@ -423,7 +504,7 @@ window.location.href = '/login'
 
 ---
 
-### Issue 6: PKCE code_verifier error
+### Issue 8: PKCE code_verifier error
 
 **Error:** `"both auth code and code verifier should be non-empty"`
 
@@ -435,7 +516,7 @@ window.location.href = '/login'
 
 ---
 
-### Issue 7: OTP code is 8 digits but UI expects 6
+### Issue 9: OTP code is 8 digits but UI expects 6
 
 **Symptom:** User can't enter full code.
 
@@ -502,6 +583,47 @@ if (token) {
 ---
 
 ## Development Guidelines
+
+### Memoize Supabase Client in Components
+
+```typescript
+// BAD - new client every render = infinite loops
+const supabase = createSupabaseBrowserClient()
+
+// GOOD - stable reference
+const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+```
+
+### All Hooks Before Conditional Returns
+
+```typescript
+// BAD - Rules of Hooks violation
+function Component() {
+  if (condition) return null
+  useEffect(() => {}, [])  // After return = crash
+}
+
+// GOOD
+function Component() {
+  useEffect(() => {}, [])  // Before return
+  if (condition) return null
+}
+```
+
+### Watch isAuthenticated for Data Loading
+
+```typescript
+// BAD - authLoading alone may not trigger
+useEffect(() => {
+  if (!authLoading) loadData()
+}, [authLoading])
+
+// GOOD - triggers when user becomes authenticated
+const { isLoading, isAuthenticated } = useAuth()
+useEffect(() => {
+  if (!isLoading && isAuthenticated) loadData()
+}, [isLoading, isAuthenticated])
+```
 
 ### Never Use router.push for Auth Redirects
 
@@ -591,6 +713,11 @@ Before deploying auth changes:
 | 2026-01-18 | Change OTP from 6 to 8 digits | Supabase sends 8-digit codes |
 | 2026-01-18 | Use window.location.href for redirects | router.push fails after auth state change |
 | 2026-01-18 | Add emergency sign out with storage clear | Users getting stuck on blank pages |
+| 2026-01-18 | Memoize supabase client in AuthContext | Prevent infinite render loop |
+| 2026-01-18 | Fix Rules of Hooks violation in Header | useEffect after early return caused crash |
+| 2026-01-18 | Watch isAuthenticated in page useEffects | Auth state change wasn't triggering data load |
+| 2026-01-18 | Non-blocking profile/permissions fetch | Auth init was slow (10-15 sec) blocking on DB |
+| 2026-01-18 | Move profile editing to header dropdown | Replace FirstLoginModal with always-available option |
 
 ---
 
