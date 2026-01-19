@@ -1,10 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+
+/**
+ * Get the authenticated user from the request cookies
+ */
+async function getAuthenticatedUser() {
+  const cookieStore = await cookies()
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll() {
+          // Not needed for read-only operations
+        },
+      },
+    }
+  )
+
+  const { data: { user } } = await supabase.auth.getUser()
+  return user
+}
+
+/**
+ * Check if a user has a specific permission
+ */
+async function checkPermission(userId: string, permission: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin.rpc('has_permission', {
+    check_user_id: userId,
+    required_permission: permission,
+  })
+
+  if (error) {
+    console.error('Error checking permission:', error)
+    return false
+  }
+
+  return data === true
+}
 
 /**
  * Update budget spent amounts when a draw is funded
@@ -152,6 +196,20 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { action, builder_id, draw_ids } = body
 
+    // Verify user has processor permission
+    const user = await getAuthenticatedUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    const hasProcessorPermission = await checkPermission(user.id, 'processor')
+    if (!hasProcessorPermission) {
+      return NextResponse.json(
+        { error: 'Permission denied: processor permission required' },
+        { status: 403 }
+      )
+    }
+
     // Validate required fields
     if (!builder_id) {
       return NextResponse.json({ error: 'builder_id is required' }, { status: 400 })
@@ -161,12 +219,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Route to appropriate handler based on action
+    const actorEmail = user.email || 'unknown'
     if (action === 'submit_for_wire') {
-      return handleSubmitForWire(builder_id, draw_ids)
+      return handleSubmitForWire(builder_id, draw_ids, actorEmail)
     } else {
       // Default/legacy behavior: direct funding
       const { funded_at, wire_reference, notes } = body
-      return handleDirectFund(builder_id, draw_ids, funded_at, wire_reference, notes)
+      return handleDirectFund(builder_id, draw_ids, funded_at, wire_reference, notes, actorEmail)
     }
 
   } catch (error) {
@@ -182,7 +241,7 @@ export async function POST(request: NextRequest) {
  * Submit draws for wire funding (pending status)
  * This is the normal workflow: staged -> pending_wire -> funded
  */
-async function handleSubmitForWire(builder_id: string, draw_ids: string[]) {
+async function handleSubmitForWire(builder_id: string, draw_ids: string[], actorEmail: string) {
   // Fetch the draws to calculate total amount and verify they exist
   const { data: draws, error: drawsError } = await supabaseAdmin
     .from('draw_requests')
@@ -220,7 +279,7 @@ async function handleSubmitForWire(builder_id: string, draw_ids: string[]) {
       total_amount: totalAmount,
       status: 'pending',
       submitted_at: submittedAt,
-      submitted_by: 'loan_officer'
+      submitted_by: actorEmail
     })
     .select()
     .single()
@@ -249,11 +308,11 @@ async function handleSubmitForWire(builder_id: string, draw_ids: string[]) {
       entity_type: 'draw_request',
       entity_id: draw.id,
       action: 'submitted_for_wire',
-      actor: 'loan_officer',
+      actor: actorEmail,
       old_data: { status: 'staged' },
-      new_data: { 
+      new_data: {
         status: 'pending_wire',
-        wire_batch_id: batch.id 
+        wire_batch_id: batch.id
       }
     })
   }
@@ -263,8 +322,8 @@ async function handleSubmitForWire(builder_id: string, draw_ids: string[]) {
     entity_type: 'wire_batch',
     entity_id: batch.id,
     action: 'created',
-    actor: 'loan_officer',
-    new_data: { 
+    actor: actorEmail,
+    new_data: {
       builder_id,
       draw_count: draws.length,
       total_amount: totalAmount,
@@ -296,11 +355,12 @@ async function handleSubmitForWire(builder_id: string, draw_ids: string[]) {
  * Creates batch and immediately marks as funded
  */
 async function handleDirectFund(
-  builder_id: string, 
-  draw_ids: string[], 
+  builder_id: string,
+  draw_ids: string[],
   funded_at: string,
-  wire_reference?: string,
-  notes?: string
+  wire_reference: string | undefined,
+  notes: string | undefined,
+  actorEmail: string
 ) {
   if (!funded_at) {
     return NextResponse.json({ error: 'funded_at date is required for direct funding' }, { status: 400 })
@@ -350,7 +410,7 @@ async function handleDirectFund(
       status: 'funded',
       submitted_at: fundedAtISO,
       funded_at: fundedAtISO,
-      funded_by: 'user',
+      funded_by: actorEmail,
       wire_reference: wire_reference || null,
       notes: notes || null
     })
@@ -383,17 +443,17 @@ async function handleDirectFund(
       entity_type: 'draw_request',
       entity_id: draw.id,
       action: 'funded',
-      actor: 'user',
+      actor: actorEmail,
       old_data: { status: 'staged' },
-      new_data: { 
-        status: 'funded', 
+      new_data: {
+        status: 'funded',
         funded_at: fundedAtISO,
-        wire_batch_id: batch.id 
+        wire_batch_id: batch.id
       }
     })
 
     // Update budget spent amounts for each draw line
-    await updateBudgetSpendForDraw(draw.id, 'user')
+    await updateBudgetSpendForDraw(draw.id, actorEmail)
   }
 
   // Log wire batch funded event
@@ -401,8 +461,8 @@ async function handleDirectFund(
     entity_type: 'wire_batch',
     entity_id: batch.id,
     action: 'created_and_funded',
-    actor: 'user',
-    new_data: { 
+    actor: actorEmail,
+    new_data: {
       builder_id,
       draw_count: draws.length,
       total_amount: totalAmount,
