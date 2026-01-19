@@ -23,9 +23,9 @@ export default function NewLoanPage() {
   useEffect(() => {
     if (!canProcess && !isLoading) {
       toast.error('Access denied', 'You do not have permission to create loans')
-      router.push('/')
+      window.location.href = '/'
     }
-  }, [canProcess, isLoading, router])
+  }, [canProcess, isLoading])
 
   // Don't render until we've verified permission
   if (!canProcess) {

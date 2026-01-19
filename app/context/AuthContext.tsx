@@ -108,15 +108,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true
     initCompletedRef.current = false
 
-    // Safety timeout: If auth takes more than 5 seconds, stop loading
+    // Safety timeout: If auth takes more than 8 seconds, stop loading
     // This prevents the app from being stuck forever
+    // Increased from 5s to account for profile + permissions fetch
     const timeoutId = setTimeout(() => {
       if (mounted && !initCompletedRef.current) {
-        console.warn('Auth initialization timed out after 5 seconds')
+        console.warn('Auth initialization timed out after 8 seconds')
         setIsLoading(false)
         initCompletedRef.current = true
       }
-    }, 5000)
+    }, 8000)
 
     async function initializeAuth() {
       try {
@@ -127,13 +128,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user && mounted) {
           setUser(session.user)
 
-          // Set loading false immediately after getting user
-          // This unblocks the app - profile/permissions load in background
-          clearTimeout(timeoutId)
-          setIsLoading(false)
-          initCompletedRef.current = true
-
-          // Fetch profile and permissions in parallel (non-blocking)
+          // Wait for profile and permissions before marking as loaded
+          // This ensures permission checks work correctly on gated pages
           const [fetchedProfile, fetchedPermissions] = await Promise.all([
             fetchProfile(session.user.id),
             fetchPermissions(session.user.id)
@@ -142,6 +138,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (mounted) {
             setProfile(fetchedProfile)
             setPermissions(fetchedPermissions)
+            clearTimeout(timeoutId)
+            setIsLoading(false)
+            initCompletedRef.current = true
           }
         } else {
           // No session - still need to set loading false
@@ -171,6 +170,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (event === 'SIGNED_IN' && session?.user) {
           setUser(session.user)
+          // Set loading while we fetch profile and permissions
+          setIsLoading(true)
 
           // Fetch profile and permissions
           const [fetchedProfile, fetchedPermissions] = await Promise.all([
@@ -181,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (mounted) {
             setProfile(fetchedProfile)
             setPermissions(fetchedPermissions)
+            setIsLoading(false)
           }
         } else if (event === 'SIGNED_OUT') {
           setUser(null)

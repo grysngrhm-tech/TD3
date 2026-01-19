@@ -44,9 +44,9 @@ export default function EditProjectPage() {
   useEffect(() => {
     if (!canProcess && !authLoading) {
       toast.error('Access denied', 'You do not have permission to edit projects')
-      router.push('/')
+      window.location.href = '/'
     }
-  }, [canProcess, authLoading, router])
+  }, [canProcess, authLoading])
 
   // Update page title when project loads
   useEffect(() => {
