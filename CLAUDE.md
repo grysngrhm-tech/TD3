@@ -96,6 +96,49 @@ Email security scanners (Microsoft SafeLinks, Proofpoint, etc.) pre-click magic 
 6. Profile editing available anytime via header dropdown
 ```
 
+#### ⚠️ CRITICAL: Preventing Auth Timeout Bugs
+
+**This bug has occurred multiple times. Follow these patterns exactly.**
+
+The app can freeze with "Auth initialization timed out" errors if these patterns are violated:
+
+**1. ALWAYS use the module-level supabase singleton in components:**
+```tsx
+// ✅ CORRECT - use the singleton
+import { supabase } from '@/lib/supabase'
+
+// ❌ WRONG - creates new client, causes re-initialization
+import { createSupabaseBrowserClient } from '@/lib/supabase'
+const supabase = createSupabaseBrowserClient()
+
+// ❌ WRONG - even with useMemo, can cause issues
+const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+```
+
+**2. ALWAYS use Next.js Link for internal navigation:**
+```tsx
+// ✅ CORRECT - client-side navigation, preserves auth state
+import Link from 'next/link'
+<Link href="/draws">Draws</Link>
+<Link href={`/projects/${id}`}>View Project</Link>
+
+// ❌ WRONG - causes full page reload, re-triggers auth init
+<a href="/draws">Draws</a>
+<a href={`/projects/${id}`}>View Project</a>
+```
+
+**3. AuthContext initialization guards (DO NOT MODIFY):**
+The AuthContext uses `initCompletedRef` and `initStartedRef` to prevent redundant initialization. These refs ensure auth only initializes once per session, even during React strict mode or re-renders. Do not remove or modify this pattern.
+
+**4. When auth redirects are needed, use window.location.href:**
+```tsx
+// ✅ CORRECT - reliable redirect after auth state change
+window.location.href = '/login'
+
+// ❌ WRONG - can fail silently after auth changes
+router.push('/login')
+```
+
 #### Permission System
 | Code | Label | Controls |
 |------|-------|----------|
@@ -115,7 +158,7 @@ Email security scanners (Microsoft SafeLinks, Proofpoint, etc.) pre-click magic 
 | File | Purpose |
 |------|---------|
 | `middleware.ts` | Route protection, session refresh, redirect handling |
-| `app/context/AuthContext.tsx` | Global auth state (user, profile, permissions). Uses memoized supabase client. |
+| `app/context/AuthContext.tsx` | Global auth state (user, profile, permissions). Uses module-level supabase singleton. |
 | `app/components/auth/PermissionGate.tsx` | Conditional rendering by permission |
 | `app/components/ui/Header.tsx` | User menu with profile editing modal and sign out |
 | `app/(auth)/login/page.tsx` | OTP code login page (email + 8-digit code verification) |
