@@ -12,9 +12,10 @@ Complete documentation for the TD3 authentication system, including architecture
 4. [Key Files Reference](#key-files-reference)
 5. [Supabase Configuration](#supabase-configuration)
 6. [Email Templates](#email-templates)
-7. [Common Issues & Troubleshooting](#common-issues--troubleshooting)
-8. [Emergency Procedures](#emergency-procedures)
-9. [Development Guidelines](#development-guidelines)
+7. [UI Permission Gating](#ui-permission-gating)
+8. [Common Issues & Troubleshooting](#common-issues--troubleshooting)
+9. [Emergency Procedures](#emergency-procedures)
+10. [Development Guidelines](#development-guidelines)
 
 ---
 
@@ -337,6 +338,124 @@ Go to **Authentication → Email Templates → Magic Link**
 ### Confirm Signup Template
 
 Same structure, update title to "Welcome to TD3" and adjust messaging.
+
+---
+
+## UI Permission Gating
+
+TD3 implements **defense-in-depth** for permissions: RLS policies protect the database, while UI permission gates provide a better user experience by hiding actions users can't perform.
+
+### Permission Types
+
+| Permission | Label | Controls |
+|------------|-------|----------|
+| `processor` | Loan Processor | Create/edit loans, draws, builders, budgets |
+| `fund_draws` | Fund Draws | Mark draws as funded, confirm wire transfers |
+| `approve_payoffs` | Approve Payoffs | Approve payoffs before sending to title |
+| `users.manage` | Manage Users | Access to admin panel, manage allowlist |
+
+### Page-Level Protection
+
+These pages check for `processor` permission and redirect to `/` with an error toast if missing:
+
+| Page | File | Permission Required |
+|------|------|---------------------|
+| New Loan | `app/projects/new/page.tsx` | `processor` |
+| New Draw | `app/draws/new/page.tsx` | `processor` |
+| New Builder | `app/builders/new/page.tsx` | `processor` |
+| New Budget | `app/budgets/new/page.tsx` | `processor` |
+| Edit Project | `app/projects/[id]/edit/page.tsx` | `processor` |
+| User Management | `app/admin/users/page.tsx` | `users.manage` |
+
+**Pattern for page-level gating:**
+```typescript
+import { useAuth } from '@/app/context/AuthContext'
+import { useHasPermission } from '@/app/components/auth/PermissionGate'
+import { toast } from '@/app/components/ui/Toast'
+
+export default function ProtectedPage() {
+  const router = useRouter()
+  const { isLoading } = useAuth()
+  const canProcess = useHasPermission('processor')
+
+  // Redirect if no permission
+  useEffect(() => {
+    if (!canProcess && !isLoading) {
+      toast.error('Access denied', 'You do not have permission to access this page')
+      router.push('/')
+    }
+  }, [canProcess, isLoading, router])
+
+  // Don't render until we've verified permission
+  if (!canProcess) {
+    return null
+  }
+
+  return <PageContent />
+}
+```
+
+### Component-Level Protection
+
+Use `PermissionGate` to conditionally render buttons and UI elements:
+
+```typescript
+import { PermissionGate } from '@/app/components/auth/PermissionGate'
+
+// Hide button if user lacks permission
+<PermissionGate permission="processor">
+  <button onClick={() => router.push('/projects/new')} className="btn-primary">
+    New Loan
+  </button>
+</PermissionGate>
+
+// Show fallback for users without permission
+<PermissionGate permission="fund_draws" fallback={<ReadOnlyView />}>
+  <FundingControls />
+</PermissionGate>
+
+// Require multiple permissions (any match)
+<PermissionGate permission={['processor', 'fund_draws']}>
+  <ActionButton />
+</PermissionGate>
+
+// Require ALL permissions
+<PermissionGate permission={['processor', 'users.manage']} requireAll>
+  <SuperAdminButton />
+</PermissionGate>
+```
+
+### Hook for Programmatic Checks
+
+```typescript
+import { useHasPermission } from '@/app/components/auth/PermissionGate'
+
+const canProcess = useHasPermission('processor')
+const canFund = useHasPermission('fund_draws')
+
+// Use in conditional logic
+if (canProcess) {
+  // Show edit controls
+}
+```
+
+### Protected UI Elements
+
+| Location | Element | Permission |
+|----------|---------|------------|
+| Portfolio Dashboard | "New Loan" button (empty state) | `processor` |
+| Header User Menu | "Manage Users" link | `users.manage` |
+
+### Testing Permission Gates
+
+1. **Test with no permissions account:**
+   - Navigate to `/projects/new` → Should redirect with "Access denied" toast
+   - Navigate to `/draws/new` → Should redirect with "Access denied" toast
+   - Portfolio dashboard → "New Loan" button should NOT appear
+
+2. **Test with processor permission:**
+   - All create/edit pages should load normally
+   - All action buttons should be visible
 
 ---
 
@@ -709,6 +828,7 @@ Before deploying auth changes:
 
 | Date | Change | Reason |
 |------|--------|--------|
+| 2026-01-18 | Add UI permission gating to create/edit pages | Users without permissions could see buttons/pages |
 | 2026-01-18 | Switch from magic links to OTP codes | Email scanners consuming magic links |
 | 2026-01-18 | Change OTP from 6 to 8 digits | Supabase sends 8-digit codes |
 | 2026-01-18 | Use window.location.href for redirects | router.push fails after auth state change |

@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useNavigation } from '@/app/context/NavigationContext'
+import { useAuth } from '@/app/context/AuthContext'
+import { useHasPermission } from '@/app/components/auth/PermissionGate'
+import { toast } from '@/app/components/ui/Toast'
 import { Project, BudgetInsert } from '@/types/database'
 
 type BudgetLine = {
@@ -15,6 +18,8 @@ type BudgetLine = {
 export default function NewBudgetPage() {
   const router = useRouter()
   const { setCurrentPageTitle } = useNavigation()
+  const { isLoading: authLoading } = useAuth()
+  const canProcess = useHasPermission('processor')
   const [projects, setProjects] = useState<Project[]>([])
   const [selectedProject, setSelectedProject] = useState('')
   const [budgetLines, setBudgetLines] = useState<BudgetLine[]>([
@@ -27,6 +32,14 @@ export default function NewBudgetPage() {
   useEffect(() => {
     setCurrentPageTitle('New Budget')
   }, [setCurrentPageTitle])
+
+  // Redirect if no permission
+  useEffect(() => {
+    if (!canProcess && !authLoading) {
+      toast.error('Access denied', 'You do not have permission to create budgets')
+      router.push('/')
+    }
+  }, [canProcess, authLoading, router])
 
   useEffect(() => {
     loadProjects()
@@ -106,6 +119,11 @@ export default function NewBudgetPage() {
     (sum, line) => sum + (parseFloat(line.amount) || 0),
     0
   )
+
+  // Don't render until we've verified permission
+  if (!canProcess) {
+    return null
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

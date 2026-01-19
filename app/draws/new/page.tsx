@@ -7,6 +7,9 @@ import { Project, Builder } from '@/types/database'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ImportPreview } from '@/app/components/import/ImportPreview'
 import { useNavigation } from '@/app/context/NavigationContext'
+import { useAuth } from '@/app/context/AuthContext'
+import { useHasPermission } from '@/app/components/auth/PermissionGate'
+import { toast } from '@/app/components/ui/Toast'
 
 type ProjectWithBuilder = Project & {
   builder?: Builder | null
@@ -25,6 +28,8 @@ function NewDrawPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { setCurrentPageTitle } = useNavigation()
+  const { isLoading: authLoading } = useAuth()
+  const canProcess = useHasPermission('processor')
   const preselectedBuilderId = searchParams.get('builder')
   const preselectedProjectId = searchParams.get('project')
 
@@ -32,6 +37,14 @@ function NewDrawPageContent() {
   useEffect(() => {
     setCurrentPageTitle('New Draw Request')
   }, [setCurrentPageTitle])
+
+  // Redirect if no permission
+  useEffect(() => {
+    if (!canProcess && !authLoading) {
+      toast.error('Access denied', 'You do not have permission to create draw requests')
+      router.push('/')
+    }
+  }, [canProcess, authLoading, router])
   
   // Builder and project state
   const [builders, setBuilders] = useState<Builder[]>([])
@@ -276,6 +289,11 @@ function NewDrawPageContent() {
   const handleImportClose = () => {
     setShowImportModal(false)
     setBudgetFile(null)
+  }
+
+  // Don't render until we've verified permission
+  if (!canProcess) {
+    return null
   }
 
   if (loading) {
