@@ -2,13 +2,16 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { NavBackButton } from './NavBackButton'
 import { SmartLogo } from './SmartLogo'
 import { ThemeToggle } from './ThemeToggle'
 import { useAuth } from '@/app/context/AuthContext'
 import { useHasPermission } from '@/app/components/auth/PermissionGate'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
+
+// Routes where Header should not be shown
+const AUTH_ROUTES = ['/login', '/auth/callback']
 
 /**
  * Global header component with:
@@ -18,11 +21,18 @@ import { createSupabaseBrowserClient } from '@/lib/supabase'
  * - User menu with auth actions
  */
 export function Header() {
+  const pathname = usePathname()
   const { user, profile, signOut, isLoading } = useAuth()
   const canManageUsers = useHasPermission('users.manage')
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
+
+  // Don't render Header on auth pages (login, callback)
+  const isAuthRoute = AUTH_ROUTES.some(route => pathname?.startsWith(route))
+  if (isAuthRoute) {
+    return null
+  }
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -55,12 +65,20 @@ export function Header() {
 
   const handleSignOut = async () => {
     setIsMenuOpen(false)
+
+    // CRITICAL: Clear all storage FIRST to prevent stale session on reload
+    // This ensures AuthProvider sees no session when login page loads
+    localStorage.clear()
+    sessionStorage.clear()
+
+    // Then sign out from Supabase (may clear cookies)
     try {
       await signOut()
     } catch (e) {
       console.error('Sign out error:', e)
     }
-    // Force hard redirect to ensure we get to login
+
+    // Force hard redirect to login
     window.location.href = '/login'
   }
 
@@ -215,17 +233,20 @@ export function Header() {
                     <button
                       onClick={async () => {
                         setIsMenuOpen(false)
-                        // Emergency sign out - clear everything and force redirect
+
+                        // CRITICAL: Clear storage FIRST before anything else
+                        localStorage.clear()
+                        sessionStorage.clear()
+
+                        // Then try to sign out (don't wait for it)
                         try {
                           const supabase = createSupabaseBrowserClient()
-                          await supabase.auth.signOut()
+                          supabase.auth.signOut() // Don't await - just fire and forget
                         } catch (e) {
                           console.error('Sign out error:', e)
                         }
-                        // Clear all storage to ensure clean state
-                        localStorage.clear()
-                        sessionStorage.clear()
-                        // Force hard redirect (don't rely on Next.js router)
+
+                        // Force hard redirect immediately
                         window.location.href = '/login'
                       }}
                       className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-[var(--bg-hover)]"

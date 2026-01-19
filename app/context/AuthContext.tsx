@@ -1,7 +1,7 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
-import { User, Session } from '@supabase/supabase-js'
+import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react'
+import { User } from '@supabase/supabase-js'
 import { createSupabaseBrowserClient, Profile, Permission } from '@/lib/supabase'
 
 interface AuthContextType {
@@ -23,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const initCompletedRef = useRef(false)
 
   const supabase = createSupabaseBrowserClient()
 
@@ -102,6 +103,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Initialize auth state
   useEffect(() => {
     let mounted = true
+    initCompletedRef.current = false
+
+    // Safety timeout: If auth takes more than 5 seconds, stop loading
+    // This prevents the app from being stuck forever
+    const timeoutId = setTimeout(() => {
+      if (mounted && !initCompletedRef.current) {
+        console.warn('Auth initialization timed out after 5 seconds')
+        setIsLoading(false)
+        initCompletedRef.current = true
+      }
+    }, 5000)
 
     async function initializeAuth() {
       try {
@@ -127,7 +139,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Error initializing auth:', err)
       } finally {
         if (mounted) {
+          clearTimeout(timeoutId)
           setIsLoading(false)
+          initCompletedRef.current = true
         }
       }
     }
@@ -164,6 +178,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false
+      clearTimeout(timeoutId)
+      initCompletedRef.current = true // Prevent timeout from firing after unmount
       subscription.unsubscribe()
     }
   }, [supabase, fetchProfile, fetchPermissions])
