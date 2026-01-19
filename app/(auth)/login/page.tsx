@@ -49,11 +49,12 @@ function LoginContent() {
     async function checkSession() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        router.push(redirectTo)
+        // Use hard redirect - router.push can fail after auth state changes
+        window.location.href = redirectTo
       }
     }
     checkSession()
-  }, [supabase, router, redirectTo])
+  }, [supabase, redirectTo])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
