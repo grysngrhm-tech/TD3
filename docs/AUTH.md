@@ -461,14 +461,54 @@ if (canProcess) {
 
 ## Common Issues & Troubleshooting
 
-### Issue 1: Infinite Render Loop / "Auth initialization timed out"
+### Issue 1: Auth Timeout During Client-Side Navigation
 
-**Symptom:** Console shows "Auth initialization timed out after 5 seconds" with recursive `ol`/`or` function calls in stack trace.
+**Symptom:** When navigating between pages (e.g., portfolio to draws dashboard), the page freezes, goes blank, and console shows "Auth initialization timed out after 8 seconds". Profile icon shows generic gray circle or email initials instead of name.
 
-**Cause:** Supabase client created on every render, causing infinite loop:
+**Causes:**
+1. **Full page reloads:** Using `<a href>` instead of Next.js `<Link>` causes full page reloads, triggering auth re-initialization
+2. **Redundant init:** AuthContext useEffect re-runs on navigation, resetting `initCompletedRef` and re-initializing
+3. **New client per render:** Using `createSupabaseBrowserClient()` creates a new client each render, causing deps to change
+
+**Solution:**
 ```typescript
-// BAD - creates new client every render
-const supabase = createSupabaseBrowserClient()
+// 1. Use module-level singleton instead of creating new client
+import { supabase } from '@/lib/supabase'  // NOT createSupabaseBrowserClient()
+
+// 2. Track both completion AND in-progress state
+const initCompletedRef = useRef(false)
+const initStartedRef = useRef(false)
+
+// 3. Skip if already initialized
+useEffect(() => {
+  if (initCompletedRef.current) {
+    setIsLoading(false)
+    return
+  }
+  if (initStartedRef.current) {
+    return  // Already in progress
+  }
+  initStartedRef.current = true
+  // ... initialization logic
+}, [])
+
+// 4. Use Next.js Link for internal navigation
+import Link from 'next/link'
+<Link href="/draws">Draws</Link>  // NOT <a href="/draws">
+```
+
+**Key Files:** `app/context/AuthContext.tsx`, all page files with internal links
+
+---
+
+### Issue 2: Infinite Render Loop (Legacy)
+
+**Symptom:** Console shows "Auth initialization timed out" with recursive `ol`/`or` function calls in stack trace. Different from Issue 1 - this is a true infinite loop.
+
+**Cause:** Supabase client created on every render via useMemo that recreates:
+```typescript
+// BAD - if useMemo deps change, new client every render
+const supabase = useMemo(() => createSupabaseBrowserClient(), [])
 
 // This causes:
 // 1. New client → useCallback deps change
@@ -476,17 +516,18 @@ const supabase = createSupabaseBrowserClient()
 // 3. State updates → re-render → repeat forever
 ```
 
-**Solution:** Memoize the supabase client:
+**Solution:** Use module-level singleton:
 ```typescript
-// GOOD - client created once
-const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+// GOOD - singleton at module level
+import { supabase } from '@/lib/supabase'
+// No useMemo needed - supabase is stable
 ```
 
 **Key File:** `app/context/AuthContext.tsx`
 
 ---
 
-### Issue 2: "Email link is invalid or has expired"
+### Issue 3: "Email link is invalid or has expired"
 
 **Symptom:** User clicks magic link but gets expiration error.
 
@@ -498,7 +539,7 @@ const supabase = useMemo(() => createSupabaseBrowserClient(), [])
 
 ---
 
-### Issue 3: Page stuck on "Verifying..." after entering code
+### Issue 4: Page stuck on "Verifying..." after entering code
 
 **Symptom:** OTP verification succeeds but UI doesn't redirect.
 
@@ -517,7 +558,7 @@ window.location.href = redirectTo
 
 ---
 
-### Issue 4: Blank page after login (auth works but page doesn't load)
+### Issue 5: Blank page after login (auth works but page doesn't load)
 
 **Symptom:** User is authenticated (header shows initials) but dashboard content is blank. Manual refresh fixes it.
 
@@ -560,7 +601,7 @@ if (session?.user) {
 
 ---
 
-### Issue 5: Rules of Hooks violation causing blank page
+### Issue 6: Rules of Hooks violation causing blank page
 
 **Symptom:** Page crashes silently, shows blank content.
 
@@ -592,7 +633,7 @@ function Header() {
 
 ---
 
-### Issue 6: Sign out button doesn't work
+### Issue 7: Sign out button doesn't work
 
 **Symptom:** Clicking sign out does nothing or page stays stuck.
 
@@ -613,7 +654,7 @@ window.location.href = '/login'
 
 ---
 
-### Issue 7: "Missing authentication code" error
+### Issue 8: "Missing authentication code" error
 
 **Symptom:** Callback page shows no code parameter.
 
@@ -623,7 +664,7 @@ window.location.href = '/login'
 
 ---
 
-### Issue 8: PKCE code_verifier error
+### Issue 9: PKCE code_verifier error
 
 **Error:** `"both auth code and code verifier should be non-empty"`
 
@@ -635,7 +676,7 @@ window.location.href = '/login'
 
 ---
 
-### Issue 9: OTP code is 8 digits but UI expects 6
+### Issue 10: OTP code is 8 digits but UI expects 6
 
 **Symptom:** User can't enter full code.
 
@@ -703,14 +744,29 @@ if (token) {
 
 ## Development Guidelines
 
-### Memoize Supabase Client in Components
+### Use Module-Level Supabase Singleton
 
 ```typescript
 // BAD - new client every render = infinite loops
 const supabase = createSupabaseBrowserClient()
 
-// GOOD - stable reference
+// OK - but adds complexity
 const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+
+// BEST - import module-level singleton
+import { supabase } from '@/lib/supabase'
+// No memoization needed - supabase is stable across all renders
+```
+
+### Use Next.js Link for Internal Navigation
+
+```typescript
+// BAD - causes full page reload, re-triggers auth init
+<a href="/draws">Draws</a>
+
+// GOOD - client-side navigation, preserves auth state
+import Link from 'next/link'
+<Link href="/draws">Draws</Link>
 ```
 
 ### All Hooks Before Conditional Returns
@@ -838,6 +894,8 @@ Before deploying auth changes:
 | 2026-01-18 | Watch isAuthenticated in page useEffects | Auth state change wasn't triggering data load |
 | 2026-01-18 | Non-blocking profile/permissions fetch | Auth init was slow (10-15 sec) blocking on DB |
 | 2026-01-18 | Move profile editing to header dropdown | Replace FirstLoginModal with always-available option |
+| 2026-01-19 | Fix auth timeout during client-side navigation | Use module-level singleton, prevent redundant init with refs |
+| 2026-01-19 | Convert internal `<a href>` links to Next.js `<Link>` | Prevent full page reloads during navigation |
 
 ---
 
