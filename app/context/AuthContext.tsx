@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo, ReactNode } from 'react'
 import { User } from '@supabase/supabase-js'
 import { createSupabaseBrowserClient, Profile, Permission } from '@/lib/supabase'
 
@@ -25,7 +25,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const initCompletedRef = useRef(false)
 
-  const supabase = createSupabaseBrowserClient()
+  // CRITICAL: Memoize supabase client to prevent infinite render loops
+  // Without this, every render creates a new client, which recreates callbacks,
+  // which triggers useEffect, which causes re-render = infinite loop
+  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
 
   // Fetch user profile
   const fetchProfile = useCallback(async (userId: string) => {
