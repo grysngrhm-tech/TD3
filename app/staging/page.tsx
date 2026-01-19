@@ -12,7 +12,7 @@ import { DrawStatsBar } from '@/app/components/ui/DrawStatsBar'
 import { FundAllModal } from '@/app/components/draws/FundAllModal'
 import { FundingReport } from '@/app/components/draws/FundingReport'
 import { useNavigation } from '@/app/context/NavigationContext'
-import { PermissionGate } from '@/app/components/auth/PermissionGate'
+import { PermissionGate, useHasPermission } from '@/app/components/auth/PermissionGate'
 
 type DrawStatus = 'all' | 'review' | 'staged' | 'pending_wire'
 
@@ -63,6 +63,10 @@ function StagingDashboardContent() {
   
   // Fund All modal state (for funding staged draws)
   const [fundingBuilder, setFundingBuilder] = useState<BuilderWithDraws | null>(null)
+
+  // Permission checks
+  const canProcess = useHasPermission('processor')
+  const canFundDraws = useHasPermission('fund_draws')
 
   // Register this as the Draw dashboard
   useEffect(() => {
@@ -648,15 +652,17 @@ function StagingDashboardContent() {
                                 <span className="font-bold" style={{ color: 'var(--success)' }}>
                                   {formatCurrency(builder.totalAmount)}
                                 </span>
-                                <button
-                                  onClick={() => setFundingBuilder(builder)}
-                                  className="btn-primary text-sm flex items-center gap-1.5"
-                                >
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                  Fund All
-                                </button>
+                                {canProcess && (
+                                  <button
+                                    onClick={() => setFundingBuilder(builder)}
+                                    className="btn-primary text-sm flex items-center gap-1.5"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    Fund All
+                                  </button>
+                                )}
                               </div>
                             </div>
                             <div className="space-y-1 text-sm">
@@ -879,35 +885,39 @@ function StagingDashboardContent() {
                   </div>
 
                   <div className="p-4 border-t flex justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
-                    <button
-                      onClick={() => handleCancelBatch(selectedBatch.id)}
-                      className="btn-secondary text-sm"
-                      style={{ color: 'var(--error)' }}
-                    >
-                      Cancel Batch
-                    </button>
-                    <button
-                      onClick={handleMarkAsFunded}
-                      disabled={isFunding}
-                      className="btn-primary flex items-center gap-2"
-                    >
-                      {isFunding ? (
-                        <>
-                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          Mark as Funded
-                        </>
-                      )}
-                    </button>
+                    {canProcess && (
+                      <button
+                        onClick={() => handleCancelBatch(selectedBatch.id)}
+                        className="btn-secondary text-sm"
+                        style={{ color: 'var(--error)' }}
+                      >
+                        Cancel Batch
+                      </button>
+                    )}
+                    {canFundDraws && (
+                      <button
+                        onClick={handleMarkAsFunded}
+                        disabled={isFunding}
+                        className="btn-primary flex items-center gap-2"
+                      >
+                        {isFunding ? (
+                          <>
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Mark as Funded
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </>
               )}

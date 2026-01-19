@@ -309,6 +309,20 @@ export async function PATCH(
       return NextResponse.json({ success: true, funded_at: fundedAt })
 
     } else if (action === 'cancel') {
+      // Verify user has processor permission
+      const user = await getAuthenticatedUser()
+      if (!user) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      }
+
+      const hasProcessorPermission = await checkPermission(user.id, 'processor')
+      if (!hasProcessorPermission) {
+        return NextResponse.json(
+          { error: 'Permission denied: processor permission required to cancel batch' },
+          { status: 403 }
+        )
+      }
+
       // Cancel wire batch
       const { error: batchError } = await supabaseAdmin
         .from('wire_batches')
