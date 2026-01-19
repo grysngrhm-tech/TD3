@@ -204,12 +204,8 @@ function LoginContent() {
       // Use session check as primary indicator, fall back to user check
       if (data.session || data.user) {
         toast.success('Signed in successfully')
-        // Use replace to ensure navigation happens, with fallback
-        router.replace(redirectTo)
-        // Fallback: if router.replace doesn't trigger navigation, use window.location
-        setTimeout(() => {
-          window.location.href = redirectTo
-        }, 500)
+        // Use hard redirect for reliability after auth state change
+        window.location.href = redirectTo
       } else {
         // Edge case: no error but also no session - shouldn't happen but handle gracefully
         console.warn('Verification returned no error but no session:', data)
