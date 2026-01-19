@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
@@ -12,9 +12,49 @@ export function FirstLoginModal() {
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
   const [saving, setSaving] = useState(false)
+  const [isCreatingProfile, setIsCreatingProfile] = useState(false)
+  const [profileCreationFailed, setProfileCreationFailed] = useState(false)
 
-  // Show modal if user is logged in and hasn't completed first login
-  const isOpen = !!user && !!profile && !profile.first_login_completed
+  // If user exists but profile doesn't, attempt to create it
+  useEffect(() => {
+    if (user && !profile && !isCreatingProfile && !profileCreationFailed) {
+      setIsCreatingProfile(true)
+
+      const createProfile = async () => {
+        try {
+          const { error } = await supabase
+            .from('profiles')
+            .upsert(
+              { id: user.id, email: user.email },
+              { onConflict: 'id', ignoreDuplicates: true }
+            )
+
+          if (error) {
+            console.error('Failed to create profile in modal:', error)
+            setProfileCreationFailed(true)
+          } else {
+            // Profile created, refresh to get it
+            await refreshProfile()
+          }
+        } catch (err) {
+          console.error('Error creating profile in modal:', err)
+          setProfileCreationFailed(true)
+        } finally {
+          setIsCreatingProfile(false)
+        }
+      }
+
+      createProfile()
+    }
+  }, [user, profile, isCreatingProfile, profileCreationFailed, refreshProfile])
+
+  // Show modal if:
+  // 1. User is logged in AND profile exists AND first login not completed, OR
+  // 2. User is logged in AND profile doesn't exist (we're creating it)
+  const isOpen = !!user && (
+    (!!profile && !profile.first_login_completed) ||
+    (!profile && !profileCreationFailed)
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -86,64 +126,74 @@ export function FirstLoginModal() {
                   </Dialog.Description>
                 </div>
 
-                {/* Form */}
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                  <div>
-                    <label
-                      htmlFor="fullName"
-                      className="block text-sm font-medium mb-1.5"
-                      style={{ color: 'var(--text-secondary)' }}
-                    >
-                      Full Name <span style={{ color: 'var(--error)' }}>*</span>
-                    </label>
-                    <input
-                      id="fullName"
-                      type="text"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="Your full name"
-                      className="input-ios w-full"
-                      autoFocus
-                      disabled={saving}
+                {/* Content - Loading state or Form */}
+                {isCreatingProfile || !profile ? (
+                  <div className="p-6 flex flex-col items-center justify-center py-12">
+                    <div
+                      className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent mb-4"
+                      style={{ borderColor: 'var(--accent)' }}
                     />
+                    <p style={{ color: 'var(--text-muted)' }}>Setting up your account...</p>
                   </div>
+                ) : (
+                  <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    <div>
+                      <label
+                        htmlFor="fullName"
+                        className="block text-sm font-medium mb-1.5"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        Full Name <span style={{ color: 'var(--error)' }}>*</span>
+                      </label>
+                      <input
+                        id="fullName"
+                        type="text"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="Your full name"
+                        className="input-ios w-full"
+                        autoFocus
+                        disabled={saving}
+                      />
+                    </div>
 
-                  <div>
-                    <label
-                      htmlFor="phone"
-                      className="block text-sm font-medium mb-1.5"
-                      style={{ color: 'var(--text-secondary)' }}
-                    >
-                      Phone Number <span style={{ color: 'var(--text-muted)' }}>(optional)</span>
-                    </label>
-                    <input
-                      id="phone"
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="(555) 123-4567"
-                      className="input-ios w-full"
-                      disabled={saving}
-                    />
-                  </div>
+                    <div>
+                      <label
+                        htmlFor="phone"
+                        className="block text-sm font-medium mb-1.5"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        Phone Number <span style={{ color: 'var(--text-muted)' }}>(optional)</span>
+                      </label>
+                      <input
+                        id="phone"
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="(555) 123-4567"
+                        className="input-ios w-full"
+                        disabled={saving}
+                      />
+                    </div>
 
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={saving}
-                      className="btn-primary w-full flex items-center justify-center gap-2"
-                    >
-                      {saving ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent border-white" />
-                          Saving...
-                        </>
-                      ) : (
-                        'Get Started'
-                      )}
-                    </button>
-                  </div>
-                </form>
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        disabled={saving}
+                        className="btn-primary w-full flex items-center justify-center gap-2"
+                      >
+                        {saving ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent border-white" />
+                            Saving...
+                          </>
+                        ) : (
+                          'Get Started'
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                )}
               </motion.div>
             </Dialog.Content>
           </Dialog.Portal>
