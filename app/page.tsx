@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 import { FilterSidebar } from '@/app/components/ui/FilterSidebar'
 import { ProjectTile } from '@/app/components/ui/ProjectTile'
 import { StageSelector } from '@/app/components/ui/StageSelector'
@@ -52,6 +52,7 @@ export default function Dashboard() {
   const [builders, setBuilders] = useState<Builder[]>([])
   const [lenders, setLenders] = useState<Lender[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [selectedStage, setSelectedStage] = useState<LifecycleStage>('active')
   const { filters, toggleFilter, clearAll, clearSection } = useFilters()
 
@@ -69,6 +70,9 @@ export default function Dashboard() {
   }, [authLoading])
 
   async function loadData() {
+    const supabase = createSupabaseBrowserClient()
+    setError(null)
+
     try {
       // Fetch builders
       const { data: buildersRaw } = await supabase
@@ -150,8 +154,9 @@ export default function Dashboard() {
       )
 
       setProjects(projectsWithBudgets)
-    } catch (error) {
-      console.error('Error loading data:', error)
+    } catch (err) {
+      console.error('Error loading data:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load data')
     } finally {
       setLoading(false)
     }
@@ -314,6 +319,36 @@ export default function Dashboard() {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)' }} />
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
+        <div className="text-center">
+          <div
+            className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
+            style={{ background: 'var(--error-muted)' }}
+          >
+            <svg className="w-8 h-8" style={{ color: 'var(--error)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+            Error loading data
+          </h3>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+            {error}
+          </p>
+          <button
+            onClick={() => { setLoading(true); loadData(); }}
+            className="btn-primary"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     )
   }
