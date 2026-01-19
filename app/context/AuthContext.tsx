@@ -105,59 +105,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function initializeAuth() {
       try {
-        console.log('[Auth] Starting auth initialization...')
+        // Get initial session - uses getSession() which reads from storage
+        // This is faster and doesn't require a network call
+        const { data: { session } } = await supabase.auth.getSession()
 
-        // Use getUser() instead of getSession() to validate the session with the server
-        // This ensures the session is actually valid, especially after magic link login
-        const { data: { user: authUser }, error: userError } = await supabase.auth.getUser()
+        if (session?.user && mounted) {
+          setUser(session.user)
 
-        console.log('[Auth] getUser result:', { hasUser: !!authUser, error: userError?.message })
+          // Fetch profile and permissions in parallel
+          const [fetchedProfile, fetchedPermissions] = await Promise.all([
+            fetchProfile(session.user.id),
+            fetchPermissions(session.user.id)
+          ])
 
-        if (userError) {
-          console.error('[Auth] Error getting user:', userError.message)
-          // Session invalid or expired - clear state
           if (mounted) {
-            setUser(null)
-            setProfile(null)
-            setPermissions([])
-          }
-          return
-        }
-
-        if (authUser && mounted) {
-          setUser(authUser)
-          console.log('[Auth] User set, fetching profile and permissions...')
-
-          // Fetch profile and permissions in parallel with timeout
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Profile/permissions fetch timeout')), 10000)
-          )
-
-          try {
-            const [fetchedProfile, fetchedPermissions] = await Promise.race([
-              Promise.all([
-                fetchProfile(authUser.id),
-                fetchPermissions(authUser.id)
-              ]),
-              timeoutPromise
-            ]) as [typeof profile, typeof permissions]
-
-            console.log('[Auth] Profile fetched:', { hasProfile: !!fetchedProfile })
-            console.log('[Auth] Permissions fetched:', fetchedPermissions?.length || 0)
-
-            if (mounted) {
-              setProfile(fetchedProfile)
-              setPermissions(fetchedPermissions)
-            }
-          } catch (fetchErr) {
-            console.error('[Auth] Error fetching profile/permissions:', fetchErr)
-            // Continue anyway - user is authenticated, just missing profile data
+            setProfile(fetchedProfile)
+            setPermissions(fetchedPermissions)
           }
         }
       } catch (err) {
-        console.error('[Auth] Error initializing auth:', err)
+        console.error('Error initializing auth:', err)
       } finally {
-        console.log('[Auth] Initialization complete, setting isLoading=false')
         if (mounted) {
           setIsLoading(false)
         }
@@ -166,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initializeAuth()
 
-    // Listen for auth changes
+    // Listen for auth changes - this handles login, logout, token refresh
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return
