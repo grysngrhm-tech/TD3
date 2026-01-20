@@ -7,9 +7,9 @@ export default function AuthLayout({
 }) {
   return (
     <div
-      className="min-h-screen flex items-center justify-center"
+      className="min-h-screen"
       style={{
-        background: 'linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%)',
+        background: 'var(--bg-primary)',
       }}
     >
       {children}
