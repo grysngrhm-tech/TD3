@@ -59,7 +59,10 @@
       "Bash(git remote set-url:*)",
       "Bash(gh repo sync:*)",
       "Bash(ssh:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "WebSearch",
+      "Bash(npm run lint)",
+      "Bash(cat:*)"
     ]
   },
   "enabledMcpjsonServers": [
