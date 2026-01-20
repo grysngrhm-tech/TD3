@@ -51,9 +51,9 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
             </p>
           </motion.div>
 
-          {/* Workflow Pipeline */}
+          {/* Workflow Pipeline - receives unbounded progress for extended animations */}
           <div className="mb-8 md:mb-12">
-            <WorkflowPipeline progress={pipelineProgress} />
+            <WorkflowPipeline progress={progress} />
           </div>
 
           {/* Feature highlights */}

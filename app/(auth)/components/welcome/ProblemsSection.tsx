@@ -96,9 +96,9 @@ export const ProblemsSection = forwardRef<HTMLElement, ProblemsSectionProps>(
                     transform: `translateY(${(1 - Math.min(1, colProgress * 2)) * 30}px)`,
                   }}
                 >
-                  {/* Visual */}
+                  {/* Visual - receives unbounded progress for extended animations */}
                   <div className="mb-6">
-                    <Visual progress={colProgress} />
+                    <Visual progress={progress} />
                   </div>
 
                   {/* Title */}
