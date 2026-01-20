@@ -13,9 +13,10 @@ Complete documentation for the TD3 authentication system, including architecture
 5. [Supabase Configuration](#supabase-configuration)
 6. [Email Templates](#email-templates)
 7. [UI Permission Gating](#ui-permission-gating)
-8. [Common Issues & Troubleshooting](#common-issues--troubleshooting)
-9. [Emergency Procedures](#emergency-procedures)
-10. [Development Guidelines](#development-guidelines)
+8. [Account Settings & Activity Tracking](#account-settings--activity-tracking)
+9. [Common Issues & Troubleshooting](#common-issues--troubleshooting)
+10. [Emergency Procedures](#emergency-procedures)
+11. [Development Guidelines](#development-guidelines)
 
 ---
 
@@ -163,7 +164,10 @@ OTP codes are immune to email scanners because:
 │  12. First login? Show FirstLoginModal for profile               │
 │      │                                                            │
 │      ▼                                                            │
-│  13. User is authenticated and on original destination           │
+│  13. Login activity logged (device, browser, IP, geolocation)    │
+│      │                                                            │
+│      ▼                                                            │
+│  14. User is authenticated and on original destination           │
 │                                                                   │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -210,6 +214,8 @@ if (data.session || data.user) {
 | `app/context/AuthContext.tsx` | Global auth state provider | `useAuth`, `AuthProvider` |
 | `app/components/auth/FirstLoginModal.tsx` | Profile completion modal | Profile form on first login |
 | `app/components/auth/PermissionGate.tsx` | Conditional render by permission | `PermissionGate`, `useHasPermission` |
+| `app/account/page.tsx` | Account settings with tabs | Profile, Preferences, Activity |
+| `app/api/activity/login/route.ts` | Login activity logging API | IP extraction, geolocation |
 | `middleware.ts` | Route protection | Session check, redirects |
 
 ### Supabase Client Files
@@ -223,6 +229,8 @@ if (data.session || data.user) {
 | File | Purpose |
 |------|---------|
 | `supabase/004_auth.sql` | Auth schema, RLS policies, helper functions |
+| `supabase/005_user_preferences.sql` | User preferences JSONB column |
+| `supabase/006_user_activity.sql` | Activity tracking table with RLS |
 
 ---
 
@@ -456,6 +464,72 @@ if (canProcess) {
 2. **Test with processor permission:**
    - All create/edit pages should load normally
    - All action buttons should be visible
+
+---
+
+## Account Settings & Activity Tracking
+
+TD3 provides a comprehensive Account Settings page at `/account` with four tabs:
+
+### Tab Structure
+
+| Tab | Access | Content |
+|-----|--------|---------|
+| Profile | All users | Name, phone editing |
+| Preferences | All users | Theme, font size, reduced motion, default dashboard |
+| Activity | All users | User's own login and action history |
+| All Activity | `users.manage` only | Global activity feed with filters |
+
+### User Preferences
+
+Stored in `profiles.preferences` JSONB column:
+
+```typescript
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'system'      // Default: 'light'
+  fontSize: 'small' | 'medium' | 'large'  // Default: 'medium'
+  reducedMotion: boolean                   // Default: false
+  defaultDashboard: 'portfolio' | 'draws'  // Default: 'portfolio'
+}
+```
+
+Preferences are loaded from the database and applied via CSS classes on `<html>`:
+- Font size: `.font-size-small`, `.font-size-medium`, `.font-size-large`
+- Reduced motion: `.reduced-motion` (disables animations)
+
+### Activity Tracking
+
+Login events are automatically logged with metadata:
+- Device type (desktop/mobile/tablet)
+- Browser and OS
+- IP address
+- City and country (via IP geolocation)
+
+**Key Files:**
+- `lib/activity.ts` - Activity logging functions (fire-and-forget pattern)
+- `lib/preferences.ts` - Preference load/save functions
+- `lib/deviceInfo.ts` - User agent parsing
+- `app/api/activity/login/route.ts` - Server-side login logging with IP extraction
+- `app/account/components/` - Tab components
+
+### Activity Feed
+
+The activity feed shows:
+- **Login events**: Device icon, browser, OS, location badge
+- **Entity mutations**: Action type icon, entity label, description, clickable link
+
+**Activity Types:**
+`login`, `created`, `updated`, `deleted`, `funded`, `approved`, `rejected`, `staged`, `submitted`, `exported`
+
+**Entity Types:**
+`project`, `draw_request`, `wire_batch`, `budget`, `builder`, `invoice`, `user`, `allowlist`
+
+### Header Integration
+
+The header dropdown now shows:
+1. **Account Settings** → Links to `/account`
+2. **Manage Users** (admin only) → Links to `/admin/users`
+3. **Sign Out**
 
 ---
 
@@ -896,6 +970,9 @@ Before deploying auth changes:
 | 2026-01-18 | Move profile editing to header dropdown | Replace FirstLoginModal with always-available option |
 | 2026-01-19 | Fix auth timeout during client-side navigation | Use module-level singleton, prevent redundant init with refs |
 | 2026-01-19 | Convert internal `<a href>` links to Next.js `<Link>` | Prevent full page reloads during navigation |
+| 2026-01-19 | Add Account Settings page at /account | Profile, preferences, activity in one place |
+| 2026-01-19 | Add user_activity table and login tracking | Security auditing with device/location metadata |
+| 2026-01-19 | Add user preferences JSONB column | Theme, font size, reduced motion, default dashboard |
 
 ---
 

@@ -3,11 +3,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter, usePathname } from 'next/navigation'
-import * as Dialog from '@radix-ui/react-dialog'
+import Link from 'next/link'
 import { NavBackButton } from './NavBackButton'
 import { SmartLogo } from './SmartLogo'
 import { ThemeToggle } from './ThemeToggle'
-import { toast } from './Toast'
 import { useAuth } from '@/app/context/AuthContext'
 import { useHasPermission } from '@/app/components/auth/PermissionGate'
 import { supabase } from '@/lib/supabase'
@@ -24,12 +23,9 @@ const AUTH_ROUTES = ['/login', '/auth/callback']
  */
 export function Header() {
   const pathname = usePathname()
-  const { user, profile, signOut, isLoading, refreshProfile } = useAuth()
+  const { user, profile, signOut, isLoading } = useAuth()
   const canManageUsers = useHasPermission('users.manage')
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
-  const [profileForm, setProfileForm] = useState({ fullName: '', phone: '' })
-  const [isSaving, setIsSaving] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
@@ -90,54 +86,12 @@ export function Header() {
     window.location.href = '/login'
   }
 
-  const handleNavigateToAdmin = () => {
+  const handleNavigate = (path: string) => {
     setIsMenuOpen(false)
-    router.push('/admin/users')
-  }
-
-  const handleOpenProfileModal = () => {
-    setIsMenuOpen(false)
-    setProfileForm({
-      fullName: profile?.full_name || '',
-      phone: profile?.phone || '',
-    })
-    setIsProfileModalOpen(true)
-  }
-
-  const handleSaveProfile = async () => {
-    if (!user) return
-
-    setIsSaving(true)
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: profileForm.fullName.trim() || null,
-          phone: profileForm.phone.trim() || null,
-          first_login_completed: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user.id)
-
-      if (error) {
-        console.error('Error updating profile:', error)
-        toast.error('Failed to update profile')
-        return
-      }
-
-      await refreshProfile()
-      toast.success('Profile updated')
-      setIsProfileModalOpen(false)
-    } catch (err) {
-      console.error('Error saving profile:', err)
-      toast.error('An error occurred')
-    } finally {
-      setIsSaving(false)
-    }
+    router.push(path)
   }
 
   return (
-    <>
     <motion.nav
       className="fixed top-0 left-0 right-0 z-header flex items-center px-4"
       style={{
@@ -212,9 +166,21 @@ export function Header() {
 
                   {/* Menu Items */}
                   <div className="py-1">
+                    <button
+                      onClick={() => handleNavigate('/account')}
+                      className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-[var(--bg-hover)]"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      Account Settings
+                    </button>
+
                     {canManageUsers && (
                       <button
-                        onClick={handleNavigateToAdmin}
+                        onClick={() => handleNavigate('/admin/users')}
                         className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-[var(--bg-hover)]"
                         style={{ color: 'var(--text-primary)' }}
                       >
@@ -225,16 +191,7 @@ export function Header() {
                       </button>
                     )}
 
-                    <button
-                      onClick={handleOpenProfileModal}
-                      className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-[var(--bg-hover)]"
-                      style={{ color: 'var(--text-primary)' }}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                      Edit Profile
-                    </button>
+                    <div className="my-1 border-t" style={{ borderColor: 'var(--border-subtle)' }} />
 
                     <button
                       onClick={handleSignOut}
@@ -325,84 +282,5 @@ export function Header() {
         )}
       </div>
     </motion.nav>
-
-    {/* Profile Edit Modal */}
-    <Dialog.Root open={isProfileModalOpen} onOpenChange={setIsProfileModalOpen}>
-      <Dialog.Portal>
-        <Dialog.Overlay
-          className="fixed inset-0 z-50"
-          style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
-        />
-        <Dialog.Content
-          className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md rounded-ios p-6"
-          style={{
-            background: 'var(--bg-card)',
-            boxShadow: 'var(--elevation-4)',
-          }}
-        >
-          <Dialog.Title className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-            Edit Profile
-          </Dialog.Title>
-
-          <div className="space-y-4">
-            <div>
-              <label
-                htmlFor="profile-name"
-                className="block text-sm font-medium mb-1.5"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                Full Name
-              </label>
-              <input
-                id="profile-name"
-                type="text"
-                value={profileForm.fullName}
-                onChange={(e) => setProfileForm(prev => ({ ...prev, fullName: e.target.value }))}
-                placeholder="Your full name"
-                className="input-ios w-full"
-                autoFocus
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="profile-phone"
-                className="block text-sm font-medium mb-1.5"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                Phone Number
-              </label>
-              <input
-                id="profile-phone"
-                type="tel"
-                value={profileForm.phone}
-                onChange={(e) => setProfileForm(prev => ({ ...prev, phone: e.target.value }))}
-                placeholder="(555) 123-4567"
-                className="input-ios w-full"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 mt-6">
-            <Dialog.Close asChild>
-              <button className="btn-ghost" disabled={isSaving}>
-                Cancel
-              </button>
-            </Dialog.Close>
-            <button
-              onClick={handleSaveProfile}
-              disabled={isSaving}
-              className="btn-primary flex items-center gap-2"
-            >
-              {isSaving && (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              )}
-              {isSaving ? 'Saving...' : 'Save'}
-            </button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
-    </>
   )
 }
