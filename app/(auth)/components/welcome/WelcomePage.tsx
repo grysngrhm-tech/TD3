@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { HeroSection } from './HeroSection'
-import { StickyNav } from './StickyNav'
 import { ProblemsSection } from './ProblemsSection'
 import { SolutionsSection } from './SolutionsSection'
 import { WorkflowSection } from './WorkflowSection'
@@ -57,8 +56,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
   const solutionsUnpinnedRef = useRef(false)
   const workflowUnpinnedRef = useRef(false)
 
-  // Detect mobile/touch devices for fallback behavior
-  const [isMobile, setIsMobile] = useState(false)
+  // Detect reduced motion preference
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
 
   // Current section for progress indicator
@@ -66,33 +64,24 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
   const [showProgressIndicator, setShowProgressIndicator] = useState(false)
 
   useEffect(() => {
-    // Check for mobile and reduced motion preferences
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768 || 'ontouchstart' in window)
-    }
-
     const checkReducedMotion = () => {
       setPrefersReducedMotion(
         window.matchMedia('(prefers-reduced-motion: reduce)').matches
       )
     }
-
-    checkMobile()
     checkReducedMotion()
 
-    window.addEventListener('resize', checkMobile)
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
     motionQuery.addEventListener('change', checkReducedMotion)
 
     return () => {
-      window.removeEventListener('resize', checkMobile)
       motionQuery.removeEventListener('change', checkReducedMotion)
     }
   }, [])
 
   useEffect(() => {
-    // Skip ScrollTrigger on mobile or when user prefers reduced motion
-    if (isMobile || prefersReducedMotion) {
+    // Skip ScrollTrigger when user prefers reduced motion
+    if (prefersReducedMotion) {
       // Set all progress to 1 for static display
       setProblemsProgress(1)
       setSolutionsProgress(1)
@@ -179,13 +168,13 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
       ctx.revert()
       window.removeEventListener('resize', handleResize)
     }
-  }, [isMobile, prefersReducedMotion])
+  }, [prefersReducedMotion])
 
   // Extended progress tracking - continues past 1 based on actual element position in viewport
   // This is the KEY fix: use getBoundingClientRect to track how much of the element
   // has scrolled off the top of the viewport, not scroll position deltas
   useEffect(() => {
-    if (isMobile || prefersReducedMotion) return
+    if (prefersReducedMotion) return
 
     const handleExtendedProgress = () => {
       // For each section that has unpinned, calculate extended progress based on
@@ -246,11 +235,11 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
 
     window.addEventListener('scroll', handleExtendedProgress, { passive: true })
     return () => window.removeEventListener('scroll', handleExtendedProgress)
-  }, [isMobile, prefersReducedMotion])
+  }, [prefersReducedMotion])
 
-  // Mobile fallback: use Intersection Observer for simple fade-in animations
+  // Reduced motion fallback: use Intersection Observer for simple fade-in animations
   useEffect(() => {
-    if (!isMobile && !prefersReducedMotion) return
+    if (!prefersReducedMotion) return
 
     const observerOptions = {
       threshold: 0.2,
@@ -303,7 +292,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
     }
 
     return () => observer.disconnect()
-  }, [isMobile, prefersReducedMotion])
+  }, [prefersReducedMotion])
 
   // Track current section and show/hide progress indicator
   useEffect(() => {
@@ -346,15 +335,9 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
 
   return (
     <div className="relative">
-      {/* Sticky Navigation */}
-      <StickyNav
-        showAfterScroll={500}
-        redirectTo={redirectTo}
-      />
-
-      {/* Scroll Progress Indicator - Desktop only */}
+      {/* Scroll Progress Indicator */}
       <AnimatePresence>
-        {showProgressIndicator && !isMobile && (
+        {showProgressIndicator && (
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -409,7 +392,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
       />
 
       {/* Problems Section */}
-      {isMobile || prefersReducedMotion ? (
+      {prefersReducedMotion ? (
         <ProblemsSection
           ref={problemsRef}
           progress={problemsProgress}
@@ -424,7 +407,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
       )}
 
       {/* Solutions Section */}
-      {isMobile || prefersReducedMotion ? (
+      {prefersReducedMotion ? (
         <SolutionsSection
           ref={solutionsRef}
           progress={solutionsProgress}
@@ -439,7 +422,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
       )}
 
       {/* Workflow Section */}
-      {isMobile || prefersReducedMotion ? (
+      {prefersReducedMotion ? (
         <WorkflowSection
           ref={workflowRef}
           progress={workflowProgress}
