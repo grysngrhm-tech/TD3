@@ -9,16 +9,16 @@ interface AutomationFlowProps {
 
 export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowProps) {
   // All values derived from scroll progress - no time-based state
-  // Progress can exceed 1 as user scrolls past
+  // Progress can exceed 1 as user scrolls past - positive accumulation continues
 
-  // Processing counter grows with scroll
-  const processedCount = Math.floor(progress * 500)
+  // Processing counter grows with scroll - accelerates past progress=1
+  const growthMultiplier = progress > 1 ? 1 + (progress - 1) * 0.5 : 1
+  const processedCount = Math.floor(progress * 500 * growthMultiplier)
 
-  // Current step based on progress
-  const currentStep = Math.min(Math.floor(progress * 3), 2)
+  // Current step based on progress (completes by progress=1)
+  const currentStep = Math.min(Math.floor(Math.min(progress, 1) * 3), 2)
 
-  // At high progress, elements expand outward
-  const deconstructAmount = Math.max(0, (progress - 0.8) * 5)
+  // NO deconstruction for Solutions section - keeps positive, contained appearance
 
   const steps = [
     { icon: 'upload', label: 'Upload', colorVar: '--info' },
@@ -32,13 +32,7 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
 
   return (
     <div className={`relative w-full h-28 md:h-32 flex items-center justify-center ${className}`}>
-      <div
-        className="flex items-center gap-2 md:gap-4"
-        style={{
-          // Expand horizontally at high progress
-          transform: `scaleX(${1 + deconstructAmount * 0.3})`,
-        }}
-      >
+      <div className="flex items-center gap-2 md:gap-4">
         {steps.map((step, index) => {
           const isActive = index <= currentStep
           const isCurrent = index === currentStep
@@ -155,7 +149,6 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
           color: 'var(--success)',
           fontVariantNumeric: 'tabular-nums',
           opacity: progress > 0.4 ? 1 : Math.max(0, (progress - 0.2) * 5),
-          transform: `scale(${1 + deconstructAmount * 0.2})`,
         }}
       >
         {processedCount.toLocaleString()} processed
@@ -185,29 +178,6 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
         </span>
       </div>
 
-      {/* At high progress, extra elements drift outward */}
-      {deconstructAmount > 0 && (
-        <>
-          <div
-            className="absolute w-8 h-8 rounded-lg"
-            style={{
-              background: 'var(--info-muted)',
-              border: '1px solid var(--info)',
-              transform: `translate(${-100 - deconstructAmount * 40}px, ${-10}px)`,
-              opacity: Math.min(0.5, deconstructAmount),
-            }}
-          />
-          <div
-            className="absolute w-6 h-6 rounded-lg"
-            style={{
-              background: 'var(--success-muted)',
-              border: '1px solid var(--success)',
-              transform: `translate(${100 + deconstructAmount * 40}px, ${10}px)`,
-              opacity: Math.min(0.5, deconstructAmount),
-            }}
-          />
-        </>
-      )}
     </div>
   )
 }

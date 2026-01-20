@@ -51,24 +51,18 @@ export function WorkflowPipeline({ progress = 0, className = '' }: WorkflowPipel
   // All values derived from scroll progress - no time-based state
   // Progress can exceed 1 as user scrolls past
 
-  // Calculate which step is active based on progress
-  const activeStepIndex = Math.min(Math.floor(progress * 4), 3)
-  const stepProgress = (progress * 4) % 1
+  // Calculate which step is active based on progress (completes by progress=1)
+  const boundedProgress = Math.min(progress, 1)
+  const activeStepIndex = Math.min(Math.floor(boundedProgress * 4), 3)
+  const stepProgress = (boundedProgress * 4) % 1
 
-  // At high progress, pipeline expands
-  const deconstructAmount = Math.max(0, (progress - 0.85) * 6)
+  // NO deconstruction for Workflow section - stays clean and professional
 
   return (
     <div className={`relative w-full max-w-3xl mx-auto ${className}`}>
       {/* Desktop: Horizontal layout */}
       <div className="hidden md:block">
-        <div
-          className="flex items-start justify-between"
-          style={{
-            // Expand horizontally at high progress
-            transform: `scaleX(${1 + deconstructAmount * 0.15})`,
-          }}
-        >
+        <div className="flex items-start justify-between">
           {steps.map((step, index) => {
             const isActive = index <= activeStepIndex
             const isCurrent = index === activeStepIndex
@@ -142,7 +136,6 @@ export function WorkflowPipeline({ progress = 0, className = '' }: WorkflowPipel
                         className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center"
                         style={{
                           background: `var(${step.colorVar})`,
-                          transform: `scale(${1 + deconstructAmount * 0.3})`,
                         }}
                       >
                         <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
