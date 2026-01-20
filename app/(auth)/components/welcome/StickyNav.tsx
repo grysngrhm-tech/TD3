@@ -61,7 +61,7 @@ export function StickyNav({ showAfterScroll = 100, redirectTo = '/' }: StickyNav
                   className="font-semibold hidden sm:inline"
                   style={{ color: 'var(--text-primary)' }}
                 >
-                  TD3
+                  Tennant Developments
                 </span>
               </button>
 

@@ -84,25 +84,98 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
               className="text-sm"
               style={{ color: 'var(--text-muted)' }}
             >
-              Trusted by Tennant Development
+              Trusted by Tennant Developments
             </p>
           </motion.div>
         </div>
 
-        {/* Footer */}
+        {/* Rich Footer */}
         <motion.footer
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="absolute bottom-8 left-0 right-0 text-center"
+          className="w-full mt-16 pt-12 pb-8 border-t"
+          style={{ borderColor: 'var(--border-subtle)' }}
         >
-          <p
-            className="text-xs"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            © {new Date().getFullYear()} TD3 • Construction Draw Management
-          </p>
+          <div className="max-w-5xl mx-auto px-4">
+            <div className="grid md:grid-cols-3 gap-8 mb-8">
+              {/* TD3 Column */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={{ background: 'var(--accent)' }}
+                  >
+                    <span className="text-sm font-bold text-white">TD3</span>
+                  </div>
+                  <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    TD3
+                  </span>
+                </div>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  Construction finance management platform. One system for loans, budgets, draws, and wire transfers.
+                </p>
+              </div>
+
+              {/* Tennant Developments Column */}
+              <div>
+                <h4 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
+                  Tennant Developments
+                </h4>
+                <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
+                  Real estate development in Central Oregon. Master planned communities, construction finance, and commercial properties.
+                </p>
+                <a
+                  href="https://tennantdevelopments.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm font-medium hover:underline"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  tennantdevelopments.com
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              </div>
+
+              {/* Learn More Column */}
+              <div>
+                <h4 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
+                  Learn More
+                </h4>
+                <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
+                  Read the documentation to learn how TD3 works, its architecture, and capabilities.
+                </p>
+                <a
+                  href="https://github.com/grysngrhm-tech/TD3#readme"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm font-medium hover:underline"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  Documentation
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+
+            {/* Bottom bar */}
+            <div
+              className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 border-t"
+              style={{ borderColor: 'var(--border-subtle)' }}
+            >
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                © {new Date().getFullYear()} TD3 by Tennant Developments. All rights reserved.
+              </p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                Built by Grayson Graham
+              </p>
+            </div>
+          </div>
         </motion.footer>
       </section>
     )

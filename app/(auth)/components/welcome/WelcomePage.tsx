@@ -1,7 +1,8 @@
 'use client'
 
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { HeroSection } from './HeroSection'
@@ -15,6 +16,15 @@ import { CTASection } from './CTASection'
 if (typeof window !== 'undefined') {
   gsap.registerPlugin(ScrollTrigger)
 }
+
+// Section labels for progress indicator
+const SECTIONS = [
+  { id: 'hero', label: 'Start' },
+  { id: 'problems', label: 'Challenge' },
+  { id: 'solutions', label: 'Solution' },
+  { id: 'workflow', label: 'Workflow' },
+  { id: 'cta', label: 'Get Started' },
+]
 
 interface WelcomePageProps {
   redirectTo?: string
@@ -44,6 +54,10 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
   // Detect mobile/touch devices for fallback behavior
   const [isMobile, setIsMobile] = useState(false)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+
+  // Current section for progress indicator
+  const [currentSection, setCurrentSection] = useState(0)
+  const [showProgressIndicator, setShowProgressIndicator] = useState(false)
 
   useEffect(() => {
     // Check for mobile and reduced motion preferences
@@ -81,45 +95,45 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
     }
 
     const ctx = gsap.context(() => {
-      // Problems Section - Pinned
+      // Problems Section - Pinned (tighter scroll, smoother scrub)
       if (problemsContainerRef.current && problemsRef.current) {
         ScrollTrigger.create({
           trigger: problemsContainerRef.current,
           start: 'top top',
-          end: '+=200%',
+          end: '+=120%',
           pin: problemsRef.current,
           pinSpacing: true,
-          scrub: 1,
+          scrub: 0.5,
           onUpdate: (self) => {
             setProblemsProgress(self.progress)
           },
         })
       }
 
-      // Solutions Section - Pinned
+      // Solutions Section - Pinned (tighter scroll, smoother scrub)
       if (solutionsContainerRef.current && solutionsRef.current) {
         ScrollTrigger.create({
           trigger: solutionsContainerRef.current,
           start: 'top top',
-          end: '+=200%',
+          end: '+=120%',
           pin: solutionsRef.current,
           pinSpacing: true,
-          scrub: 1,
+          scrub: 0.5,
           onUpdate: (self) => {
             setSolutionsProgress(self.progress)
           },
         })
       }
 
-      // Workflow Section - Pinned
+      // Workflow Section - Pinned (slightly longer for 4-step animation)
       if (workflowContainerRef.current && workflowRef.current) {
         ScrollTrigger.create({
           trigger: workflowContainerRef.current,
           start: 'top top',
-          end: '+=250%',
+          end: '+=150%',
           pin: workflowRef.current,
           pinSpacing: true,
-          scrub: 1,
+          scrub: 0.5,
           onUpdate: (self) => {
             setWorkflowProgress(self.progress)
           },
@@ -196,6 +210,45 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
     return () => observer.disconnect()
   }, [isMobile, prefersReducedMotion])
 
+  // Track current section and show/hide progress indicator
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY
+      const viewportHeight = window.innerHeight
+
+      // Show indicator after scrolling past hero
+      setShowProgressIndicator(scrollY > viewportHeight * 0.5)
+
+      // Determine current section based on scroll position
+      const refs = [heroRef, problemsRef, solutionsRef, workflowRef, ctaRef]
+
+      for (let i = refs.length - 1; i >= 0; i--) {
+        const ref = refs[i]
+        if (ref.current) {
+          const rect = ref.current.getBoundingClientRect()
+          if (rect.top <= viewportHeight * 0.5) {
+            setCurrentSection(i)
+            break
+          }
+        }
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    handleScroll()
+
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Scroll to section handler
+  const scrollToSection = useCallback((index: number) => {
+    const refs = [heroRef, problemsRef, solutionsRef, workflowRef, ctaRef]
+    const ref = refs[index]
+    if (ref.current) {
+      ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [])
+
   return (
     <div className="relative">
       {/* Sticky Navigation */}
@@ -203,6 +256,56 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
         showAfterScroll={500}
         redirectTo={redirectTo}
       />
+
+      {/* Scroll Progress Indicator - Desktop only */}
+      <AnimatePresence>
+        {showProgressIndicator && !isMobile && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3 }}
+            className="fixed right-6 top-1/2 -translate-y-1/2 z-40 hidden md:flex flex-col gap-3"
+          >
+            {SECTIONS.map((section, index) => (
+              <button
+                key={section.id}
+                onClick={() => scrollToSection(index)}
+                className="group relative flex items-center justify-end"
+                aria-label={`Go to ${section.label}`}
+              >
+                {/* Tooltip on hover */}
+                <span
+                  className="absolute right-6 text-xs font-medium whitespace-nowrap
+                             opacity-0 group-hover:opacity-100 transition-opacity duration-200
+                             px-2 py-1 rounded"
+                  style={{
+                    color: 'var(--text-secondary)',
+                    background: 'var(--bg-card)',
+                    boxShadow: 'var(--elevation-1)',
+                  }}
+                >
+                  {section.label}
+                </span>
+                {/* Dot */}
+                <motion.div
+                  className="rounded-full transition-all duration-300"
+                  style={{
+                    width: index === currentSection ? 10 : 6,
+                    height: index === currentSection ? 10 : 6,
+                    background: index === currentSection
+                      ? 'var(--accent)'
+                      : index < currentSection
+                        ? 'var(--text-muted)'
+                        : 'var(--border)',
+                  }}
+                  whileHover={{ scale: 1.5 }}
+                />
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hero Section */}
       <HeroSection

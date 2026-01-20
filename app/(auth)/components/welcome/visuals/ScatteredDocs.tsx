@@ -21,7 +21,7 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
   ]
 
   return (
-    <div className={`relative w-full h-48 md:h-64 ${className}`}>
+    <div className={`relative w-full h-36 md:h-44 ${className}`}>
       {/* Central chaos indicator - using error color from design system */}
       <motion.div
         className="absolute inset-0 flex items-center justify-center"
