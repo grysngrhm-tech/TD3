@@ -52,14 +52,10 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
   const [workflowProgress, setWorkflowProgress] = useState(0)
 
   // Track when each section has completed its pinned phase (reached progress 1)
+  // This flag tells us when to start using getBoundingClientRect for extended progress
   const problemsUnpinnedRef = useRef(false)
   const solutionsUnpinnedRef = useRef(false)
   const workflowUnpinnedRef = useRef(false)
-
-  // Store the scroll position when section unpinned
-  const problemsUnpinScrollRef = useRef(0)
-  const solutionsUnpinScrollRef = useRef(0)
-  const workflowUnpinScrollRef = useRef(0)
 
   // Detect mobile/touch devices for fallback behavior
   const [isMobile, setIsMobile] = useState(false)
@@ -106,6 +102,8 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
 
     const ctx = gsap.context(() => {
       // Problems Section - Pinned
+      // ScrollTrigger handles progress 0-1 during pin phase
+      // After progress=1, getBoundingClientRect takes over for extended progress
       if (problemsContainerRef.current && problemsRef.current) {
         ScrollTrigger.create({
           trigger: problemsContainerRef.current,
@@ -119,11 +117,9 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
               // During pinned phase: normal 0-1 progress
               problemsUnpinnedRef.current = false
               setProblemsProgress(self.progress)
-            } else if (!problemsUnpinnedRef.current) {
-              // Just unpinned - record scroll position
+            } else {
+              // Mark as unpinned - extended progress handled by scroll listener
               problemsUnpinnedRef.current = true
-              problemsUnpinScrollRef.current = window.scrollY
-              setProblemsProgress(1)
             }
           },
         })
@@ -142,10 +138,8 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
             if (self.progress < 1) {
               solutionsUnpinnedRef.current = false
               setSolutionsProgress(self.progress)
-            } else if (!solutionsUnpinnedRef.current) {
+            } else {
               solutionsUnpinnedRef.current = true
-              solutionsUnpinScrollRef.current = window.scrollY
-              setSolutionsProgress(1)
             }
           },
         })
@@ -164,10 +158,8 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
             if (self.progress < 1) {
               workflowUnpinnedRef.current = false
               setWorkflowProgress(self.progress)
-            } else if (!workflowUnpinnedRef.current) {
+            } else {
               workflowUnpinnedRef.current = true
-              workflowUnpinScrollRef.current = window.scrollY
-              setWorkflowProgress(1)
             }
           },
         })
@@ -186,46 +178,62 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
     }
   }, [isMobile, prefersReducedMotion])
 
-  // Extended progress tracking - continues past 1 as user scrolls
+  // Extended progress tracking - continues past 1 based on actual element position in viewport
+  // This is the KEY fix: use getBoundingClientRect to track how much of the element
+  // has scrolled off the top of the viewport, not scroll position deltas
   useEffect(() => {
     if (isMobile || prefersReducedMotion) return
 
     const handleExtendedProgress = () => {
-      const viewportHeight = window.innerHeight
-      const scrollY = window.scrollY
-
-      // Calculate extended progress for each section after it unpins
-      // Progress accelerates: every 300px of scroll past unpin = +0.5 progress (accelerating)
+      // For each section that has unpinned, calculate extended progress based on
+      // the element's actual position in the viewport using getBoundingClientRect()
+      //
+      // When rect.top < 0, the element has started scrolling off the top
+      // -rect.top = how much has scrolled off the top
+      // rect.height = total element height
+      // extendedProgress = 1 + (amountScrolledOff / elementHeight)
+      //
+      // This gives us progress 1→2 as element scrolls from fully visible to fully off-screen
 
       // Problems section extended progress
       if (problemsUnpinnedRef.current && problemsRef.current) {
         const rect = problemsRef.current.getBoundingClientRect()
-        // Only extend while section is still visible
+
+        // Element is still visible if rect.bottom > 0
         if (rect.bottom > 0) {
-          const scrollPast = scrollY - problemsUnpinScrollRef.current
-          // Accelerate: progress increases faster as you scroll more
-          const extendedProgress = 1 + (scrollPast / 250) * (1 + scrollPast / 1000)
-          setProblemsProgress(Math.max(1, extendedProgress))
+          // If element top has scrolled past viewport top (rect.top < 0)
+          if (rect.top < 0) {
+            // Calculate how much has scrolled off the top
+            const amountScrolledOff = -rect.top
+            // Normalize by element height to get exit progress (0 to 1)
+            const exitProgress = amountScrolledOff / rect.height
+            // Extended progress: 1 + exitProgress (goes from 1 toward 2)
+            setProblemsProgress(1 + exitProgress)
+          }
+          // If rect.top >= 0, element is still in pin position or just unpinned
+          // ScrollTrigger handles this case
         }
       }
 
       // Solutions section extended progress
       if (solutionsUnpinnedRef.current && solutionsRef.current) {
         const rect = solutionsRef.current.getBoundingClientRect()
-        if (rect.bottom > 0) {
-          const scrollPast = scrollY - solutionsUnpinScrollRef.current
-          const extendedProgress = 1 + (scrollPast / 250) * (1 + scrollPast / 1000)
-          setSolutionsProgress(Math.max(1, extendedProgress))
+
+        if (rect.bottom > 0 && rect.top < 0) {
+          const amountScrolledOff = -rect.top
+          const exitProgress = amountScrolledOff / rect.height
+          setSolutionsProgress(1 + exitProgress)
         }
       }
 
       // Workflow section extended progress
       if (workflowUnpinnedRef.current && workflowRef.current) {
         const rect = workflowRef.current.getBoundingClientRect()
-        if (rect.bottom > 0) {
-          const scrollPast = scrollY - workflowUnpinScrollRef.current
-          const extendedProgress = 1 + (scrollPast / 250) * (1 + scrollPast / 1000)
-          setWorkflowProgress(Math.max(1, extendedProgress))
+
+        if (rect.bottom > 0 && rect.top < 0) {
+          const amountScrolledOff = -rect.top
+          const exitProgress = amountScrolledOff / rect.height
+          setWorkflowProgress(1 + exitProgress)
         }
       }
     }
