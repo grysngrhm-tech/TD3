@@ -64,7 +64,8 @@
       "Bash(npm run lint)",
       "Bash(cat:*)",
       "WebFetch(domain:tennantdevelopments.com)",
-      "Bash(git remote:*)"
+      "Bash(git remote:*)",
+      "WebFetch(domain:gsap.com)"
     ]
   },
   "enabledMcpjsonServers": [
