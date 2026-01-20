@@ -237,9 +237,14 @@ flowchart TB
 
 ## Roadmap
 
-TD3 is fully functional for daily operations. Upcoming enhancements:
+TD3 is fully functional for daily operations with authentication and a polished welcome experience.
 
-- User authentication with role-based permissions
+**Recently Completed:**
+- ✅ User authentication with OTP codes, allowlist, and stackable permissions (RLS-enforced)
+- ✅ Apple-style welcome page with GSAP scroll-driven animations
+- ✅ Account settings page with preferences and activity tracking
+
+**Upcoming Enhancements:**
 - Historical data migration from legacy Excel systems
 - DocuSign API integration for loan origination
 - Microsoft Adaptive Cards for workflow notifications
@@ -295,7 +300,9 @@ Copy `.env.example` to `.env.local` and configure:
 |----------|-------------|
 | [Development Roadmap](docs/ROADMAP.md) | Launch timeline, milestones, cost estimates, and team input requirements |
 | [Technical Architecture](docs/ARCHITECTURE.md) | System design, data flows, and component responsibilities |
+| [Authentication Guide](docs/AUTH.md) | OTP-based auth, allowlist, permissions, and RLS policies |
 | [Design Language](docs/DESIGN_LANGUAGE.md) | UI/UX standards, color palette, and component patterns |
+| [Welcome Page Plan](docs/WELCOME_PAGE_PLAN.md) | Implementation plan for the Apple-style landing page |
 
 ---
 
