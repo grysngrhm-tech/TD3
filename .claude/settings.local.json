@@ -62,7 +62,9 @@
       "Bash(git config:*)",
       "WebSearch",
       "Bash(npm run lint)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "WebFetch(domain:tennantdevelopments.com)",
+      "Bash(git remote:*)"
     ]
   },
   "enabledMcpjsonServers": [
