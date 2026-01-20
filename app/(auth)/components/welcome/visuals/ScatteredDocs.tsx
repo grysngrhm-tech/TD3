@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 
 interface ScatteredDocsProps {
@@ -8,106 +9,141 @@ interface ScatteredDocsProps {
 }
 
 export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsProps) {
-  // Documents scatter more as progress increases
-  const scatterAmount = progress * 30
+  // Continuous time-based animation
+  const [time, setTime] = useState(0)
 
-  // Using TD3 semantic colors from design language
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTime(t => t + 0.02)
+    }, 50)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Documents with continuous drift - they keep moving while visible
   const documents = [
-    { id: 1, label: 'Budget_v3_final.xlsx', x: -20, y: -15, rotate: -8, colorVar: '--success' },
-    { id: 2, label: 'Draw_Request_07.pdf', x: 25, y: -25, rotate: 12, colorVar: '--info' },
-    { id: 3, label: 'Approval_chain.eml', x: -30, y: 10, rotate: -15, colorVar: '--warning' },
-    { id: 4, label: 'Invoice_batch.zip', x: 35, y: 20, rotate: 8, colorVar: '--error' },
-    { id: 5, label: 'Notes.txt', x: 0, y: 30, rotate: -5, colorVar: '--purple' },
+    { id: 1, label: 'Budget_v3_final.xlsx', baseX: -45, baseY: -35, rotate: -8, colorVar: '--success', driftSpeed: 0.7 },
+    { id: 2, label: 'Draw_Request_07.pdf', baseX: 50, baseY: -30, rotate: 12, colorVar: '--info', driftSpeed: 0.9 },
+    { id: 3, label: 'Approval_chain.eml', baseX: -55, baseY: 25, rotate: -15, colorVar: '--warning', driftSpeed: 0.6 },
+    { id: 4, label: 'Invoice_batch.zip', baseX: 60, baseY: 35, rotate: 8, colorVar: '--error', driftSpeed: 0.8 },
+    { id: 5, label: 'Notes.txt', baseX: 5, baseY: 50, rotate: -5, colorVar: '--purple', driftSpeed: 1.0 },
   ]
 
+  // Calculate scatter based on progress + continuous time drift
+  const getDocPosition = (doc: typeof documents[0]) => {
+    const baseScatter = Math.min(1, progress * 1.5) * 25
+    const continuousDrift = Math.sin(time * doc.driftSpeed) * 8
+    const continuousDriftY = Math.cos(time * doc.driftSpeed * 0.7) * 5
+
+    return {
+      x: doc.baseX + (baseScatter * (doc.baseX > 0 ? 1 : -1)) + continuousDrift,
+      y: doc.baseY + (baseScatter * (doc.baseY > 0 ? 1 : -1) * 0.6) + continuousDriftY,
+      rotate: doc.rotate + Math.sin(time * doc.driftSpeed * 0.5) * 3,
+    }
+  }
+
   return (
-    <div className={`relative w-full h-36 md:h-44 ${className}`}>
-      {/* Central chaos indicator - using error color from design system */}
+    <div className={`relative w-full h-32 md:h-36 ${className}`}>
+      {/* Central chaos indicator */}
       <motion.div
         className="absolute inset-0 flex items-center justify-center"
-        initial={{ opacity: 0 }}
         animate={{ opacity: progress > 0.3 ? 0.15 : 0 }}
       >
-        <div
-          className="w-24 h-24 rounded-full"
+        <motion.div
+          className="w-20 h-20 rounded-full"
           style={{
             background: 'radial-gradient(circle, var(--error) 0%, transparent 70%)',
+          }}
+          animate={{
+            scale: [1, 1.1, 1],
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: 'easeInOut',
           }}
         />
       </motion.div>
 
-      {/* Scattered documents */}
-      {documents.map((doc, index) => (
-        <motion.div
-          key={doc.id}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-          initial={{ x: 0, y: 0, rotate: 0, opacity: 0 }}
-          animate={{
-            x: doc.x + (scatterAmount * (doc.x > 0 ? 1 : -1)),
-            y: doc.y + (scatterAmount * (doc.y > 0 ? 1 : -1) * 0.5),
-            rotate: doc.rotate + (scatterAmount * (doc.rotate > 0 ? 0.5 : -0.5)),
-            opacity: Math.min(1, progress * 2 + 0.3),
-          }}
-          transition={{
-            duration: 0.5,
-            delay: index * 0.05,
-            ease: [0.22, 1, 0.36, 1], // ease-out equivalent
-          }}
-        >
-          {/* Document card - using TD3 card styling */}
-          <div
-            className="relative w-20 md:w-24 p-2"
+      {/* Scattered documents with continuous drift */}
+      {documents.map((doc, index) => {
+        const pos = getDocPosition(doc)
+
+        return (
+          <motion.div
+            key={doc.id}
+            className="absolute top-1/2 left-1/2"
             style={{
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-lg)',
-              boxShadow: 'var(--elevation-2)',
+              x: pos.x,
+              y: pos.y,
+              rotate: pos.rotate,
+              translateX: '-50%',
+              translateY: '-50%',
+            }}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{
+              opacity: Math.min(1, progress * 2 + 0.3),
+              scale: 1,
+            }}
+            transition={{
+              opacity: { duration: 0.3, delay: index * 0.05 },
+              scale: { duration: 0.3, delay: index * 0.05 },
             }}
           >
-            {/* File icon with semantic color */}
+            {/* Document card */}
             <div
-              className="w-full h-12 md:h-14 mb-1.5 flex items-center justify-center"
+              className="relative w-16 md:w-18 p-1.5"
               style={{
-                background: `color-mix(in srgb, var(${doc.colorVar}) 15%, transparent)`,
-                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-lg)',
+                boxShadow: 'var(--elevation-2)',
               }}
             >
-              <svg
-                className="w-6 h-6 md:w-7 md:h-7"
-                style={{ color: `var(${doc.colorVar})` }}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+              {/* File icon */}
+              <div
+                className="w-full h-10 md:h-11 mb-1 flex items-center justify-center"
+                style={{
+                  background: `color-mix(in srgb, var(${doc.colorVar}) 15%, transparent)`,
+                  borderRadius: 'var(--radius-md)',
+                }}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
+                <svg
+                  className="w-5 h-5 md:w-6 md:h-6"
+                  style={{ color: `var(${doc.colorVar})` }}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+              </div>
+              {/* Filename */}
+              <p
+                className="text-[7px] md:text-[8px] truncate font-medium"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                {doc.label}
+              </p>
             </div>
-            {/* Filename */}
-            <p
-              className="text-[8px] md:text-[9px] truncate font-medium"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              {doc.label}
-            </p>
-          </div>
-        </motion.div>
-      ))}
+          </motion.div>
+        )
+      })}
 
       {/* Connecting lines that break apart */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ opacity: Math.max(0, 0.3 - progress * 0.5) }}
+        style={{ opacity: Math.max(0, 0.25 - progress * 0.4) }}
       >
         {[
-          { x1: '50%', y1: '50%', x2: '30%', y2: '30%' },
-          { x1: '50%', y1: '50%', x2: '70%', y2: '25%' },
-          { x1: '50%', y1: '50%', x2: '25%', y2: '60%' },
-          { x1: '50%', y1: '50%', x2: '75%', y2: '65%' },
+          { x1: '50%', y1: '50%', x2: '25%', y2: '25%' },
+          { x1: '50%', y1: '50%', x2: '75%', y2: '30%' },
+          { x1: '50%', y1: '50%', x2: '20%', y2: '65%' },
+          { x1: '50%', y1: '50%', x2: '80%', y2: '70%' },
         ].map((line, i) => (
           <motion.line
             key={i}
@@ -118,27 +154,48 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
             stroke="var(--border)"
             strokeWidth="1"
             strokeDasharray="4 4"
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: 1 - progress }}
+            initial={{ pathLength: 1 }}
+            animate={{ pathLength: Math.max(0, 1 - progress * 1.5) }}
           />
         ))}
       </svg>
 
-      {/* Question marks floating around - representing confusion */}
-      {progress > 0.5 && (
-        <motion.div
-          className="absolute top-2 right-4 text-lg font-bold"
-          style={{ color: 'var(--error)' }}
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{
-            opacity: (progress - 0.5) * 2,
-            scale: 1,
-            rotate: [0, 10, -10, 0],
-          }}
-          transition={{ rotate: { repeat: Infinity, duration: 2 } }}
-        >
-          ?
-        </motion.div>
+      {/* Multiple question marks that float around */}
+      {progress > 0.4 && (
+        <>
+          <motion.div
+            className="absolute top-1 right-6 text-base font-bold"
+            style={{ color: 'var(--error)' }}
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{
+              opacity: (progress - 0.4) * 1.5,
+              scale: 1,
+              y: [0, -5, 0],
+              rotate: [0, 10, -10, 0],
+            }}
+            transition={{
+              y: { repeat: Infinity, duration: 2 },
+              rotate: { repeat: Infinity, duration: 3 },
+            }}
+          >
+            ?
+          </motion.div>
+          <motion.div
+            className="absolute bottom-2 left-8 text-sm font-bold"
+            style={{ color: 'var(--warning)' }}
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{
+              opacity: (progress - 0.5) * 1.5,
+              scale: 1,
+              y: [0, -4, 0],
+            }}
+            transition={{
+              y: { repeat: Infinity, duration: 1.8, delay: 0.5 },
+            }}
+          >
+            ?
+          </motion.div>
+        </>
       )}
     </div>
   )

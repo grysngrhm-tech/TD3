@@ -51,6 +51,13 @@ export const ProblemsSection = forwardRef<HTMLElement, ProblemsSectionProps>(
         className="relative min-h-screen flex flex-col items-center justify-center px-4 py-12 md:py-16"
         style={{ background: 'var(--bg-primary)' }}
       >
+        {/* Warm color accent overlay - reinforces problem/challenge tone */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'radial-gradient(ellipse 100% 80% at 50% 20%, color-mix(in srgb, var(--warning) 6%, transparent) 0%, transparent 70%)',
+          }}
+        />
         <div className="w-full max-w-5xl mx-auto">
           {/* Section Header */}
           <motion.div

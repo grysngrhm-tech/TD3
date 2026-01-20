@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 
 interface AutomationFlowProps {
@@ -8,6 +9,35 @@ interface AutomationFlowProps {
 }
 
 export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowProps) {
+  // Continuous processing counter
+  const [processedCount, setProcessedCount] = useState(0)
+  const [dataPackets, setDataPackets] = useState<number[]>([])
+  const isVisible = useRef(false)
+  const packetId = useRef(0)
+
+  useEffect(() => {
+    isVisible.current = progress > 0.3
+
+    const interval = setInterval(() => {
+      if (isVisible.current) {
+        // Increment processed count
+        setProcessedCount(c => c + 1)
+
+        // Occasionally spawn a new data packet
+        if (Math.random() < 0.15) {
+          packetId.current += 1
+          setDataPackets(prev => [...prev.slice(-4), packetId.current])
+        }
+      }
+    }, 150)
+
+    return () => clearInterval(interval)
+  }, [progress])
+
+  useEffect(() => {
+    isVisible.current = progress > 0.3
+  }, [progress])
+
   // Using TD3 semantic colors
   const steps = [
     { icon: 'upload', label: 'Upload', colorVar: '--info' },
@@ -18,8 +48,8 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
   const currentStep = Math.floor(progress * 3)
 
   return (
-    <div className={`relative w-full h-36 md:h-44 flex items-center justify-center ${className}`}>
-      <div className="flex items-center gap-4 md:gap-6">
+    <div className={`relative w-full h-32 md:h-36 flex items-center justify-center ${className}`}>
+      <div className="flex items-center gap-3 md:gap-5">
         {steps.map((step, index) => {
           const isActive = index <= currentStep
           const isCurrent = index === currentStep
@@ -37,7 +67,7 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
                 transition={{ duration: 0.3, delay: index * 0.1 }}
               >
                 <motion.div
-                  className="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center"
+                  className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center"
                   style={{
                     background: isActive
                       ? `color-mix(in srgb, var(${step.colorVar}) 15%, transparent)`
@@ -53,7 +83,7 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
                 >
                   {step.icon === 'upload' && (
                     <svg
-                      className="w-6 h-6 md:w-7 md:h-7"
+                      className="w-5 h-5 md:w-6 md:h-6"
                       style={{ color: isActive ? `var(${step.colorVar})` : 'var(--text-muted)' }}
                       fill="none"
                       stroke="currentColor"
@@ -64,7 +94,7 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
                   )}
                   {step.icon === 'ai' && (
                     <motion.svg
-                      className="w-6 h-6 md:w-7 md:h-7"
+                      className="w-5 h-5 md:w-6 md:h-6"
                       style={{ color: isActive ? `var(${step.colorVar})` : 'var(--text-muted)' }}
                       fill="none"
                       stroke="currentColor"
@@ -77,7 +107,7 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
                   )}
                   {step.icon === 'check' && (
                     <svg
-                      className="w-6 h-6 md:w-7 md:h-7"
+                      className="w-5 h-5 md:w-6 md:h-6"
                       style={{ color: isActive ? `var(${step.colorVar})` : 'var(--text-muted)' }}
                       fill="none"
                       stroke="currentColor"
@@ -90,44 +120,18 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
 
                 {/* Label */}
                 <motion.p
-                  className="text-xs font-medium text-center mt-2"
+                  className="text-[10px] md:text-xs font-medium text-center mt-1.5"
                   style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-muted)' }}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: isActive ? 1 : 0.5 }}
                 >
                   {step.label}
                 </motion.p>
-
-                {/* Processing indicator dots */}
-                {isCurrent && step.icon === 'ai' && (
-                  <motion.div
-                    className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex gap-1"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                  >
-                    {[0, 1, 2].map((i) => (
-                      <motion.div
-                        key={i}
-                        className="w-1 h-1 rounded-full"
-                        style={{ background: `var(${step.colorVar})` }}
-                        animate={{
-                          y: [0, -4, 0],
-                          opacity: [0.4, 1, 0.4],
-                        }}
-                        transition={{
-                          duration: 0.6,
-                          repeat: Infinity,
-                          delay: i * 0.15,
-                        }}
-                      />
-                    ))}
-                  </motion.div>
-                )}
               </motion.div>
 
-              {/* Connector line */}
+              {/* Connector line with flowing packets */}
               {index < steps.length - 1 && (
-                <div className="relative w-8 md:w-12 h-0.5 mx-2">
+                <div className="relative w-8 md:w-10 h-0.5 mx-1.5">
                   <div
                     className="absolute inset-0"
                     style={{ background: 'var(--border)' }}
@@ -139,16 +143,17 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
                     animate={{ width: index < currentStep ? '100%' : '0%' }}
                     transition={{ duration: 0.3 }}
                   />
-                  {/* Animated particle traveling along connector */}
-                  {index < currentStep && (
+                  {/* Continuous flowing data packets */}
+                  {index < currentStep && dataPackets.map((id) => (
                     <motion.div
-                      className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full"
+                      key={`${index}-${id}`}
+                      className="absolute top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full"
                       style={{ background: `var(${steps[index + 1].colorVar})` }}
-                      initial={{ left: 0, opacity: 0 }}
-                      animate={{ left: '100%', opacity: [0, 1, 0] }}
-                      transition={{ duration: 0.5 }}
+                      initial={{ left: '-10%', opacity: 0 }}
+                      animate={{ left: '110%', opacity: [0, 1, 1, 0] }}
+                      transition={{ duration: 0.8, ease: 'linear' }}
                     />
-                  )}
+                  ))}
                 </div>
               )}
             </div>
@@ -156,9 +161,29 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
         })}
       </div>
 
-      {/* Speed indicator - using TD3 success color */}
+      {/* Processing counter - increments continuously */}
       <motion.div
-        className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2"
+        className="absolute -top-1 right-4 font-mono text-xs"
+        style={{
+          color: 'var(--success)',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: progress > 0.5 ? 1 : 0 }}
+      >
+        <motion.span
+          key={processedCount}
+          initial={{ scale: 1.2, opacity: 0.7 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.1 }}
+        >
+          {processedCount.toLocaleString()} processed
+        </motion.span>
+      </motion.div>
+
+      {/* Speed indicator */}
+      <motion.div
+        className="absolute bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5"
         initial={{ opacity: 0, y: 10 }}
         animate={{
           opacity: progress > 0.7 ? 1 : 0,
@@ -166,7 +191,7 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
         }}
       >
         <svg
-          className="w-4 h-4"
+          className="w-3.5 h-3.5"
           style={{ color: 'var(--success)' }}
           fill="none"
           stroke="currentColor"
@@ -175,7 +200,7 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
         <span
-          className="text-sm font-medium"
+          className="text-xs font-medium"
           style={{ color: 'var(--success)' }}
         >
           Seconds, not hours

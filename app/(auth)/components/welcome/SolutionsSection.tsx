@@ -50,6 +50,13 @@ export const SolutionsSection = forwardRef<HTMLElement, SolutionsSectionProps>(
         className="relative min-h-screen flex flex-col items-center justify-center px-4 py-12 md:py-16"
         style={{ background: 'var(--bg-secondary)' }}
       >
+        {/* Cool color accent overlay - reinforces solution/success tone */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'radial-gradient(ellipse 100% 80% at 50% 80%, color-mix(in srgb, var(--success) 5%, transparent) 0%, transparent 70%)',
+          }}
+        />
         <div className="w-full max-w-5xl mx-auto">
           {/* Section Header */}
           <motion.div

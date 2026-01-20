@@ -13,35 +13,46 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
     return (
       <section
         ref={ref}
-        className="relative min-h-screen flex flex-col items-center justify-center px-4 py-20"
+        className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-0 pb-20"
         style={{ background: 'var(--bg-primary)' }}
       >
-        {/* Background subtle gradient */}
+        {/* Background gradient - extends to top edge */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            background: 'radial-gradient(ellipse at 50% 0%, var(--accent-muted) 0%, transparent 50%)',
-            opacity: 0.5,
+            background: 'radial-gradient(ellipse 120% 60% at 50% -10%, var(--accent-muted) 0%, transparent 60%)',
+            opacity: 0.6,
           }}
         />
 
         <div className="relative z-10 w-full max-w-xl mx-auto text-center">
-          {/* Logo */}
+          {/* Logo with pulsing glow */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
             className="mb-8"
           >
-            <div
-              className="w-20 h-20 rounded-2xl mx-auto mb-6 flex items-center justify-center"
+            <motion.div
+              className="relative w-20 h-20 rounded-2xl mx-auto mb-6 flex items-center justify-center"
               style={{
                 background: 'var(--accent)',
-                boxShadow: '0 8px 32px rgba(149, 6, 6, 0.3)',
+              }}
+              animate={{
+                boxShadow: [
+                  '0 8px 32px rgba(149, 6, 6, 0.3)',
+                  '0 8px 48px rgba(149, 6, 6, 0.5)',
+                  '0 8px 32px rgba(149, 6, 6, 0.3)',
+                ],
+              }}
+              transition={{
+                duration: 3,
+                repeat: Infinity,
+                ease: 'easeInOut',
               }}
             >
               <span className="text-3xl font-bold text-white">TD3</span>
-            </div>
+            </motion.div>
           </motion.div>
 
           {/* Headline */}
