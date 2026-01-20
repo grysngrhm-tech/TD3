@@ -906,3 +906,48 @@ body {
     min-height: 44px;
   }
 }
+
+/* =============================================================================
+   USER PREFERENCES - FONT SIZE
+   Applied via class on <html> element
+   ============================================================================= */
+
+/* Font size scale factors */
+.font-size-small {
+  --text-xs: 10px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 21px;
+  --text-3xl: 26px;
+  --text-4xl: 31px;
+}
+
+.font-size-medium {
+  /* Default values - no changes needed */
+}
+
+.font-size-large {
+  --text-xs: 13px;
+  --text-sm: 15px;
+  --text-base: 18px;
+  --text-lg: 20px;
+  --text-xl: 23px;
+  --text-2xl: 27px;
+  --text-3xl: 34px;
+  --text-4xl: 41px;
+}
+
+/* =============================================================================
+   USER PREFERENCES - REDUCED MOTION
+   Applied via class on <html> element
+   ============================================================================= */
+.reduced-motion *,
+.reduced-motion *::before,
+.reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

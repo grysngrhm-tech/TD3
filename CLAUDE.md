@@ -17,12 +17,13 @@ TD3 is a construction loan management system built for Tennant Development. It r
 ## Key Directories
 - `app/` - Next.js App Router pages and components
   - `app/(auth)/` - Auth route group (login page with centered layout)
+  - `app/account/` - Account settings page (profile, preferences, activity tabs)
   - `app/admin/` - Admin pages (user management)
   - `app/auth/callback/` - Auth callback page for PKCE code exchange (legacy support)
   - `app/components/` - React components (builders, draws, import, projects, ui)
   - `app/components/auth/` - Auth UI components (PermissionGate)
   - `app/context/` - React contexts (AuthContext, NavigationContext)
-  - `app/api/` - API routes (webhooks, validations, reports, invoices)
+  - `app/api/` - API routes (webhooks, validations, reports, invoices, activity)
 - `public/` - Static assets served directly
   - `favicon.png` - 32x32 browser tab icon
   - `favicon.svg` - Vector favicon for modern browsers
@@ -43,22 +44,28 @@ TD3 is a construction loan management system built for Tennant Development. It r
   - `invoiceMatching.ts` - Deterministic invoice-to-draw-line matching
   - `invoiceLearning.ts` - Match correction learning and training data
   - `n8n.ts` - n8n webhook integration and payload types
+  - `activity.ts` - User activity logging (fire-and-forget pattern)
+  - `preferences.ts` - User preferences load/save
+  - `deviceInfo.ts` - User agent parsing for device/browser/OS
 - `types/` - TypeScript type definitions (`database.ts`)
 - `supabase/` - Database migrations and schema
   - `001_schema.sql` - Core tables (projects, budgets, draws, etc.)
   - `002_seed.sql` - NAHB categories and reference data
   - `004_auth.sql` - Authentication tables, RLS policies, and helper functions
+  - `005_user_preferences.sql` - User preferences JSONB column on profiles
+  - `006_user_activity.sql` - User activity tracking table with RLS
 - `n8n/workflows/` - n8n workflow documentation
 - `n8n-workflows/` - n8n workflow JSON exports
 - `docs/` - Documentation (ARCHITECTURE.md, AUTH.md, DESIGN_LANGUAGE.md, ROADMAP.md)
 
 ## Database Schema (Key Tables)
 
-### Auth & Authorization (supabase/004_auth.sql)
-- `profiles` - User profiles linked to auth.users (name, phone, first_login_completed)
+### Auth & Authorization (supabase/004_auth.sql, 005, 006)
+- `profiles` - User profiles linked to auth.users (name, phone, first_login_completed, preferences JSONB)
 - `permissions` - Permission catalog (processor, fund_draws, approve_payoffs, users.manage)
 - `user_permissions` - Junction table for stackable user permissions
 - `allowlist` - Pre-authorized emails that can sign in
+- `user_activity` - Activity tracking for logins and entity mutations (with device/location metadata)
 
 ### Core Business Tables
 - `projects` - Construction loans with lifecycle_stage (pending/active/historic)
@@ -93,7 +100,7 @@ Email security scanners (Microsoft SafeLinks, Proofpoint, etc.) pre-click magic 
 3. User enters email → allowlist check → 8-digit OTP code sent
 4. User enters code on login page → verifyOtp() → session created
 5. Hard redirect to original destination (window.location.href)
-6. Profile editing available anytime via header dropdown
+6. Profile/preferences editing available at /account (link in header dropdown)
 ```
 
 #### Resilient Auth Architecture
@@ -168,7 +175,7 @@ Profile may be null briefly after login (trigger race condition). Components sho
 | `middleware.ts` | Route protection, session refresh, redirect handling |
 | `app/context/AuthContext.tsx` | Global auth state (user, profile, permissions). Uses module-level supabase singleton. |
 | `app/components/auth/PermissionGate.tsx` | Conditional rendering by permission |
-| `app/components/ui/Header.tsx` | User menu with profile editing modal and sign out |
+| `app/components/ui/Header.tsx` | User menu with account settings link and sign out |
 | `app/(auth)/login/page.tsx` | OTP code login page (email + 8-digit code verification) |
 | `app/auth/callback/page.tsx` | PKCE code exchange (legacy fallback, rarely used) |
 | `app/admin/users/page.tsx` | User & permission management UI |
@@ -437,6 +444,8 @@ SEO and social sharing metadata is defined in `app/layout.tsx`:
 6. **Audit Trail**: Every action logged with timestamps and user attribution
 7. **Invoice Matching**: AI extraction + deterministic scoring with learning flywheel
 8. **PWA Support**: Installable app with proper icons and manifest
+9. **User Preferences**: Theme, font size, reduced motion, default dashboard - stored in profiles.preferences JSONB
+10. **Activity Tracking**: Login events with device/location metadata, entity mutations (via `/account` activity tab)
 
 ## Owner
 Grayson Graham (grysngrhm-tech on GitHub)

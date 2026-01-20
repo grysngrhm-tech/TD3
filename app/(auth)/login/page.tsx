@@ -239,6 +239,20 @@ function LoginContent() {
             console.warn('Profile creation fallback failed:', profileErr)
             // Continue anyway - not blocking login
           }
+
+          // Log login activity (fire-and-forget)
+          try {
+            fetch('/api/activity/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId,
+                userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+              }),
+            }).catch(() => {}) // Ignore errors, don't block login
+          } catch {
+            // Ignore errors - login logging is not critical
+          }
         }
 
         toast.success('Signed in successfully')

@@ -1236,3 +1236,129 @@ export interface AISelectionResponse {
     supporting: string[]
   }
 }
+
+// ============================================
+// USER PREFERENCES & ACTIVITY TYPES
+// ============================================
+
+// User preferences stored in profiles.preferences JSONB
+export type Theme = 'light' | 'dark' | 'system'
+export type FontSize = 'small' | 'medium' | 'large'
+export type DefaultDashboard = 'portfolio' | 'draws'
+
+export interface UserPreferences {
+  theme: Theme
+  fontSize: FontSize
+  reducedMotion: boolean
+  defaultDashboard: DefaultDashboard
+}
+
+export const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'light',
+  fontSize: 'medium',
+  reducedMotion: false,
+  defaultDashboard: 'portfolio',
+}
+
+// Device types for login tracking
+export type DeviceType = 'desktop' | 'mobile' | 'tablet' | 'unknown'
+
+// Activity action types
+export type ActivityActionType =
+  | 'login'
+  | 'created'
+  | 'updated'
+  | 'deleted'
+  | 'funded'
+  | 'approved'
+  | 'rejected'
+  | 'staged'
+  | 'submitted'
+  | 'exported'
+
+// Activity entity types
+export type ActivityEntityType =
+  | 'project'
+  | 'draw_request'
+  | 'wire_batch'
+  | 'budget'
+  | 'builder'
+  | 'invoice'
+  | 'user'
+  | 'allowlist'
+
+// User activity record
+export interface UserActivity {
+  id: string
+  user_id: string
+  action_type: ActivityActionType
+  entity_type: ActivityEntityType | null
+  entity_id: string | null
+  entity_label: string | null
+  description: string
+  url_path: string | null
+  // Login metadata (for security auditing)
+  ip_address: string | null
+  user_agent: string | null
+  device_type: DeviceType | null
+  browser: string | null
+  os: string | null
+  location_city: string | null
+  location_country: string | null
+  // Additional context
+  metadata: Record<string, unknown> | null
+  created_at: string
+}
+
+// Activity with user info for admin view
+export interface UserActivityWithUser extends UserActivity {
+  profiles?: {
+    email: string
+    full_name: string | null
+  } | null
+}
+
+// Activity insert type (for creating new records)
+export interface UserActivityInsert {
+  user_id: string
+  action_type: ActivityActionType
+  entity_type?: ActivityEntityType | null
+  entity_id?: string | null
+  entity_label?: string | null
+  description: string
+  url_path?: string | null
+  ip_address?: string | null
+  user_agent?: string | null
+  device_type?: DeviceType | null
+  browser?: string | null
+  os?: string | null
+  location_city?: string | null
+  location_country?: string | null
+  metadata?: Record<string, unknown> | null
+}
+
+// Action type labels for display
+export const ACTION_TYPE_LABELS: Record<ActivityActionType, string> = {
+  login: 'Signed in',
+  created: 'Created',
+  updated: 'Updated',
+  deleted: 'Deleted',
+  funded: 'Funded',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  staged: 'Staged',
+  submitted: 'Submitted',
+  exported: 'Exported',
+}
+
+// Entity type labels for display
+export const ENTITY_TYPE_LABELS: Record<ActivityEntityType, string> = {
+  project: 'Loan',
+  draw_request: 'Draw Request',
+  wire_batch: 'Wire Batch',
+  budget: 'Budget',
+  builder: 'Builder',
+  invoice: 'Invoice',
+  user: 'User',
+  allowlist: 'Invited User',
+}
