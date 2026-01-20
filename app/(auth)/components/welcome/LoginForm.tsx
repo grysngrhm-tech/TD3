@@ -247,7 +247,7 @@ export function LoginForm({
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={compact ? 'Enter your email' : 'you@company.com'}
+                placeholder={compact ? 'Enter your email' : 'you@tennantdevelopments.com'}
                 disabled={state !== 'input'}
                 className="input-ios w-full"
                 autoComplete="email"

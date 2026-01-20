@@ -88,12 +88,23 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
               boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06)',
             }}
           >
-            <h2
-              className="text-lg font-medium mb-4"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Sign in to your account
-            </h2>
+            <div className="flex items-center justify-center gap-3 mb-6">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{
+                  background: 'var(--accent)',
+                  boxShadow: '0 4px 12px rgba(149, 6, 6, 0.25)',
+                }}
+              >
+                <span className="text-sm font-bold text-white">TD3</span>
+              </div>
+              <span
+                className="text-lg font-semibold"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                Sign in to continue
+              </span>
+            </div>
             <LoginForm redirectTo={redirectTo} />
           </motion.div>
 
