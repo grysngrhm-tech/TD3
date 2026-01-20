@@ -1,6 +1,7 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { useEffect, useState, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 interface WorkflowPipelineProps {
   progress?: number
@@ -47,10 +48,45 @@ const steps = [
   },
 ]
 
+interface DataPacket {
+  id: number
+  segmentIndex: number
+}
+
 export function WorkflowPipeline({ progress = 0, className = '' }: WorkflowPipelineProps) {
   // Calculate which step is active based on progress (0-1)
   const activeStepIndex = Math.min(Math.floor(progress * 4), 3)
   const stepProgress = (progress * 4) % 1
+
+  // Continuous data packets flowing through pipeline
+  const [dataPackets, setDataPackets] = useState<DataPacket[]>([])
+  const packetIdRef = useRef(0)
+  const isVisible = useRef(false)
+
+  useEffect(() => {
+    isVisible.current = progress > 0.2
+
+    const interval = setInterval(() => {
+      if (isVisible.current && activeStepIndex > 0) {
+        // Spawn new packets at completed segments
+        if (Math.random() < 0.12) {
+          const maxSegment = Math.min(activeStepIndex, 2) // segments 0, 1, 2
+          const segmentIndex = Math.floor(Math.random() * (maxSegment + 1))
+          packetIdRef.current += 1
+          setDataPackets(prev => [
+            ...prev.slice(-8), // Keep max 8 packets
+            { id: packetIdRef.current, segmentIndex }
+          ])
+        }
+      }
+    }, 200)
+
+    return () => clearInterval(interval)
+  }, [progress, activeStepIndex])
+
+  useEffect(() => {
+    isVisible.current = progress > 0.2
+  }, [progress])
 
   return (
     <div className={`relative w-full max-w-3xl mx-auto ${className}`}>
@@ -64,7 +100,7 @@ export function WorkflowPipeline({ progress = 0, className = '' }: WorkflowPipel
 
             return (
               <div key={step.id} className="flex-1 relative">
-                {/* Connector line */}
+                {/* Connector line with flowing data packets */}
                 {index < steps.length - 1 && (
                   <div className="absolute top-8 left-1/2 w-full h-1 -z-10">
                     <div
@@ -80,6 +116,27 @@ export function WorkflowPipeline({ progress = 0, className = '' }: WorkflowPipel
                       }}
                       transition={{ duration: 0.3, ease: 'easeOut' }}
                     />
+
+                    {/* Continuous data packets on completed segments */}
+                    <AnimatePresence>
+                      {isCompleted && dataPackets
+                        .filter(p => p.segmentIndex === index)
+                        .map(packet => (
+                          <motion.div
+                            key={packet.id}
+                            className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full"
+                            style={{
+                              background: `var(${steps[index + 1].colorVar})`,
+                              boxShadow: `0 0 6px var(${steps[index + 1].colorVar})`,
+                            }}
+                            initial={{ left: '0%', opacity: 0, scale: 0.5 }}
+                            animate={{ left: '100%', opacity: [0, 1, 1, 0], scale: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 1.2, ease: 'linear' }}
+                          />
+                        ))
+                      }
+                    </AnimatePresence>
                   </div>
                 )}
 
@@ -204,18 +261,33 @@ export function WorkflowPipeline({ progress = 0, className = '' }: WorkflowPipel
                   </svg>
                 </motion.div>
 
-                {/* Vertical connector */}
+                {/* Vertical connector with flowing dots */}
                 {index < steps.length - 1 && (
                   <div
-                    className="w-0.5 h-8 mt-2"
+                    className="relative w-0.5 h-8 mt-2 overflow-hidden"
                     style={{ background: 'var(--border)' }}
                   >
                     <motion.div
-                      className="w-full"
+                      className="absolute top-0 w-full"
                       style={{ background: `var(${step.colorVar})` }}
                       initial={{ height: '0%' }}
                       animate={{ height: isCompleted ? '100%' : '0%' }}
                     />
+                    {/* Mobile data packets */}
+                    {isCompleted && dataPackets
+                      .filter(p => p.segmentIndex === index)
+                      .slice(0, 2)
+                      .map(packet => (
+                        <motion.div
+                          key={packet.id}
+                          className="absolute left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
+                          style={{ background: `var(${steps[index + 1].colorVar})` }}
+                          initial={{ top: '0%', opacity: 0 }}
+                          animate={{ top: '100%', opacity: [0, 1, 1, 0] }}
+                          transition={{ duration: 0.8, ease: 'linear' }}
+                        />
+                      ))
+                    }
                   </div>
                 )}
               </div>

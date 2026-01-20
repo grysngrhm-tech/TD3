@@ -13,13 +13,13 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
     return (
       <section
         ref={ref}
-        className="relative min-h-screen flex flex-col items-center justify-center px-4 py-20"
+        className="relative min-h-screen flex flex-col items-center justify-center px-4 py-16"
         style={{
           background: 'linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)',
         }}
       >
         <div className="w-full max-w-xl mx-auto text-center">
-          {/* Headline */}
+          {/* Headline - confident, not salesy */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -30,13 +30,13 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
               className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-4 leading-tight"
               style={{ color: 'var(--text-primary)' }}
             >
-              Ready to take control of your construction lending?
+              Your construction portfolio, organized.
             </h2>
             <p
               className="text-base md:text-lg mb-8"
               style={{ color: 'var(--text-secondary)' }}
             >
-              Join your team on TD3 and leave the spreadsheets behind.
+              Sign in to access loan tracking, draw management, and financial reporting.
             </p>
           </motion.div>
 
@@ -65,111 +65,119 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
                 className="text-lg font-semibold"
                 style={{ color: 'var(--text-primary)' }}
               >
-                Sign in to get started
+                Sign in to continue
               </span>
             </div>
 
             <LoginForm redirectTo={redirectTo} />
           </motion.div>
 
-          {/* Trust indicator */}
+          {/* Attribution */}
           <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="mt-8"
+            className="mt-6"
           >
             <p
               className="text-sm"
               style={{ color: 'var(--text-muted)' }}
             >
-              Trusted by Tennant Developments
+              A Tennant Developments platform
             </p>
           </motion.div>
         </div>
 
-        {/* Rich Footer */}
+        {/* Compact Footer */}
         <motion.footer
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="w-full mt-16 pt-12 pb-8 border-t"
+          className="w-full mt-12 pt-8 pb-6 border-t"
           style={{ borderColor: 'var(--border-subtle)' }}
         >
-          <div className="max-w-5xl mx-auto px-4">
-            <div className="grid md:grid-cols-3 gap-8 mb-8">
-              {/* TD3 Column */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center"
-                    style={{ background: 'var(--accent)' }}
-                  >
-                    <span className="text-sm font-bold text-white">TD3</span>
-                  </div>
-                  <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    TD3
-                  </span>
+          <div className="max-w-4xl mx-auto px-4">
+            {/* Three-column links - all aligned */}
+            <div className="grid grid-cols-3 gap-4 mb-6 text-center">
+              {/* TD3 Link */}
+              <a
+                href="https://td3.tennantdevelopments.com"
+                className="group flex flex-col items-center gap-1.5"
+              >
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-transform group-hover:scale-105"
+                  style={{ background: 'var(--accent)' }}
+                >
+                  <span className="text-xs font-bold text-white">TD3</span>
                 </div>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                  Construction finance management platform. One system for loans, budgets, draws, and wire transfers.
-                </p>
-              </div>
+                <span
+                  className="text-xs font-medium group-hover:underline"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  td3.tennantdevelopments.com
+                </span>
+              </a>
 
-              {/* Tennant Developments Column */}
-              <div>
-                <h4 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
-                  Tennant Developments
-                </h4>
-                <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
-                  Real estate development in Central Oregon. Master planned communities, construction finance, and commercial properties.
-                </p>
-                <a
-                  href="https://tennantdevelopments.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-sm font-medium hover:underline"
-                  style={{ color: 'var(--accent)' }}
+              {/* Tennant Developments Link */}
+              <a
+                href="https://tennantdevelopments.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex flex-col items-center gap-1.5"
+              >
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-transform group-hover:scale-105"
+                  style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}
+                >
+                  <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>TD</span>
+                </div>
+                <span
+                  className="text-xs font-medium group-hover:underline"
+                  style={{ color: 'var(--text-secondary)' }}
                 >
                   tennantdevelopments.com
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
-              </div>
+                </span>
+              </a>
 
-              {/* Learn More Column */}
-              <div>
-                <h4 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
-                  Learn More
-                </h4>
-                <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
-                  Read the documentation to learn how TD3 works, its architecture, and capabilities.
-                </p>
-                <a
-                  href="https://github.com/grysngrhm-tech/TD3#readme"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-sm font-medium hover:underline"
-                  style={{ color: 'var(--accent)' }}
+              {/* Documentation Link */}
+              <a
+                href="https://github.com/grysngrhm-tech/TD3#readme"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex flex-col items-center gap-1.5"
+              >
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-transform group-hover:scale-105"
+                  style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}
+                >
+                  <svg
+                    className="w-4 h-4"
+                    style={{ color: 'var(--text-primary)' }}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <span
+                  className="text-xs font-medium group-hover:underline"
+                  style={{ color: 'var(--text-secondary)' }}
                 >
                   Documentation
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
-              </div>
+                </span>
+              </a>
             </div>
 
             {/* Bottom bar */}
             <div
-              className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 border-t"
+              className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-4 border-t text-center sm:text-left"
               style={{ borderColor: 'var(--border-subtle)' }}
             >
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                © {new Date().getFullYear()} TD3 by Tennant Developments. All rights reserved.
+                © {new Date().getFullYear()} TD3 · Tennant Developments
               </p>
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                 Built by Grayson Graham
