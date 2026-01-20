@@ -1,5 +1,17 @@
 # Welcome Page Refinements Plan
 
+> **Status:** ✅ **IMPLEMENTED** (January 20, 2026)
+>
+> All refinements have been applied. Key improvements:
+> - Reduced ScrollTrigger durations (120-150%)
+> - Compressed animation timing windows
+> - Extended progress (0→3) for longer exit animations
+> - Fixed branding ("Tennant Developments")
+> - Added scroll progress indicator
+> - Rich footer with company info
+
+---
+
 ## Overview
 This plan addresses user feedback to tighten the scroll experience, fix branding issues, and create a more polished, informative welcome page.
 
@@ -432,13 +444,20 @@ className="text-center mb-8 md:mb-12"
 
 ## Success Criteria
 
-- [ ] No dead scroll sections - every scroll increment produces visible change
-- [ ] All bullet points visible on desktop during their section's animation
-- [ ] Header shows "TD3 logo + Tennant Developments"
-- [ ] Hero title says "Construction Finance. Refined."
-- [ ] All "Tennant Development" updated to "Tennant Developments"
-- [ ] SolutionsSection uses design system colors
-- [ ] Footer has 3 columns with company info and links
-- [ ] Scroll progress indicator visible on desktop
-- [ ] Mobile experience still works with simplified animations
-- [ ] Build passes with no errors
+All criteria have been met:
+
+- [x] No dead scroll sections - every scroll increment produces visible change
+- [x] All bullet points visible on desktop during their section's animation
+- [x] Header shows "TD3 logo + Tennant Developments"
+- [x] Hero title says "Construction Finance. Refined."
+- [x] All "Tennant Development" updated to "Tennant Developments"
+- [x] SolutionsSection uses design system colors
+- [x] Footer has 3 columns with company info and links
+- [x] Scroll progress indicator visible on desktop
+- [x] Mobile experience still works with simplified animations
+- [x] Build passes with no errors
+
+**Additional improvements:**
+- [x] Extended progress range (0→3) makes animations continue longer during exit phase
+- [x] `anticipatePin: 1` added for smoother pin engagement
+- [x] Visual components receive unbounded progress for continuous animation evolution

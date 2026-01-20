@@ -1,9 +1,9 @@
 # TD3 Development Roadmap
 
-**Version:** 1.2
-**Last Updated:** January 18, 2026
+**Version:** 1.3
+**Last Updated:** January 20, 2026
 **Target Launch:** Q1 2026
-**Status:** Authentication Complete - Ready for Data Migration
+**Status:** Authentication & Welcome Page Complete - Ready for Data Migration
 
 ---
 
@@ -44,6 +44,7 @@ TD3 is **substantially complete** for core functionality:
 | Wire Batch Funding | ✅ Complete | Builder grouping, audit trail |
 | Invoice AI Matching | ✅ Complete | Deterministic scoring, narrow AI, learning |
 | User Authentication | ✅ Complete | Passwordless auth, allowlist, stackable permissions, RLS |
+| Welcome Page & Login | ✅ Complete | Apple-style landing page with scroll-driven animations |
 | DocuSign Integration | ❌ Not Started | Placeholder in origination |
 | External Portals | ❌ Not Started | Builder/lender access |
 
@@ -272,7 +273,67 @@ TD3 now uses **passwordless authentication** with stackable permissions:
 
 ---
 
-### 1.4 Dev/Prod Branch Setup
+### 1.4 Welcome Page & Login Experience
+
+| Attribute | Value |
+|-----------|-------|
+| **Priority** | HIGH - First impression for users |
+| **Team Input Required** | No |
+| **Estimated Duration** | 1-2 weeks |
+| **Owner** | Development |
+| **Status** | ✅ COMPLETE (Jan 20, 2026) |
+
+**Implementation Summary:**
+
+TD3 now features a polished, Apple-style welcome/login page with scroll-driven animations that showcase the platform's value proposition:
+
+1. **Hero Section** - Clean login form with company branding and "Construction Finance. Refined." tagline
+2. **Problems Section** - Two-column layout highlighting challenges (scattered data, repetitive work)
+3. **Solutions Section** - Matching layout showing how TD3 addresses each problem
+4. **Workflow Section** - Visual pipeline showing the draw workflow (Review → Staged → Pending Wire → Funded)
+5. **CTA Section** - Final login form with rich footer containing company info and links
+
+**Technical Implementation:**
+
+| Component | Technology |
+|-----------|------------|
+| Scroll Animations | GSAP ScrollTrigger with pinned sections |
+| UI Animations | Framer Motion |
+| Mobile Fallback | Intersection Observer for simplified animations |
+| Progress Tracking | Extended progress (0→3) for exit phase animations |
+
+**Key Features:**
+
+- **Pinned sections** - Sections stay fixed while animations play during scroll
+- **Extended progress** - Animations continue evolving as sections scroll out of view
+- **Mobile responsive** - Simplified experience on touch devices
+- **Reduced motion support** - Respects user preferences for accessibility
+- **Progress indicator** - Desktop-only dots showing current section
+
+**Files Structure:**
+```
+app/(auth)/components/welcome/
+├── WelcomePage.tsx       # Main orchestrator with ScrollTrigger
+├── HeroSection.tsx       # Logo, tagline, login form
+├── ProblemsSection.tsx   # Two-column problems layout
+├── SolutionsSection.tsx  # Two-column solutions layout
+├── WorkflowSection.tsx   # Pipeline visualization
+├── CTASection.tsx        # Final CTA and footer
+├── StickyNav.tsx         # Appears after scrolling past hero
+├── LoginForm.tsx         # OTP-based authentication form
+└── visuals/              # Animated visual components
+    ├── ScatteredDocs.tsx
+    ├── RepetitiveClock.tsx
+    ├── UnifiedDashboard.tsx
+    ├── AutomationFlow.tsx
+    └── WorkflowPipeline.tsx
+```
+
+**Documentation:** See `docs/WELCOME_PAGE_PLAN.md` for original implementation plan.
+
+---
+
+### 1.5 Dev/Prod Branch Setup
 
 | Attribute | Value |
 |-----------|-------|
@@ -1058,6 +1119,7 @@ Development time estimates assume **AI-assisted development using Cursor** (Clau
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.3 | 2026-01-20 | Grayson Graham | Added Welcome Page & Login Experience section as COMPLETE; Apple-style landing page with GSAP scroll-driven animations |
 | 1.2 | 2026-01-18 | Grayson Graham | Marked Authentication System as COMPLETE; Updated status and documentation references |
 | 1.1 | 2026-01-08 | Grayson Graham | Reordered adoption phase (Invoice AI before Migration); Updated migration approach to use existing TD3 systems; Reduced dev hours for AI-assisted development; Added Mobile Inspection App |
 | 1.0 | 2026-01-08 | Development | Initial roadmap creation |
