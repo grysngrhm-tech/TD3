@@ -30,13 +30,13 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
               className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-4 leading-tight"
               style={{ color: 'var(--text-primary)' }}
             >
-              Your construction portfolio, organized.
+              Construction finance, clearly organized.
             </h2>
             <p
               className="text-base md:text-lg mb-8"
               style={{ color: 'var(--text-secondary)' }}
             >
-              Sign in to access loan tracking, draw management, and financial reporting.
+              Sign in to access loan tracking, draw management, funding workflows, and financial reporting.
             </p>
           </motion.div>
 
@@ -115,7 +115,7 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
                   </span>
                 </div>
                 <p className="text-xs leading-relaxed mb-2" style={{ color: 'var(--text-muted)' }}>
-                  Construction finance management platform. One system for loans, budgets, draws, and wire transfers.
+                  A construction finance management platform designed to provide structure, visibility, and accountability across loans, budgets, draws, and funding.
                 </p>
                 <a
                   href="https://td3.tennantdevelopments.com"
@@ -132,7 +132,7 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
                   Tennant Developments
                 </h4>
                 <p className="text-xs leading-relaxed mb-2" style={{ color: 'var(--text-muted)' }}>
-                  Real estate development in Central Oregon. Master planned communities, construction finance, and commercial properties.
+                  A real estate development firm based in Central Oregon, focused on master-planned communities, construction finance, and commercial properties.
                 </p>
                 <a
                   href="https://tennantdevelopments.com"
@@ -154,7 +154,7 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
                   Documentation
                 </h4>
                 <p className="text-xs leading-relaxed mb-2" style={{ color: 'var(--text-muted)' }}>
-                  Read the documentation to learn how TD3 works, its architecture, and capabilities.
+                  Learn more about TD3's workflow, structure, and technical foundations.
                 </p>
                 <a
                   href="https://github.com/grysngrhm-tech/TD3#readme"
