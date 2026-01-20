@@ -46,10 +46,20 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
   const solutionsContainerRef = useRef<HTMLDivElement>(null)
   const workflowContainerRef = useRef<HTMLDivElement>(null)
 
-  // Progress states for scroll-linked animations
+  // Progress states for scroll-linked animations (extended progress - can go beyond 1)
   const [problemsProgress, setProblemsProgress] = useState(0)
   const [solutionsProgress, setSolutionsProgress] = useState(0)
   const [workflowProgress, setWorkflowProgress] = useState(0)
+
+  // Track when each section has completed its pinned phase (reached progress 1)
+  const problemsUnpinnedRef = useRef(false)
+  const solutionsUnpinnedRef = useRef(false)
+  const workflowUnpinnedRef = useRef(false)
+
+  // Store the scroll position when section unpinned
+  const problemsUnpinScrollRef = useRef(0)
+  const solutionsUnpinScrollRef = useRef(0)
+  const workflowUnpinScrollRef = useRef(0)
 
   // Detect mobile/touch devices for fallback behavior
   const [isMobile, setIsMobile] = useState(false)
@@ -95,7 +105,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
     }
 
     const ctx = gsap.context(() => {
-      // Problems Section - Pinned (tighter scroll, smoother scrub)
+      // Problems Section - Pinned
       if (problemsContainerRef.current && problemsRef.current) {
         ScrollTrigger.create({
           trigger: problemsContainerRef.current,
@@ -105,12 +115,21 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
           pinSpacing: true,
           scrub: 0.5,
           onUpdate: (self) => {
-            setProblemsProgress(self.progress)
+            if (self.progress < 1) {
+              // During pinned phase: normal 0-1 progress
+              problemsUnpinnedRef.current = false
+              setProblemsProgress(self.progress)
+            } else if (!problemsUnpinnedRef.current) {
+              // Just unpinned - record scroll position
+              problemsUnpinnedRef.current = true
+              problemsUnpinScrollRef.current = window.scrollY
+              setProblemsProgress(1)
+            }
           },
         })
       }
 
-      // Solutions Section - Pinned (tighter scroll, smoother scrub)
+      // Solutions Section - Pinned
       if (solutionsContainerRef.current && solutionsRef.current) {
         ScrollTrigger.create({
           trigger: solutionsContainerRef.current,
@@ -120,7 +139,14 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
           pinSpacing: true,
           scrub: 0.5,
           onUpdate: (self) => {
-            setSolutionsProgress(self.progress)
+            if (self.progress < 1) {
+              solutionsUnpinnedRef.current = false
+              setSolutionsProgress(self.progress)
+            } else if (!solutionsUnpinnedRef.current) {
+              solutionsUnpinnedRef.current = true
+              solutionsUnpinScrollRef.current = window.scrollY
+              setSolutionsProgress(1)
+            }
           },
         })
       }
@@ -135,7 +161,14 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
           pinSpacing: true,
           scrub: 0.5,
           onUpdate: (self) => {
-            setWorkflowProgress(self.progress)
+            if (self.progress < 1) {
+              workflowUnpinnedRef.current = false
+              setWorkflowProgress(self.progress)
+            } else if (!workflowUnpinnedRef.current) {
+              workflowUnpinnedRef.current = true
+              workflowUnpinScrollRef.current = window.scrollY
+              setWorkflowProgress(1)
+            }
           },
         })
       }
@@ -151,6 +184,54 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
       ctx.revert()
       window.removeEventListener('resize', handleResize)
     }
+  }, [isMobile, prefersReducedMotion])
+
+  // Extended progress tracking - continues past 1 as user scrolls
+  useEffect(() => {
+    if (isMobile || prefersReducedMotion) return
+
+    const handleExtendedProgress = () => {
+      const viewportHeight = window.innerHeight
+      const scrollY = window.scrollY
+
+      // Calculate extended progress for each section after it unpins
+      // Progress accelerates: every 300px of scroll past unpin = +0.5 progress (accelerating)
+
+      // Problems section extended progress
+      if (problemsUnpinnedRef.current && problemsRef.current) {
+        const rect = problemsRef.current.getBoundingClientRect()
+        // Only extend while section is still visible
+        if (rect.bottom > 0) {
+          const scrollPast = scrollY - problemsUnpinScrollRef.current
+          // Accelerate: progress increases faster as you scroll more
+          const extendedProgress = 1 + (scrollPast / 250) * (1 + scrollPast / 1000)
+          setProblemsProgress(Math.max(1, extendedProgress))
+        }
+      }
+
+      // Solutions section extended progress
+      if (solutionsUnpinnedRef.current && solutionsRef.current) {
+        const rect = solutionsRef.current.getBoundingClientRect()
+        if (rect.bottom > 0) {
+          const scrollPast = scrollY - solutionsUnpinScrollRef.current
+          const extendedProgress = 1 + (scrollPast / 250) * (1 + scrollPast / 1000)
+          setSolutionsProgress(Math.max(1, extendedProgress))
+        }
+      }
+
+      // Workflow section extended progress
+      if (workflowUnpinnedRef.current && workflowRef.current) {
+        const rect = workflowRef.current.getBoundingClientRect()
+        if (rect.bottom > 0) {
+          const scrollPast = scrollY - workflowUnpinScrollRef.current
+          const extendedProgress = 1 + (scrollPast / 250) * (1 + scrollPast / 1000)
+          setWorkflowProgress(Math.max(1, extendedProgress))
+        }
+      }
+    }
+
+    window.addEventListener('scroll', handleExtendedProgress, { passive: true })
+    return () => window.removeEventListener('scroll', handleExtendedProgress)
   }, [isMobile, prefersReducedMotion])
 
   // Mobile fallback: use Intersection Observer for simple fade-in animations

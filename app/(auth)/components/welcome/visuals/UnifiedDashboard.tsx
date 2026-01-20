@@ -23,16 +23,17 @@ const allProjects = [
 
 export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashboardProps) {
   // All values derived from scroll progress - no time-based state
-  // Progress can exceed 1 as user scrolls past
+  // Progress can exceed 1 as user scrolls past - stats keep growing positively
 
-  // Stats accumulate with scroll progress
-  const loanCount = 8 + Math.floor(progress * 20) // 8 to 28+
-  const drawCount = 3 + Math.floor(progress * 15) // 3 to 18+
-  const weeklyTotal = 1200000 + (progress * 3000000) // $1.2M to $4.2M+
+  // Stats accumulate with scroll progress - growth accelerates past progress=1
+  const growthMultiplier = progress > 1 ? 1 + (progress - 1) * 0.5 : 1
+  const loanCount = 8 + Math.floor(progress * 20 * growthMultiplier) // 8 to 28+, keeps growing
+  const drawCount = 3 + Math.floor(progress * 15 * growthMultiplier) // 3 to 18+, keeps growing
+  const weeklyTotal = 1200000 + (progress * 3000000 * growthMultiplier) // $1.2M to $4.2M+, keeps growing
 
   // Virtual scroll: which rows are visible shifts as progress increases
-  // At progress 0, show rows 0-3. As progress increases, window slides down
-  const rowWindowStart = Math.floor(progress * 6) // slides through data
+  // At progress 0, show rows 0-3. As progress increases, window slides down faster
+  const rowWindowStart = Math.floor(progress * 8) // slides through data faster with extended progress
   const visibleRowCount = 4
   const visibleRows = allProjects.slice(
     rowWindowStart % allProjects.length,
@@ -43,8 +44,7 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
     visibleRows.push(...allProjects.slice(0, visibleRowCount - visibleRows.length))
   }
 
-  // At high progress, elements start to deconstruct/expand
-  const deconstructAmount = Math.max(0, (progress - 0.75) * 4)
+  // NO deconstruction for Solutions section - dashboard stays contained and centered
 
   // Format currency
   const formatCurrency = (amount: number) => {
@@ -62,7 +62,7 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
 
   return (
     <div className={`relative w-full h-28 md:h-32 flex items-center justify-center ${className}`}>
-      {/* Dashboard frame - expands outward at high progress */}
+      {/* Dashboard frame - stays centered and contained */}
       <motion.div
         className="relative w-full max-w-xs overflow-hidden"
         style={{
@@ -70,7 +70,7 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
           border: '1px solid var(--border-subtle)',
           borderRadius: 'var(--radius-xl)',
           boxShadow: 'var(--elevation-3)',
-          transform: `scale(${0.9 + (Math.min(progress, 1) * 0.1) + (deconstructAmount * 0.05)})`,
+          transform: `scale(${0.9 + Math.min(progress, 1) * 0.1})`,
           opacity: Math.min(1, progress * 3),
         }}
       >
@@ -119,8 +119,6 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
                 style={{
                   background: 'var(--bg-secondary)',
                   borderRadius: 'var(--radius-md)',
-                  // At high progress, stats cards drift apart
-                  transform: `translateX(${(i - 1) * deconstructAmount * 15}px)`,
                 }}
               >
                 <div className="text-[6px]" style={{ color: 'var(--text-muted)' }}>
@@ -254,29 +252,6 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
         </svg>
       </motion.div>
 
-      {/* At very high progress, dashboard elements drift outward */}
-      {deconstructAmount > 0 && (
-        <>
-          <div
-            className="absolute w-12 h-3 rounded"
-            style={{
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-subtle)',
-              transform: `translate(${-80 - deconstructAmount * 50}px, ${-20 - deconstructAmount * 30}px)`,
-              opacity: Math.min(0.6, deconstructAmount),
-            }}
-          />
-          <div
-            className="absolute w-10 h-3 rounded"
-            style={{
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-subtle)',
-              transform: `translate(${80 + deconstructAmount * 50}px, ${20 + deconstructAmount * 25}px)`,
-              opacity: Math.min(0.6, deconstructAmount),
-            }}
-          />
-        </>
-      )}
     </div>
   )
 }

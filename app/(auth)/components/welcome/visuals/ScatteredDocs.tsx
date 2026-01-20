@@ -28,27 +28,27 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
 
   // Calculate document position based on progress
   const getDocPosition = (doc: typeof documents[0]) => {
-    // Base scatter from progress
-    const scatterX = doc.baseX * (1 + scatterIntensity * 0.8)
-    const scatterY = doc.baseY * (1 + scatterIntensity * 0.6)
+    // Horizontal scatter is primary - documents spread sideways to not cover text
+    // Multiplier increases dramatically with progress (especially past 1)
+    const horizontalMultiplier = 1 + scatterIntensity * 1.5 + deconstructAmount * 2.5
+    const scatterX = doc.baseX * horizontalMultiplier
 
-    // Extra scatter at high progress - documents fly toward screen edges
-    const edgePush = deconstructAmount * 80
-    const edgeX = doc.baseX > 0 ? edgePush : -edgePush
-    const edgeY = doc.baseY > 0 ? edgePush * 0.5 : -edgePush * 0.5
+    // Vertical scatter is minimal - just slight drift
+    const verticalMultiplier = 1 + scatterIntensity * 0.15 + deconstructAmount * 0.3
+    const scatterY = doc.baseY * verticalMultiplier
 
-    // Rotation increases with scatter
-    const rotation = doc.baseRotate * (1 + scatterIntensity * 0.5 + deconstructAmount * 2)
+    // Rotation increases with scatter for chaos effect
+    const rotation = doc.baseRotate * (1 + scatterIntensity * 0.8 + deconstructAmount * 3)
 
     return {
-      x: scatterX + edgeX,
-      y: scatterY + edgeY,
+      x: scatterX,
+      y: scatterY,
       rotate: rotation,
     }
   }
 
-  // Question marks appear and multiply at higher progress
-  const questionMarkCount = Math.min(4, Math.floor((progress - 0.3) * 6))
+  // Question marks appear and multiply at higher progress (capped at 4)
+  const questionMarkCount = Math.min(4, Math.floor((Math.min(progress, 1.2) - 0.3) * 5))
 
   return (
     <div className={`relative w-full h-28 md:h-32 ${className}`}>
@@ -154,14 +154,15 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
         ))}
       </svg>
 
-      {/* Question marks - appear and scatter at higher progress */}
+      {/* Question marks - appear and spread horizontally at higher progress */}
       {questionMarkCount > 0 && (
         <>
           {[
-            { x: 70 + deconstructAmount * 30, y: -25 - deconstructAmount * 20, size: 'text-sm', color: '--error' },
-            { x: -65 - deconstructAmount * 25, y: 30 + deconstructAmount * 15, size: 'text-xs', color: '--warning' },
-            { x: 80 + deconstructAmount * 40, y: 35 + deconstructAmount * 25, size: 'text-base', color: '--error' },
-            { x: -75 - deconstructAmount * 35, y: -20 - deconstructAmount * 20, size: 'text-sm', color: '--warning' },
+            // Spread primarily horizontally, minimal vertical
+            { x: 85 + deconstructAmount * 60, y: -10 - deconstructAmount * 5, size: 'text-sm', color: '--error' },
+            { x: -80 - deconstructAmount * 55, y: 5 + deconstructAmount * 3, size: 'text-xs', color: '--warning' },
+            { x: 100 + deconstructAmount * 80, y: 8 + deconstructAmount * 5, size: 'text-base', color: '--error' },
+            { x: -95 - deconstructAmount * 70, y: -5 - deconstructAmount * 3, size: 'text-sm', color: '--warning' },
           ].slice(0, questionMarkCount).map((qm, i) => (
             <div
               key={i}
