@@ -9,27 +9,28 @@ interface SolutionsSectionProps {
 }
 
 const solutionsData = {
-  header: 'TD3 addresses both problems directly: one place for everything and automation for the repetitive stuff.',
-  footer: 'AI handles the pattern matching and data extraction. Humans review the results and make decisions.',
+  header: 'TD3 provides a structured foundation for construction finance while supporting efficient, repeatable workflows.',
+  footer: 'Automation supports accuracy and efficiency, while approvals and judgment remain human-led.',
   columns: [
     {
-      title: 'A Single Source of Truth',
-      description: 'Every loan, builder, budget, draw request, invoice, and approval lives in one system. Not spreadsheets with version numbers in the filename—a real database that stays current.',
+      title: 'A Centralized System of Record',
+      description: 'TD3 brings loan data, budgets, draw requests, invoices, approvals, and funding records into a single, continuously updated system designed for long-term traceability and operational clarity.',
       bullets: [
-        'Current state is always obvious',
-        'History preserved automatically',
-        'Reporting is instant',
-        'Anyone can pick up where someone left off',
+        'Consistent, current project and loan data',
+        'Complete historical record across the loan lifecycle',
+        'Immediate access to portfolio-level insights',
+        'Continuity across teams, roles, and project phases',
       ],
       Visual: UnifiedDashboard,
     },
     {
-      title: 'Intelligent Automation Where It Matters',
-      description: 'TD3 uses AI to handle the tedious, repetitive tasks that currently eat hours.',
+      title: 'Targeted Automation',
+      description: 'TD3 applies automation selectively, focusing on tasks that benefit from consistency and pattern recognition without obscuring accountability.',
       bullets: [
-        'Automatic budget standardization (NAHB cost codes)',
-        'Smart invoice matching',
-        'Built-in validation',
+        'Standardized budget categorization',
+        'Assisted invoice-to-draw matching',
+        'Built-in consistency and validation checks',
+        'Reduced manual data entry for repeatable workflows',
       ],
       Visual: AutomationFlow,
     },
