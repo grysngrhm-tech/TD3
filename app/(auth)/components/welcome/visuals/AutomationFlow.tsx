@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 
 interface AutomationFlowProps {
@@ -9,81 +8,65 @@ interface AutomationFlowProps {
 }
 
 export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowProps) {
-  // Continuous processing counter
-  const [processedCount, setProcessedCount] = useState(0)
-  const [dataPackets, setDataPackets] = useState<number[]>([])
-  const isVisible = useRef(false)
-  const packetId = useRef(0)
+  // All values derived from scroll progress - no time-based state
+  // Progress can exceed 1 as user scrolls past
 
-  useEffect(() => {
-    isVisible.current = progress > 0.3
+  // Processing counter grows with scroll
+  const processedCount = Math.floor(progress * 500)
 
-    const interval = setInterval(() => {
-      if (isVisible.current) {
-        // Increment processed count
-        setProcessedCount(c => c + 1)
+  // Current step based on progress
+  const currentStep = Math.min(Math.floor(progress * 3), 2)
 
-        // Occasionally spawn a new data packet
-        if (Math.random() < 0.15) {
-          packetId.current += 1
-          setDataPackets(prev => [...prev.slice(-4), packetId.current])
-        }
-      }
-    }, 150)
+  // At high progress, elements expand outward
+  const deconstructAmount = Math.max(0, (progress - 0.8) * 5)
 
-    return () => clearInterval(interval)
-  }, [progress])
-
-  useEffect(() => {
-    isVisible.current = progress > 0.3
-  }, [progress])
-
-  // Using TD3 semantic colors
   const steps = [
     { icon: 'upload', label: 'Upload', colorVar: '--info' },
     { icon: 'ai', label: 'AI Process', colorVar: '--purple' },
     { icon: 'check', label: 'Validated', colorVar: '--success' },
   ]
 
-  const currentStep = Math.floor(progress * 3)
+  // Data packet positions based on progress (appear at thresholds)
+  const packetPositions = [0.3, 0.45, 0.6, 0.75, 0.9]
+  const activePackets = packetPositions.filter(p => progress > p).length
 
   return (
-    <div className={`relative w-full h-32 md:h-36 flex items-center justify-center ${className}`}>
-      <div className="flex items-center gap-3 md:gap-5">
+    <div className={`relative w-full h-28 md:h-32 flex items-center justify-center ${className}`}>
+      <div
+        className="flex items-center gap-2 md:gap-4"
+        style={{
+          // Expand horizontally at high progress
+          transform: `scaleX(${1 + deconstructAmount * 0.3})`,
+        }}
+      >
         {steps.map((step, index) => {
           const isActive = index <= currentStep
           const isCurrent = index === currentStep
+          // Progress within this step (0-1)
+          const stepLocalProgress = Math.max(0, Math.min(1, (progress - index * 0.33) * 3))
 
           return (
             <div key={step.label} className="flex items-center">
               {/* Step circle */}
-              <motion.div
-                className="relative"
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{
-                  scale: isActive ? 1 : 0.8,
-                  opacity: isActive ? 1 : 0.4,
-                }}
-                transition={{ duration: 0.3, delay: index * 0.1 }}
-              >
-                <motion.div
-                  className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center"
+              <div className="relative">
+                <div
+                  className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center"
                   style={{
                     background: isActive
                       ? `color-mix(in srgb, var(${step.colorVar}) 15%, transparent)`
                       : 'var(--bg-secondary)',
                     border: `2px solid ${isActive ? `var(${step.colorVar})` : 'var(--border)'}`,
                     borderRadius: 'var(--radius-xl)',
-                  }}
-                  animate={{
                     boxShadow: isCurrent
-                      ? `0 0 20px color-mix(in srgb, var(${step.colorVar}) 40%, transparent)`
+                      ? `0 0 ${16 + stepLocalProgress * 8}px color-mix(in srgb, var(${step.colorVar}) ${30 + stepLocalProgress * 20}%, transparent)`
                       : 'none',
+                    transform: `scale(${isActive ? 1 : 0.85})`,
+                    opacity: isActive ? 1 : 0.5,
                   }}
                 >
                   {step.icon === 'upload' && (
                     <svg
-                      className="w-5 h-5 md:w-6 md:h-6"
+                      className="w-4 h-4 md:w-5 md:h-5"
                       style={{ color: isActive ? `var(${step.colorVar})` : 'var(--text-muted)' }}
                       fill="none"
                       stroke="currentColor"
@@ -93,21 +76,23 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
                     </svg>
                   )}
                   {step.icon === 'ai' && (
-                    <motion.svg
-                      className="w-5 h-5 md:w-6 md:h-6"
-                      style={{ color: isActive ? `var(${step.colorVar})` : 'var(--text-muted)' }}
+                    <svg
+                      className="w-4 h-4 md:w-5 md:h-5"
+                      style={{
+                        color: isActive ? `var(${step.colorVar})` : 'var(--text-muted)',
+                        // Rotation driven by progress when this step is current
+                        transform: isCurrent ? `rotate(${stepLocalProgress * 360}deg)` : 'none',
+                      }}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
-                      animate={isCurrent ? { rotate: 360 } : {}}
-                      transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </motion.svg>
+                    </svg>
                   )}
                   {step.icon === 'check' && (
                     <svg
-                      className="w-5 h-5 md:w-6 md:h-6"
+                      className="w-4 h-4 md:w-5 md:h-5"
                       style={{ color: isActive ? `var(${step.colorVar})` : 'var(--text-muted)' }}
                       fill="none"
                       stroke="currentColor"
@@ -116,44 +101,46 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   )}
-                </motion.div>
+                </div>
 
                 {/* Label */}
-                <motion.p
-                  className="text-[10px] md:text-xs font-medium text-center mt-1.5"
-                  style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-muted)' }}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: isActive ? 1 : 0.5 }}
+                <p
+                  className="text-[9px] md:text-[10px] font-medium text-center mt-1"
+                  style={{
+                    color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                    opacity: isActive ? 1 : 0.6,
+                  }}
                 >
                   {step.label}
-                </motion.p>
-              </motion.div>
+                </p>
+              </div>
 
-              {/* Connector line with flowing packets */}
+              {/* Connector line with scroll-driven packets */}
               {index < steps.length - 1 && (
-                <div className="relative w-8 md:w-10 h-0.5 mx-1.5">
+                <div className="relative w-6 md:w-8 h-0.5 mx-1">
                   <div
                     className="absolute inset-0"
                     style={{ background: 'var(--border)' }}
                   />
-                  <motion.div
+                  {/* Progress fill */}
+                  <div
                     className="absolute inset-y-0 left-0"
-                    style={{ background: `var(${steps[index].colorVar})` }}
-                    initial={{ width: '0%' }}
-                    animate={{ width: index < currentStep ? '100%' : '0%' }}
-                    transition={{ duration: 0.3 }}
+                    style={{
+                      background: `var(${steps[index].colorVar})`,
+                      width: index < currentStep ? '100%' : isCurrent ? `${stepLocalProgress * 100}%` : '0%',
+                    }}
                   />
-                  {/* Continuous flowing data packets */}
-                  {index < currentStep && dataPackets.map((id) => (
-                    <motion.div
-                      key={`${index}-${id}`}
+                  {/* Data packets - position based on progress */}
+                  {index < currentStep && activePackets > index && (
+                    <div
                       className="absolute top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full"
-                      style={{ background: `var(${steps[index + 1].colorVar})` }}
-                      initial={{ left: '-10%', opacity: 0 }}
-                      animate={{ left: '110%', opacity: [0, 1, 1, 0] }}
-                      transition={{ duration: 0.8, ease: 'linear' }}
+                      style={{
+                        background: `var(${steps[index + 1].colorVar})`,
+                        boxShadow: `0 0 4px var(${steps[index + 1].colorVar})`,
+                        left: `${((progress * 3 - index) % 1) * 100}%`,
+                      }}
                     />
-                  ))}
+                  )}
                 </div>
               )}
             </div>
@@ -161,37 +148,28 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
         })}
       </div>
 
-      {/* Processing counter - increments continuously */}
-      <motion.div
-        className="absolute -top-1 right-4 font-mono text-xs"
+      {/* Processing counter - grows with scroll */}
+      <div
+        className="absolute -top-1 right-2 font-mono text-xs"
         style={{
           color: 'var(--success)',
           fontVariantNumeric: 'tabular-nums',
+          opacity: progress > 0.4 ? 1 : Math.max(0, (progress - 0.2) * 5),
+          transform: `scale(${1 + deconstructAmount * 0.2})`,
         }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: progress > 0.5 ? 1 : 0 }}
       >
-        <motion.span
-          key={processedCount}
-          initial={{ scale: 1.2, opacity: 0.7 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.1 }}
-        >
-          {processedCount.toLocaleString()} processed
-        </motion.span>
-      </motion.div>
+        {processedCount.toLocaleString()} processed
+      </div>
 
       {/* Speed indicator */}
-      <motion.div
-        className="absolute bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{
-          opacity: progress > 0.7 ? 1 : 0,
-          y: progress > 0.7 ? 0 : 10,
+      <div
+        className="absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-1"
+        style={{
+          opacity: progress > 0.6 ? Math.min(1, (progress - 0.6) * 3) : 0,
         }}
       >
         <svg
-          className="w-3.5 h-3.5"
+          className="w-3 h-3"
           style={{ color: 'var(--success)' }}
           fill="none"
           stroke="currentColor"
@@ -200,12 +178,36 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
         <span
-          className="text-xs font-medium"
+          className="text-[10px] font-medium"
           style={{ color: 'var(--success)' }}
         >
           Seconds, not hours
         </span>
-      </motion.div>
+      </div>
+
+      {/* At high progress, extra elements drift outward */}
+      {deconstructAmount > 0 && (
+        <>
+          <div
+            className="absolute w-8 h-8 rounded-lg"
+            style={{
+              background: 'var(--info-muted)',
+              border: '1px solid var(--info)',
+              transform: `translate(${-100 - deconstructAmount * 40}px, ${-10}px)`,
+              opacity: Math.min(0.5, deconstructAmount),
+            }}
+          />
+          <div
+            className="absolute w-6 h-6 rounded-lg"
+            style={{
+              background: 'var(--success-muted)',
+              border: '1px solid var(--success)',
+              transform: `translate(${100 + deconstructAmount * 40}px, ${10}px)`,
+              opacity: Math.min(0.5, deconstructAmount),
+            }}
+          />
+        </>
+      )}
     </div>
   )
 }

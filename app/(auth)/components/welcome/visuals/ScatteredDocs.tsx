@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 
 interface ScatteredDocsProps {
@@ -9,89 +8,83 @@ interface ScatteredDocsProps {
 }
 
 export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsProps) {
-  // Continuous time-based animation
-  const [time, setTime] = useState(0)
+  // All values derived from scroll progress - no time-based state
+  // Progress can exceed 1 as user scrolls past
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTime(t => t + 0.02)
-    }, 50)
-    return () => clearInterval(interval)
-  }, [])
+  // Scatter intensity increases with progress
+  const scatterIntensity = progress * 1.5
 
-  // Documents with continuous drift - they keep moving while visible
+  // At high progress, documents fly toward edges
+  const deconstructAmount = Math.max(0, (progress - 0.7) * 3)
+
+  // Documents with base positions - scatter outward based on progress
   const documents = [
-    { id: 1, label: 'Budget_v3_final.xlsx', baseX: -45, baseY: -35, rotate: -8, colorVar: '--success', driftSpeed: 0.7 },
-    { id: 2, label: 'Draw_Request_07.pdf', baseX: 50, baseY: -30, rotate: 12, colorVar: '--info', driftSpeed: 0.9 },
-    { id: 3, label: 'Approval_chain.eml', baseX: -55, baseY: 25, rotate: -15, colorVar: '--warning', driftSpeed: 0.6 },
-    { id: 4, label: 'Invoice_batch.zip', baseX: 60, baseY: 35, rotate: 8, colorVar: '--error', driftSpeed: 0.8 },
-    { id: 5, label: 'Notes.txt', baseX: 5, baseY: 50, rotate: -5, colorVar: '--purple', driftSpeed: 1.0 },
+    { id: 1, label: 'Budget_v3_final.xlsx', baseX: -35, baseY: -25, baseRotate: -5, colorVar: '--success' },
+    { id: 2, label: 'Draw_Request_07.pdf', baseX: 40, baseY: -20, baseRotate: 8, colorVar: '--info' },
+    { id: 3, label: 'Approval_chain.eml', baseX: -45, baseY: 20, baseRotate: -12, colorVar: '--warning' },
+    { id: 4, label: 'Invoice_batch.zip', baseX: 50, baseY: 25, baseRotate: 6, colorVar: '--error' },
+    { id: 5, label: 'Notes.txt', baseX: 5, baseY: 40, baseRotate: -3, colorVar: '--purple' },
   ]
 
-  // Calculate scatter based on progress + continuous time drift
+  // Calculate document position based on progress
   const getDocPosition = (doc: typeof documents[0]) => {
-    const baseScatter = Math.min(1, progress * 1.5) * 25
-    const continuousDrift = Math.sin(time * doc.driftSpeed) * 8
-    const continuousDriftY = Math.cos(time * doc.driftSpeed * 0.7) * 5
+    // Base scatter from progress
+    const scatterX = doc.baseX * (1 + scatterIntensity * 0.8)
+    const scatterY = doc.baseY * (1 + scatterIntensity * 0.6)
+
+    // Extra scatter at high progress - documents fly toward screen edges
+    const edgePush = deconstructAmount * 80
+    const edgeX = doc.baseX > 0 ? edgePush : -edgePush
+    const edgeY = doc.baseY > 0 ? edgePush * 0.5 : -edgePush * 0.5
+
+    // Rotation increases with scatter
+    const rotation = doc.baseRotate * (1 + scatterIntensity * 0.5 + deconstructAmount * 2)
 
     return {
-      x: doc.baseX + (baseScatter * (doc.baseX > 0 ? 1 : -1)) + continuousDrift,
-      y: doc.baseY + (baseScatter * (doc.baseY > 0 ? 1 : -1) * 0.6) + continuousDriftY,
-      rotate: doc.rotate + Math.sin(time * doc.driftSpeed * 0.5) * 3,
+      x: scatterX + edgeX,
+      y: scatterY + edgeY,
+      rotate: rotation,
     }
   }
 
+  // Question marks appear and multiply at higher progress
+  const questionMarkCount = Math.min(4, Math.floor((progress - 0.3) * 6))
+
   return (
-    <div className={`relative w-full h-32 md:h-36 ${className}`}>
-      {/* Central chaos indicator */}
-      <motion.div
-        className="absolute inset-0 flex items-center justify-center"
-        animate={{ opacity: progress > 0.3 ? 0.15 : 0 }}
+    <div className={`relative w-full h-28 md:h-32 ${className}`}>
+      {/* Central chaos indicator - grows with progress */}
+      <div
+        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+        style={{ opacity: progress > 0.2 ? Math.min(0.2, (progress - 0.2) * 0.4) : 0 }}
       >
-        <motion.div
-          className="w-20 h-20 rounded-full"
+        <div
+          className="rounded-full"
           style={{
+            width: 60 + (progress * 40),
+            height: 60 + (progress * 40),
             background: 'radial-gradient(circle, var(--error) 0%, transparent 70%)',
           }}
-          animate={{
-            scale: [1, 1.1, 1],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
         />
-      </motion.div>
+      </div>
 
-      {/* Scattered documents with continuous drift */}
+      {/* Scattered documents - positions driven by scroll progress */}
       {documents.map((doc, index) => {
         const pos = getDocPosition(doc)
+        // Stagger appearance based on index
+        const appearProgress = Math.max(0, Math.min(1, (progress - index * 0.05) * 3))
 
         return (
-          <motion.div
+          <div
             key={doc.id}
             className="absolute top-1/2 left-1/2"
             style={{
-              x: pos.x,
-              y: pos.y,
-              rotate: pos.rotate,
-              translateX: '-50%',
-              translateY: '-50%',
-            }}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{
-              opacity: Math.min(1, progress * 2 + 0.3),
-              scale: 1,
-            }}
-            transition={{
-              opacity: { duration: 0.3, delay: index * 0.05 },
-              scale: { duration: 0.3, delay: index * 0.05 },
+              transform: `translate(-50%, -50%) translate(${pos.x}px, ${pos.y}px) rotate(${pos.rotate}deg)`,
+              opacity: appearProgress,
             }}
           >
             {/* Document card */}
             <div
-              className="relative w-16 md:w-18 p-1.5"
+              className="relative w-14 md:w-16 p-1"
               style={{
                 background: 'var(--bg-card)',
                 border: '1px solid var(--border-subtle)',
@@ -101,14 +94,14 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
             >
               {/* File icon */}
               <div
-                className="w-full h-10 md:h-11 mb-1 flex items-center justify-center"
+                className="w-full h-8 md:h-9 mb-0.5 flex items-center justify-center"
                 style={{
                   background: `color-mix(in srgb, var(${doc.colorVar}) 15%, transparent)`,
                   borderRadius: 'var(--radius-md)',
                 }}
               >
                 <svg
-                  className="w-5 h-5 md:w-6 md:h-6"
+                  className="w-4 h-4 md:w-5 md:h-5"
                   style={{ color: `var(${doc.colorVar})` }}
                   fill="none"
                   stroke="currentColor"
@@ -124,28 +117,28 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
               </div>
               {/* Filename */}
               <p
-                className="text-[7px] md:text-[8px] truncate font-medium"
+                className="text-[6px] md:text-[7px] truncate font-medium"
                 style={{ color: 'var(--text-secondary)' }}
               >
                 {doc.label}
               </p>
             </div>
-          </motion.div>
+          </div>
         )
       })}
 
-      {/* Connecting lines that break apart */}
+      {/* Connecting lines that break apart with progress */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ opacity: Math.max(0, 0.25 - progress * 0.4) }}
+        style={{ opacity: Math.max(0, 0.3 - progress * 0.4) }}
       >
         {[
-          { x1: '50%', y1: '50%', x2: '25%', y2: '25%' },
-          { x1: '50%', y1: '50%', x2: '75%', y2: '30%' },
-          { x1: '50%', y1: '50%', x2: '20%', y2: '65%' },
-          { x1: '50%', y1: '50%', x2: '80%', y2: '70%' },
+          { x1: '50%', y1: '50%', x2: '25%', y2: '30%' },
+          { x1: '50%', y1: '50%', x2: '75%', y2: '35%' },
+          { x1: '50%', y1: '50%', x2: '22%', y2: '60%' },
+          { x1: '50%', y1: '50%', x2: '78%', y2: '65%' },
         ].map((line, i) => (
-          <motion.line
+          <line
             key={i}
             x1={line.x1}
             y1={line.y1}
@@ -154,47 +147,34 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
             stroke="var(--border)"
             strokeWidth="1"
             strokeDasharray="4 4"
-            initial={{ pathLength: 1 }}
-            animate={{ pathLength: Math.max(0, 1 - progress * 1.5) }}
+            style={{
+              strokeDashoffset: progress * 20,
+            }}
           />
         ))}
       </svg>
 
-      {/* Multiple question marks that float around */}
-      {progress > 0.4 && (
+      {/* Question marks - appear and scatter at higher progress */}
+      {questionMarkCount > 0 && (
         <>
-          <motion.div
-            className="absolute top-1 right-6 text-base font-bold"
-            style={{ color: 'var(--error)' }}
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{
-              opacity: (progress - 0.4) * 1.5,
-              scale: 1,
-              y: [0, -5, 0],
-              rotate: [0, 10, -10, 0],
-            }}
-            transition={{
-              y: { repeat: Infinity, duration: 2 },
-              rotate: { repeat: Infinity, duration: 3 },
-            }}
-          >
-            ?
-          </motion.div>
-          <motion.div
-            className="absolute bottom-2 left-8 text-sm font-bold"
-            style={{ color: 'var(--warning)' }}
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{
-              opacity: (progress - 0.5) * 1.5,
-              scale: 1,
-              y: [0, -4, 0],
-            }}
-            transition={{
-              y: { repeat: Infinity, duration: 1.8, delay: 0.5 },
-            }}
-          >
-            ?
-          </motion.div>
+          {[
+            { x: 70 + deconstructAmount * 30, y: -25 - deconstructAmount * 20, size: 'text-sm', color: '--error' },
+            { x: -65 - deconstructAmount * 25, y: 30 + deconstructAmount * 15, size: 'text-xs', color: '--warning' },
+            { x: 80 + deconstructAmount * 40, y: 35 + deconstructAmount * 25, size: 'text-base', color: '--error' },
+            { x: -75 - deconstructAmount * 35, y: -20 - deconstructAmount * 20, size: 'text-sm', color: '--warning' },
+          ].slice(0, questionMarkCount).map((qm, i) => (
+            <div
+              key={i}
+              className={`absolute top-1/2 left-1/2 ${qm.size} font-bold`}
+              style={{
+                color: `var(${qm.color})`,
+                transform: `translate(-50%, -50%) translate(${qm.x}px, ${qm.y}px)`,
+                opacity: Math.min(1, (progress - 0.3 - i * 0.1) * 3),
+              }}
+            >
+              ?
+            </div>
+          ))}
         </>
       )}
     </div>

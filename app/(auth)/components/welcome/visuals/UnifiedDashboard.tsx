@@ -1,55 +1,50 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 
 interface UnifiedDashboardProps {
   progress?: number
   className?: string
 }
 
-// Project data that keeps growing
-const baseProjects = [
-  { project: 'Oak Heights', status: 'funded', statusLabel: 'Funded', baseAmount: 45200 },
-  { project: 'Pine Valley', status: 'staged', statusLabel: 'Staged', baseAmount: 128500 },
-  { project: 'Cedar Park', status: 'review', statusLabel: 'Review', baseAmount: 89750 },
-  { project: 'Maple Ridge', status: 'funded', statusLabel: 'Funded', baseAmount: 67300 },
-  { project: 'Birch Lane', status: 'staged', statusLabel: 'Staged', baseAmount: 112400 },
+// Extended project data for virtual scrolling effect
+const allProjects = [
+  { project: 'Oak Heights', status: 'funded', statusLabel: 'Funded', amount: 45200 },
+  { project: 'Pine Valley', status: 'staged', statusLabel: 'Staged', amount: 128500 },
+  { project: 'Cedar Park', status: 'review', statusLabel: 'Review', amount: 89750 },
+  { project: 'Maple Ridge', status: 'funded', statusLabel: 'Funded', amount: 67300 },
+  { project: 'Birch Lane', status: 'staged', statusLabel: 'Staged', amount: 112400 },
+  { project: 'Elm Court', status: 'funded', statusLabel: 'Funded', amount: 93200 },
+  { project: 'Spruce Way', status: 'review', statusLabel: 'Review', amount: 156800 },
+  { project: 'Willow Creek', status: 'staged', statusLabel: 'Staged', amount: 78400 },
+  { project: 'Aspen Grove', status: 'funded', statusLabel: 'Funded', amount: 201300 },
+  { project: 'Hickory Hill', status: 'review', statusLabel: 'Review', amount: 134600 },
 ]
 
 export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashboardProps) {
-  // Continuous counters that keep incrementing
-  const [loanCount, setLoanCount] = useState(12)
-  const [drawCount, setDrawCount] = useState(8)
-  const [weeklyTotal, setWeeklyTotal] = useState(2400000)
-  const [visibleRows, setVisibleRows] = useState(3)
-  const isVisible = useRef(false)
+  // All values derived from scroll progress - no time-based state
+  // Progress can exceed 1 as user scrolls past
 
-  useEffect(() => {
-    isVisible.current = progress > 0.2
+  // Stats accumulate with scroll progress
+  const loanCount = 8 + Math.floor(progress * 20) // 8 to 28+
+  const drawCount = 3 + Math.floor(progress * 15) // 3 to 18+
+  const weeklyTotal = 1200000 + (progress * 3000000) // $1.2M to $4.2M+
 
-    const interval = setInterval(() => {
-      if (isVisible.current) {
-        // Slowly increment stats
-        setWeeklyTotal(w => w + Math.random() * 5000)
+  // Virtual scroll: which rows are visible shifts as progress increases
+  // At progress 0, show rows 0-3. As progress increases, window slides down
+  const rowWindowStart = Math.floor(progress * 6) // slides through data
+  const visibleRowCount = 4
+  const visibleRows = allProjects.slice(
+    rowWindowStart % allProjects.length,
+    (rowWindowStart % allProjects.length) + visibleRowCount
+  )
+  // Handle wraparound
+  if (visibleRows.length < visibleRowCount) {
+    visibleRows.push(...allProjects.slice(0, visibleRowCount - visibleRows.length))
+  }
 
-        // Occasionally add a new loan or draw
-        if (Math.random() < 0.02) setLoanCount(l => l + 1)
-        if (Math.random() < 0.03) setDrawCount(d => d + 1)
-
-        // Gradually reveal more rows
-        if (visibleRows < baseProjects.length && Math.random() < 0.01) {
-          setVisibleRows(v => Math.min(v + 1, baseProjects.length))
-        }
-      }
-    }, 100)
-
-    return () => clearInterval(interval)
-  }, [progress, visibleRows])
-
-  useEffect(() => {
-    isVisible.current = progress > 0.2
-  }, [progress])
+  // At high progress, elements start to deconstruct/expand
+  const deconstructAmount = Math.max(0, (progress - 0.75) * 4)
 
   // Format currency
   const formatCurrency = (amount: number) => {
@@ -66,8 +61,8 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
   ]
 
   return (
-    <div className={`relative w-full h-32 md:h-36 flex items-center justify-center ${className}`}>
-      {/* Dashboard frame */}
+    <div className={`relative w-full h-28 md:h-32 flex items-center justify-center ${className}`}>
+      {/* Dashboard frame - expands outward at high progress */}
       <motion.div
         className="relative w-full max-w-xs overflow-hidden"
         style={{
@@ -75,104 +70,87 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
           border: '1px solid var(--border-subtle)',
           borderRadius: 'var(--radius-xl)',
           boxShadow: 'var(--elevation-3)',
+          transform: `scale(${0.9 + (Math.min(progress, 1) * 0.1) + (deconstructAmount * 0.05)})`,
+          opacity: Math.min(1, progress * 3),
         }}
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{
-          opacity: Math.min(1, progress * 2),
-          scale: 0.9 + (progress * 0.1),
-        }}
-        transition={{ duration: 0.3 }}
       >
         {/* Header bar */}
         <div
-          className="h-7 flex items-center px-2.5 gap-2"
+          className="h-6 flex items-center px-2 gap-2"
           style={{
             background: 'var(--bg-secondary)',
             borderBottom: '1px solid var(--border-subtle)',
           }}
         >
           <div
-            className="w-4 h-4 flex items-center justify-center"
+            className="w-3.5 h-3.5 flex items-center justify-center"
             style={{
               background: 'var(--accent)',
               borderRadius: 'var(--radius-xs)',
             }}
           >
-            <span className="text-[6px] font-bold text-white">TD3</span>
+            <span className="text-[5px] font-bold text-white">TD3</span>
           </div>
           <div className="flex-1" />
           {/* Live indicator */}
-          <motion.div
-            className="flex items-center gap-1"
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          >
-            <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--success)' }} />
-            <span className="text-[7px]" style={{ color: 'var(--text-muted)' }}>Live</span>
-          </motion.div>
+          <div className="flex items-center gap-1">
+            <div
+              className="w-1 h-1 rounded-full"
+              style={{ background: 'var(--success)' }}
+            />
+            <span className="text-[6px]" style={{ color: 'var(--text-muted)' }}>Live</span>
+          </div>
         </div>
 
         {/* Dashboard content */}
-        <div className="p-2 space-y-1.5">
-          {/* Stats row with counting numbers */}
+        <div className="p-1.5 space-y-1">
+          {/* Stats row - values grow with scroll */}
           <motion.div
-            className="flex gap-1.5"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{
-              opacity: progress > 0.2 ? 1 : 0,
-              y: progress > 0.2 ? 0 : 10,
+            className="flex gap-1"
+            style={{
+              opacity: progress > 0.1 ? 1 : progress * 10,
+              transform: `translateY(${Math.max(0, (0.2 - progress) * 20)}px)`,
             }}
-            transition={{ duration: 0.3, delay: 0.1 }}
           >
-            {stats.map((stat) => (
+            {stats.map((stat, i) => (
               <div
                 key={stat.label}
-                className="flex-1 p-1.5"
+                className="flex-1 p-1"
                 style={{
                   background: 'var(--bg-secondary)',
                   borderRadius: 'var(--radius-md)',
+                  // At high progress, stats cards drift apart
+                  transform: `translateX(${(i - 1) * deconstructAmount * 15}px)`,
                 }}
               >
-                <div
-                  className="text-[7px]"
-                  style={{ color: 'var(--text-muted)' }}
-                >
+                <div className="text-[6px]" style={{ color: 'var(--text-muted)' }}>
                   {stat.label}
                 </div>
-                <motion.div
-                  className={`text-xs font-semibold ${stat.isMoney ? 'font-mono' : ''}`}
+                <div
+                  className={`text-[10px] font-semibold ${stat.isMoney ? 'font-mono' : ''}`}
                   style={{
                     color: `var(${stat.colorVar})`,
                     fontVariantNumeric: stat.isMoney ? 'tabular-nums' : undefined,
                   }}
-                  key={stat.value}
-                  initial={{ scale: 1.1 }}
-                  animate={{ scale: 1 }}
-                  transition={{ duration: 0.1 }}
                 >
                   {stat.value}
-                </motion.div>
+                </div>
               </div>
             ))}
           </motion.div>
 
-          {/* Table with accumulating rows */}
+          {/* Table with virtual scrolling rows */}
           <motion.div
             className="overflow-hidden"
             style={{
               border: '1px solid var(--border-subtle)',
               borderRadius: 'var(--radius-md)',
+              opacity: progress > 0.25 ? 1 : Math.max(0, (progress - 0.1) * 6),
             }}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{
-              opacity: progress > 0.4 ? 1 : 0,
-              y: progress > 0.4 ? 0 : 10,
-            }}
-            transition={{ duration: 0.3, delay: 0.2 }}
           >
             {/* Table header */}
             <div
-              className="flex text-[7px] font-semibold px-1.5 py-1"
+              className="flex text-[6px] font-semibold px-1 py-0.5"
               style={{
                 background: 'var(--bg-secondary)',
                 color: 'var(--text-secondary)',
@@ -184,26 +162,31 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
               <div className="w-1/3 text-right">Amount</div>
             </div>
 
-            {/* Animated rows */}
-            <AnimatePresence>
-              {baseProjects.slice(0, visibleRows).map((row, i) => (
-                <motion.div
-                  key={row.project}
-                  className="flex text-[7px] px-1.5 py-1 items-center"
+            {/* Visible rows - scroll through as progress increases */}
+            {visibleRows.map((row, i) => {
+              // Stagger row appearance based on progress
+              const rowDelay = i * 0.08
+              const rowOpacity = Math.min(1, Math.max(0, (progress - 0.3 - rowDelay) * 5))
+
+              return (
+                <div
+                  key={`${row.project}-${rowWindowStart}-${i}`}
+                  className="flex text-[6px] px-1 py-0.5 items-center"
                   style={{
                     borderTop: i > 0 ? '1px solid var(--border-subtle)' : undefined,
                     background: i % 2 === 1 ? 'var(--bg-secondary)' : 'transparent',
+                    opacity: rowOpacity,
                   }}
-                  initial={{ opacity: 0, x: -10, height: 0 }}
-                  animate={{ opacity: 1, x: 0, height: 'auto' }}
-                  transition={{ duration: 0.2, delay: i * 0.05 }}
                 >
-                  <div className="w-1/3 font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                  <div
+                    className="w-1/3 font-medium truncate"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
                     {row.project}
                   </div>
                   <div className="w-1/3">
                     <span
-                      className="px-1 py-0.5 text-[6px] font-semibold inline-flex items-center"
+                      className="px-1 py-0.5 text-[5px] font-semibold inline-flex items-center"
                       style={{
                         background: row.status === 'funded' ? 'var(--success-muted)' :
                                    row.status === 'staged' ? 'var(--info-muted)' : 'var(--accent-muted)',
@@ -222,64 +205,78 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
                       fontVariantNumeric: 'tabular-nums',
                     }}
                   >
-                    ${row.baseAmount.toLocaleString()}
+                    ${row.amount.toLocaleString()}
                   </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+                </div>
+              )
+            })}
           </motion.div>
         </div>
       </motion.div>
 
-      {/* Converging elements */}
+      {/* Converging elements at low progress - merge into dashboard */}
       {progress < 0.5 && (
         <>
           {[
-            { x: -70, y: -35 },
-            { x: 70, y: -25 },
-            { x: -55, y: 40 },
-            { x: 60, y: 35 },
+            { x: -60, y: -30 },
+            { x: 60, y: -25 },
+            { x: -50, y: 35 },
+            { x: 55, y: 30 },
           ].map((el, i) => (
-            <motion.div
+            <div
               key={i}
-              className="absolute w-6 h-8"
+              className="absolute w-5 h-7"
               style={{
                 background: 'var(--bg-card)',
                 border: '1px solid var(--border-subtle)',
                 borderRadius: 'var(--radius-sm)',
                 boxShadow: 'var(--elevation-1)',
+                transform: `translate(${el.x * (1 - progress * 2)}px, ${el.y * (1 - progress * 2)}px)`,
+                opacity: 1 - (progress * 2),
               }}
-              initial={{ x: el.x, y: el.y, opacity: 1 }}
-              animate={{
-                x: el.x * (1 - progress * 2),
-                y: el.y * (1 - progress * 2),
-                opacity: 1 - progress * 2,
-                scale: 1 - progress,
-              }}
-              transition={{ duration: 0.1 }}
             />
           ))}
         </>
       )}
 
-      {/* Success checkmark */}
+      {/* Success checkmark appears at completion */}
       <motion.div
-        className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center"
+        className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
         style={{
           background: 'var(--success)',
           boxShadow: '0 2px 8px var(--success-glow)',
+          transform: `scale(${progress > 0.7 ? 1 : 0})`,
+          opacity: progress > 0.7 ? 1 : 0,
         }}
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{
-          scale: progress > 0.8 ? 1 : 0,
-          opacity: progress > 0.8 ? 1 : 0,
-        }}
-        transition={{ type: 'spring', damping: 15 }}
       >
-        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
         </svg>
       </motion.div>
+
+      {/* At very high progress, dashboard elements drift outward */}
+      {deconstructAmount > 0 && (
+        <>
+          <div
+            className="absolute w-12 h-3 rounded"
+            style={{
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-subtle)',
+              transform: `translate(${-80 - deconstructAmount * 50}px, ${-20 - deconstructAmount * 30}px)`,
+              opacity: Math.min(0.6, deconstructAmount),
+            }}
+          />
+          <div
+            className="absolute w-10 h-3 rounded"
+            style={{
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-subtle)',
+              transform: `translate(${80 + deconstructAmount * 50}px, ${20 + deconstructAmount * 25}px)`,
+              opacity: Math.min(0.6, deconstructAmount),
+            }}
+          />
+        </>
+      )}
     </div>
   )
 }
