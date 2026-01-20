@@ -112,6 +112,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
           pin: problemsRef.current,
           pinSpacing: true,
           scrub: 0.5,
+          anticipatePin: 1,
           onUpdate: (self) => {
             if (self.progress < 1) {
               // During pinned phase: normal 0-1 progress
@@ -134,6 +135,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
           pin: solutionsRef.current,
           pinSpacing: true,
           scrub: 0.5,
+          anticipatePin: 1,
           onUpdate: (self) => {
             if (self.progress < 1) {
               solutionsUnpinnedRef.current = false
@@ -154,6 +156,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
           pin: workflowRef.current,
           pinSpacing: true,
           scrub: 0.5,
+          anticipatePin: 1,
           onUpdate: (self) => {
             if (self.progress < 1) {
               workflowUnpinnedRef.current = false
@@ -196,6 +199,8 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
       // This gives us progress 1→2 as element scrolls from fully visible to fully off-screen
 
       // Problems section extended progress
+      // Multiplier of 2 doubles the animation duration during exit phase
+      // Total progress range: 0-1 (pin) + 0-2 (exit) = 0-3
       if (problemsUnpinnedRef.current && problemsRef.current) {
         const rect = problemsRef.current.getBoundingClientRect()
 
@@ -207,8 +212,9 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
             const amountScrolledOff = -rect.top
             // Normalize by element height to get exit progress (0 to 1)
             const exitProgress = amountScrolledOff / rect.height
-            // Extended progress: 1 + exitProgress (goes from 1 toward 2)
-            setProblemsProgress(1 + exitProgress)
+            // Extended progress: 1 + exitProgress * 2 (goes from 1 toward 3)
+            // The 2x multiplier makes animations last twice as long
+            setProblemsProgress(1 + exitProgress * 2)
           }
           // If rect.top >= 0, element is still in pin position or just unpinned
           // ScrollTrigger handles this case
@@ -222,7 +228,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
         if (rect.bottom > 0 && rect.top < 0) {
           const amountScrolledOff = -rect.top
           const exitProgress = amountScrolledOff / rect.height
-          setSolutionsProgress(1 + exitProgress)
+          setSolutionsProgress(1 + exitProgress * 2)
         }
       }
 
@@ -233,7 +239,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
         if (rect.bottom > 0 && rect.top < 0) {
           const amountScrolledOff = -rect.top
           const exitProgress = amountScrolledOff / rect.height
-          setWorkflowProgress(1 + exitProgress)
+          setWorkflowProgress(1 + exitProgress * 2)
         }
       }
     }
