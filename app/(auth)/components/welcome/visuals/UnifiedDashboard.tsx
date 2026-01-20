@@ -9,7 +9,7 @@ interface UnifiedDashboardProps {
 
 export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashboardProps) {
   return (
-    <div className={`relative w-full h-48 md:h-64 flex items-center justify-center ${className}`}>
+    <div className={`relative w-full h-36 md:h-44 flex items-center justify-center ${className}`}>
       {/* Dashboard frame - styled like actual TD3 interface */}
       <motion.div
         className="relative w-full max-w-xs overflow-hidden"

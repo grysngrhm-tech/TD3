@@ -52,7 +52,7 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
             className="text-4xl md:text-5xl lg:text-6xl font-semibold mb-4 tracking-tight"
             style={{ color: 'var(--text-primary)' }}
           >
-            Construction Draw Management.{' '}
+            Construction Finance.{' '}
             <span style={{ color: 'var(--accent)' }}>Refined.</span>
           </motion.h1>
 
@@ -94,7 +94,7 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
             className="text-sm mt-6"
             style={{ color: 'var(--text-muted)' }}
           >
-            Tennant Development
+            Tennant Developments
           </motion.p>
         </div>
 

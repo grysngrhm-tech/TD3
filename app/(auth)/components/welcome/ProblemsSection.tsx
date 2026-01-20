@@ -39,22 +39,22 @@ const problemsData = {
 
 export const ProblemsSection = forwardRef<HTMLElement, ProblemsSectionProps>(
   function ProblemsSection({ progress = 0 }, ref) {
-    // Map 0-1 progress to animation stages
-    const headerOpacity = Math.min(1, progress * 4)
-    const col1Progress = Math.max(0, Math.min(1, (progress - 0.15) * 3))
-    const col2Progress = Math.max(0, Math.min(1, (progress - 0.4) * 3))
-    const footerOpacity = Math.max(0, Math.min(1, (progress - 0.8) * 5))
+    // Map 0-1 progress to animation stages (compressed for tighter scroll)
+    const headerOpacity = Math.min(1, progress * 5)                          // 0-20%
+    const col1Progress = Math.max(0, Math.min(1, (progress - 0.1) * 4))      // 10-35%
+    const col2Progress = Math.max(0, Math.min(1, (progress - 0.3) * 4))      // 30-55%
+    const footerOpacity = Math.max(0, Math.min(1, (progress - 0.55) * 3))    // 55-88%
 
     return (
       <section
         ref={ref}
-        className="relative min-h-screen flex flex-col items-center justify-center px-4 py-20"
+        className="relative min-h-screen flex flex-col items-center justify-center px-4 py-12 md:py-16"
         style={{ background: 'var(--bg-primary)' }}
       >
         <div className="w-full max-w-5xl mx-auto">
           {/* Section Header */}
           <motion.div
-            className="text-center mb-12 md:mb-16"
+            className="text-center mb-8 md:mb-10"
             style={{ opacity: headerOpacity }}
           >
             <motion.span
@@ -113,7 +113,7 @@ export const ProblemsSection = forwardRef<HTMLElement, ProblemsSectionProps>(
                   {/* Bullet Points */}
                   <ul className="space-y-3">
                     {column.bullets.map((bullet, bulletIndex) => {
-                      const bulletProgress = Math.max(0, Math.min(1, (colProgress - 0.3 - bulletIndex * 0.1) * 5))
+                      const bulletProgress = Math.max(0, Math.min(1, (colProgress - 0.2 - bulletIndex * 0.05) * 6))
 
                       return (
                         <motion.li
@@ -160,7 +160,7 @@ export const ProblemsSection = forwardRef<HTMLElement, ProblemsSectionProps>(
 
           {/* Footer Quote */}
           <motion.div
-            className="text-center mt-12 md:mt-16"
+            className="text-center mt-8 md:mt-10"
             style={{ opacity: footerOpacity }}
           >
             <p

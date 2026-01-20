@@ -20,7 +20,7 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
   ]
 
   return (
-    <div className={`relative w-full h-48 md:h-64 flex items-center justify-center ${className}`}>
+    <div className={`relative w-full h-36 md:h-44 flex items-center justify-center ${className}`}>
       {/* Clock face - using TD3 design tokens */}
       <div
         className="relative w-36 h-36 md:w-44 md:h-44 rounded-full"

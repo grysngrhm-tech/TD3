@@ -10,20 +10,21 @@ interface WorkflowSectionProps {
 
 export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
   function WorkflowSection({ progress = 0 }, ref) {
-    const headerOpacity = Math.min(1, progress * 3)
-    const pipelineProgress = Math.max(0, Math.min(1, (progress - 0.2) * 1.5))
-    const footerOpacity = Math.max(0, Math.min(1, (progress - 0.85) * 7))
+    // Compressed timing for tighter scroll
+    const headerOpacity = Math.min(1, progress * 5)                          // 0-20%
+    const pipelineProgress = Math.max(0, Math.min(1, (progress - 0.15) * 2)) // 15-65%
+    const footerOpacity = Math.max(0, Math.min(1, (progress - 0.6) * 3))     // 60-93%
 
     return (
       <section
         ref={ref}
-        className="relative min-h-screen flex flex-col items-center justify-center px-4 py-20"
+        className="relative min-h-screen flex flex-col items-center justify-center px-4 py-12 md:py-16"
         style={{ background: 'var(--bg-primary)' }}
       >
         <div className="w-full max-w-5xl mx-auto">
           {/* Section Header */}
           <motion.div
-            className="text-center mb-12 md:mb-20"
+            className="text-center mb-8 md:mb-12"
             style={{ opacity: headerOpacity }}
           >
             <motion.span
@@ -51,7 +52,7 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
           </motion.div>
 
           {/* Workflow Pipeline */}
-          <div className="mb-12 md:mb-20">
+          <div className="mb-8 md:mb-12">
             <WorkflowPipeline progress={pipelineProgress} />
           </div>
 

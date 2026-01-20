@@ -18,7 +18,7 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
   const currentStep = Math.floor(progress * 3)
 
   return (
-    <div className={`relative w-full h-48 md:h-64 flex items-center justify-center ${className}`}>
+    <div className={`relative w-full h-36 md:h-44 flex items-center justify-center ${className}`}>
       <div className="flex items-center gap-4 md:gap-6">
         {steps.map((step, index) => {
           const isActive = index <= currentStep
