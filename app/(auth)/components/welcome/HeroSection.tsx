@@ -75,7 +75,7 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
             className="text-lg md:text-xl mb-10 max-w-lg mx-auto"
             style={{ color: 'var(--text-secondary)' }}
           >
-            The intelligent platform that replaces scattered spreadsheets with a unified system for tracking loans, budgets, and wire transfers.
+            A purpose-built platform for managing construction loans, budgets, draw requests, and funding with clarity, structure, and accountability.
           </motion.p>
 
           {/* Login Form Card */}

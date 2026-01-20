@@ -9,28 +9,28 @@ interface ProblemsSectionProps {
 }
 
 const problemsData = {
-  header: 'Construction lending creates two persistent challenges that compound as the portfolio grows.',
-  footer: 'A small team can hold all this in their heads—until they can\'t.',
+  header: 'Construction lending requires coordinating large volumes of financial, contractual, and project data across long timelines and many participants.',
+  footer: 'As portfolios grow, clarity and consistency become essential.',
   columns: [
     {
-      title: 'Everything Lives in Too Many Places',
-      description: 'Understanding a single loan means checking multiple sources: budget spreadsheets someone emailed last month, approval threads buried in inboxes, handwritten notes from phone calls, and whatever someone is keeping track of in their head.',
+      title: 'Fragmented Information',
+      description: 'A single construction loan can involve budgets, draw requests, invoices, approvals, inspections, and funding records. When this information lives across multiple tools and formats, maintaining a shared, up-to-date understanding becomes difficult.',
       bullets: [
-        'No single source of truth',
-        'Decisions disappear into email',
-        'Reporting takes hours',
-        'Audits are painful',
+        'Data distributed across systems and files',
+        'Limited real-time visibility into project status',
+        'Manual reconciliation for reporting and review',
+        'Increased effort during audits and financial reviews',
       ],
       Visual: ScatteredDocs,
     },
     {
-      title: 'Too Much Time on Repetitive Work',
-      description: 'Even with good intentions and smart people, manual processes eat time that should go elsewhere.',
+      title: 'Manual, Repetitive Processes',
+      description: 'Even in well-run organizations, many construction finance workflows rely on repetitive manual steps that consume time and introduce inconsistency.',
       bullets: [
-        'Budget categorization is tedious',
-        'Invoice matching is slow',
-        'Data entry crowds out judgment',
-        'Inconsistency undermines reporting',
+        'Time spent organizing budgets and draw requests',
+        'Manual matching of invoices and supporting documents',
+        'Repeated validation and review steps',
+        'Process variation across projects and teams',
       ],
       Visual: RepetitiveClock,
     },
