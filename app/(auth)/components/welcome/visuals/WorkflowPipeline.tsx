@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 
 interface WorkflowPipelineProps {
   progress?: number
@@ -14,7 +13,7 @@ const steps = [
     id: 'review',
     label: 'Review',
     description: 'Validate line items against budget',
-    colorVar: '--accent', // TD3 accent for review status
+    colorVar: '--accent',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
     ),
@@ -23,7 +22,7 @@ const steps = [
     id: 'staged',
     label: 'Staged',
     description: "Group with builder's other draws",
-    colorVar: '--info', // TD3 info/blue for staged status
+    colorVar: '--info',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
     ),
@@ -32,7 +31,7 @@ const steps = [
     id: 'pending_wire',
     label: 'Pending Wire',
     description: 'Send to bookkeeper for processing',
-    colorVar: '--purple', // TD3 purple for pending wire status
+    colorVar: '--purple',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     ),
@@ -41,124 +40,90 @@ const steps = [
     id: 'funded',
     label: 'Funded',
     description: 'Wire sent, budgets updated, audit complete',
-    colorVar: '--success', // TD3 success/green for funded status
+    colorVar: '--success',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
     ),
   },
 ]
 
-interface DataPacket {
-  id: number
-  segmentIndex: number
-}
-
 export function WorkflowPipeline({ progress = 0, className = '' }: WorkflowPipelineProps) {
-  // Calculate which step is active based on progress (0-1)
+  // All values derived from scroll progress - no time-based state
+  // Progress can exceed 1 as user scrolls past
+
+  // Calculate which step is active based on progress
   const activeStepIndex = Math.min(Math.floor(progress * 4), 3)
   const stepProgress = (progress * 4) % 1
 
-  // Continuous data packets flowing through pipeline
-  const [dataPackets, setDataPackets] = useState<DataPacket[]>([])
-  const packetIdRef = useRef(0)
-  const isVisible = useRef(false)
-
-  useEffect(() => {
-    isVisible.current = progress > 0.2
-
-    const interval = setInterval(() => {
-      if (isVisible.current && activeStepIndex > 0) {
-        // Spawn new packets at completed segments
-        if (Math.random() < 0.12) {
-          const maxSegment = Math.min(activeStepIndex, 2) // segments 0, 1, 2
-          const segmentIndex = Math.floor(Math.random() * (maxSegment + 1))
-          packetIdRef.current += 1
-          setDataPackets(prev => [
-            ...prev.slice(-8), // Keep max 8 packets
-            { id: packetIdRef.current, segmentIndex }
-          ])
-        }
-      }
-    }, 200)
-
-    return () => clearInterval(interval)
-  }, [progress, activeStepIndex])
-
-  useEffect(() => {
-    isVisible.current = progress > 0.2
-  }, [progress])
+  // At high progress, pipeline expands
+  const deconstructAmount = Math.max(0, (progress - 0.85) * 6)
 
   return (
     <div className={`relative w-full max-w-3xl mx-auto ${className}`}>
       {/* Desktop: Horizontal layout */}
       <div className="hidden md:block">
-        <div className="flex items-start justify-between">
+        <div
+          className="flex items-start justify-between"
+          style={{
+            // Expand horizontally at high progress
+            transform: `scaleX(${1 + deconstructAmount * 0.15})`,
+          }}
+        >
           {steps.map((step, index) => {
             const isActive = index <= activeStepIndex
             const isCurrent = index === activeStepIndex
             const isCompleted = index < activeStepIndex
 
+            // Connector progress for this segment
+            const connectorProgress = isCompleted ? 1 : isCurrent ? stepProgress : 0
+
             return (
               <div key={step.id} className="flex-1 relative">
-                {/* Connector line with flowing data packets */}
+                {/* Connector line with scroll-driven data packets */}
                 {index < steps.length - 1 && (
                   <div className="absolute top-8 left-1/2 w-full h-1 -z-10">
                     <div
                       className="absolute inset-0"
                       style={{ background: 'var(--border)' }}
                     />
-                    <motion.div
+                    {/* Progress fill */}
+                    <div
                       className="absolute inset-y-0 left-0"
-                      style={{ background: `var(${step.colorVar})` }}
-                      initial={{ width: '0%' }}
-                      animate={{
-                        width: isCompleted ? '100%' : isCurrent ? `${stepProgress * 100}%` : '0%',
+                      style={{
+                        background: `var(${step.colorVar})`,
+                        width: `${connectorProgress * 100}%`,
                       }}
-                      transition={{ duration: 0.3, ease: 'easeOut' }}
                     />
 
-                    {/* Continuous data packets on completed segments */}
-                    <AnimatePresence>
-                      {isCompleted && dataPackets
-                        .filter(p => p.segmentIndex === index)
-                        .map(packet => (
-                          <motion.div
-                            key={packet.id}
-                            className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full"
-                            style={{
-                              background: `var(${steps[index + 1].colorVar})`,
-                              boxShadow: `0 0 6px var(${steps[index + 1].colorVar})`,
-                            }}
-                            initial={{ left: '0%', opacity: 0, scale: 0.5 }}
-                            animate={{ left: '100%', opacity: [0, 1, 1, 0], scale: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 1.2, ease: 'linear' }}
-                          />
-                        ))
-                      }
-                    </AnimatePresence>
+                    {/* Data packet - position driven by scroll progress */}
+                    {connectorProgress > 0.1 && connectorProgress < 0.95 && (
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full"
+                        style={{
+                          background: `var(${steps[index + 1].colorVar})`,
+                          boxShadow: `0 0 8px var(${steps[index + 1].colorVar})`,
+                          left: `${connectorProgress * 100}%`,
+                          transform: 'translate(-50%, -50%)',
+                        }}
+                      />
+                    )}
                   </div>
                 )}
 
                 {/* Step content */}
                 <div className="flex flex-col items-center text-center px-2">
-                  {/* Circle - using TD3 styling */}
-                  <motion.div
+                  {/* Circle */}
+                  <div
                     className="relative w-16 h-16 rounded-full flex items-center justify-center mb-3"
                     style={{
                       background: isActive
                         ? `color-mix(in srgb, var(${step.colorVar}) 15%, transparent)`
                         : 'var(--bg-secondary)',
                       border: `3px solid ${isActive ? `var(${step.colorVar})` : 'var(--border)'}`,
-                    }}
-                    animate={{
-                      scale: isCurrent ? [1, 1.05, 1] : 1,
                       boxShadow: isCurrent
-                        ? `0 0 24px color-mix(in srgb, var(${step.colorVar}) 50%, transparent)`
+                        ? `0 0 ${20 + stepProgress * 10}px color-mix(in srgb, var(${step.colorVar}) 50%, transparent)`
                         : 'var(--elevation-1)',
-                    }}
-                    transition={{
-                      scale: { duration: 1, repeat: isCurrent ? Infinity : 0 },
+                      transform: `scale(${isCurrent ? 1 + stepProgress * 0.05 : 1})`,
                     }}
                   >
                     <svg
@@ -173,42 +138,41 @@ export function WorkflowPipeline({ progress = 0, className = '' }: WorkflowPipel
 
                     {/* Completed checkmark badge */}
                     {isCompleted && (
-                      <motion.div
+                      <div
                         className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center"
-                        style={{ background: `var(${step.colorVar})` }}
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: 'spring', damping: 15 }}
+                        style={{
+                          background: `var(${step.colorVar})`,
+                          transform: `scale(${1 + deconstructAmount * 0.3})`,
+                        }}
                       >
                         <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
-                      </motion.div>
+                      </div>
                     )}
-                  </motion.div>
+                  </div>
 
                   {/* Label */}
-                  <motion.h3
+                  <h3
                     className="text-sm font-semibold mb-1"
-                    style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-muted)' }}
-                    animate={{ opacity: isActive ? 1 : 0.5 }}
+                    style={{
+                      color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                      opacity: isActive ? 1 : 0.5,
+                    }}
                   >
                     {step.label}
-                  </motion.h3>
+                  </h3>
 
                   {/* Description */}
-                  <motion.p
+                  <p
                     className="text-xs max-w-[140px]"
-                    style={{ color: 'var(--text-muted)' }}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{
+                    style={{
+                      color: 'var(--text-muted)',
                       opacity: isCurrent ? 1 : 0.5,
-                      y: isCurrent ? 0 : 5,
                     }}
-                    transition={{ duration: 0.3 }}
                   >
                     {step.description}
-                  </motion.p>
+                  </p>
                 </div>
               </div>
             )
@@ -224,27 +188,22 @@ export function WorkflowPipeline({ progress = 0, className = '' }: WorkflowPipel
           const isCompleted = index < activeStepIndex
 
           return (
-            <motion.div
+            <div
               key={step.id}
               className="flex items-start gap-4"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{
+              style={{
                 opacity: isActive ? 1 : 0.4,
-                x: 0,
               }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
             >
               {/* Timeline line + circle */}
               <div className="relative flex flex-col items-center">
-                <motion.div
+                <div
                   className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{
                     background: isActive
                       ? `color-mix(in srgb, var(${step.colorVar}) 15%, transparent)`
                       : 'var(--bg-secondary)',
                     border: `2px solid ${isActive ? `var(${step.colorVar})` : 'var(--border)'}`,
-                  }}
-                  animate={{
                     boxShadow: isCurrent
                       ? `0 0 16px color-mix(in srgb, var(${step.colorVar}) 40%, transparent)`
                       : 'none',
@@ -259,35 +218,21 @@ export function WorkflowPipeline({ progress = 0, className = '' }: WorkflowPipel
                   >
                     {step.icon}
                   </svg>
-                </motion.div>
+                </div>
 
-                {/* Vertical connector with flowing dots */}
+                {/* Vertical connector */}
                 {index < steps.length - 1 && (
                   <div
                     className="relative w-0.5 h-8 mt-2 overflow-hidden"
                     style={{ background: 'var(--border)' }}
                   >
-                    <motion.div
+                    <div
                       className="absolute top-0 w-full"
-                      style={{ background: `var(${step.colorVar})` }}
-                      initial={{ height: '0%' }}
-                      animate={{ height: isCompleted ? '100%' : '0%' }}
+                      style={{
+                        background: `var(${step.colorVar})`,
+                        height: isCompleted ? '100%' : '0%',
+                      }}
                     />
-                    {/* Mobile data packets */}
-                    {isCompleted && dataPackets
-                      .filter(p => p.segmentIndex === index)
-                      .slice(0, 2)
-                      .map(packet => (
-                        <motion.div
-                          key={packet.id}
-                          className="absolute left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
-                          style={{ background: `var(${steps[index + 1].colorVar})` }}
-                          initial={{ top: '0%', opacity: 0 }}
-                          animate={{ top: '100%', opacity: [0, 1, 1, 0] }}
-                          transition={{ duration: 0.8, ease: 'linear' }}
-                        />
-                      ))
-                    }
                   </div>
                 )}
               </div>
@@ -307,7 +252,7 @@ export function WorkflowPipeline({ progress = 0, className = '' }: WorkflowPipel
                   {step.description}
                 </p>
               </div>
-            </motion.div>
+            </div>
           )
         })}
       </div>
