@@ -15,6 +15,7 @@ import {
 
 interface WorkflowSectionProps {
   progress?: number
+  viewportScale?: number
 }
 
 // Map stage index to animation component
@@ -128,7 +129,7 @@ const WORKFLOW_STAGES: StageData[] = [
 ]
 
 export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
-  function WorkflowSection({ progress = 0 }, ref) {
+  function WorkflowSection({ progress = 0, viewportScale = 1 }, ref) {
     const [isMobile, setIsMobile] = useState(false)
 
     // Check for mobile on mount and resize
@@ -163,7 +164,14 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
         className="relative min-h-screen flex flex-col items-center justify-center px-4 py-12 md:py-16"
         style={{ background: 'var(--bg-primary)' }}
       >
-        <div className="w-full max-w-6xl mx-auto">
+        {/* Content wrapper with viewport-based scaling */}
+        <div
+          className="w-full max-w-6xl mx-auto"
+          style={{
+            transform: viewportScale < 1 ? `scale(${viewportScale})` : undefined,
+            transformOrigin: 'center center',
+          }}
+        >
           {/* Section Header */}
           <motion.div
             className="text-center mb-8 md:mb-12"
