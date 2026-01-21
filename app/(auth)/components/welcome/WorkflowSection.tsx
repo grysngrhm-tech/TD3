@@ -253,30 +253,24 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
                 />
               </div>
             ) : (
-              /* Desktop: Animation left, timeline+content right - no card wrapper */
+              /* Desktop: Timeline+Content left, Animation right - mirrored layout */
               <div className="flex gap-6 lg:gap-8">
-                {/* Left column: Animation - takes ~55-60% width */}
-                <div className="flex-1 min-w-0 h-[280px] lg:h-[300px] relative">
-                  {React.createElement(STAGE_ANIMATIONS[activeStage], { progress: stageProgress })}
-                </div>
-
-                {/* Right column: Timeline + Content - takes ~40-45% width */}
-                <div className="w-[45%] lg:w-[42%] flex-shrink-0 flex flex-col gap-4">
+                {/* Left column: Timeline with inline expansion - takes ~38-40% width */}
+                <div className="w-[40%] lg:w-[38%] flex-shrink-0">
                   <WorkflowTimeline
                     stages={WORKFLOW_STAGES}
                     activeStage={activeStage}
                     stageProgress={stageProgress}
                     isMobile={false}
-                    compact={true}
+                    compact={false}
+                    expandInline={true}
+                    showProgressBar={true}
                   />
-                  <WorkflowStageDetail
-                    stage={WORKFLOW_STAGES[activeStage]}
-                    stageIndex={activeStage}
-                    progress={stageProgress}
-                    isActive={true}
-                    isMobile={false}
-                    hideAnimation={true}
-                  />
+                </div>
+
+                {/* Right column: Animation - takes ~60-62% width, taller container */}
+                <div className="flex-1 min-w-0 min-h-[350px] lg:min-h-[420px] xl:min-h-[480px] relative">
+                  {React.createElement(STAGE_ANIMATIONS[activeStage], { progress: stageProgress })}
                 </div>
               </div>
             )}
