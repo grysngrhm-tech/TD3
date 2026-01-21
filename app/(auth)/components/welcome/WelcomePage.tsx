@@ -136,12 +136,12 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
         })
       }
 
-      // Workflow Section - Pinned (slightly longer for 4-step animation)
+      // Workflow Section - Pinned (extended for 6-stage animation with dwell time)
       if (workflowContainerRef.current && workflowRef.current) {
         ScrollTrigger.create({
           trigger: workflowContainerRef.current,
           start: 'top top',
-          end: '+=150%',
+          end: '+=300%',
           pin: workflowRef.current,
           pinSpacing: true,
           scrub: 0.5,

@@ -10,40 +10,62 @@ interface ImportStageProps {
 /**
  * Stage 1: Import & Standardize
  * Visualizes Excel/CSV upload transforming into NAHB-categorized budget lines
- * with data particles, progress counter, and confidence badges
+ * with upload animation, structure detection, data particles, and rich results
+ *
+ * Timing phases (0-1 progress) - OVERLAPPING for fluid animation:
+ * - 0-15%:   File upload animation
+ * - 8-30%:   Structure detection (overlaps with upload)
+ * - 22-55%:  Cell scanning (overlaps with structure)
+ * - 45-75%:  AI mapping with particles (overlaps with scanning)
+ * - 65-95%:  Results display (overlaps with mapping)
+ * - 88-100%: Summary/completion (overlaps with results)
  */
 export function ImportStage({ progress = 0 }: ImportStageProps) {
-  // Derive all values from scroll progress
-  const uploadComplete = progress > 0.15
-  const parsingProgress = Math.max(0, Math.min(1, (progress - 0.15) * 2)) // 15-65%
-  const categorizeProgress = Math.max(0, Math.min(1, (progress - 0.4) * 1.67)) // 40-100%
+  // Phase calculations with OVERLAPPING timing for fluid animation
+  const uploadProgress = Math.min(1, progress / 0.15) // 0-15%
+  const uploadComplete = progress > 0.08
 
-  // Budget lines appear progressively
-  const visibleLines = Math.floor(categorizeProgress * 5)
+  const structureDetectProgress = Math.max(0, Math.min(1, (progress - 0.08) / 0.22)) // 8-30%
+  const structureComplete = progress > 0.22
 
+  const scanProgress = Math.max(0, Math.min(1, (progress - 0.22) / 0.33)) // 22-55%
+  const scanComplete = progress > 0.45
+
+  const mappingProgress = Math.max(0, Math.min(1, (progress - 0.45) / 0.30)) // 45-75%
+  const mappingComplete = progress > 0.65
+
+  const resultsProgress = Math.max(0, Math.min(1, (progress - 0.65) / 0.30)) // 65-95%
+  const showSummary = progress > 0.88
+
+  // Budget lines - expanded to 8 for richer content
   const budgetLines = [
+    { category: 'Site Work', code: '01.00', amount: '$12,400', confidence: 96 },
+    { category: 'Foundation', code: '02.00', amount: '$38,200', confidence: 98 },
     { category: 'Framing', code: '03.00', amount: '$45,200', confidence: 98 },
-    { category: 'Electrical', code: '07.00', amount: '$28,500', confidence: 95 },
-    { category: 'Plumbing', code: '06.00', amount: '$32,100', confidence: 97 },
-    { category: 'HVAC', code: '08.00', amount: '$41,800', confidence: 92 },
     { category: 'Roofing', code: '04.00', amount: '$18,900', confidence: 99 },
+    { category: 'Plumbing', code: '06.00', amount: '$32,100', confidence: 97 },
+    { category: 'Electrical', code: '07.00', amount: '$28,500', confidence: 95 },
+    { category: 'HVAC', code: '08.00', amount: '$41,800', confidence: 92 },
+    { category: 'Insulation', code: '09.00', amount: '$14,600', confidence: 94 },
   ]
 
+  // Progressive line reveal (8 lines over 70-92% = 22% of progress)
+  const visibleLines = Math.min(8, Math.floor(resultsProgress * 8.5))
+
   // Calculate which Excel cell is being scanned (0-11 for 4x3 grid)
-  const scanningCellIndex = Math.floor(parsingProgress * 12)
+  const scanningCellIndex = structureComplete ? Math.floor(scanProgress * 12) : -1
 
   // Generate particle positions for data flow animation
   const particles = useMemo(() => {
-    return Array.from({ length: 6 }, (_, i) => ({
+    return Array.from({ length: 8 }, (_, i) => ({
       id: i,
-      delay: i * 0.15,
-      offsetY: (i % 3 - 1) * 8,
+      delay: i * 0.1,
+      offsetY: (i % 4 - 1.5) * 6,
     }))
   }, [])
 
-  // Progress counter text
-  const mappingCount = Math.min(visibleLines, 5)
-  const showMappingCounter = parsingProgress > 0.3 && categorizeProgress < 1
+  // Mapping counter
+  const mappingCount = Math.min(visibleLines, 8)
 
   return (
     <div className="relative w-full h-full flex items-center justify-center p-4 overflow-hidden">
@@ -51,40 +73,65 @@ export function ImportStage({ progress = 0 }: ImportStageProps) {
       <motion.div
         className="absolute left-4 top-1/2 -translate-y-1/2 w-16 md:w-20"
         style={{
-          opacity: 1 - parsingProgress * 0.3,
-          transform: `translateY(-50%) translateX(${parsingProgress * 20}px)`,
+          opacity: Math.min(1, uploadProgress * 2),
+          transform: `translateY(-50%) translateX(${mappingComplete ? 10 : 0}px) scale(${mappingComplete ? 0.95 : 1})`,
         }}
       >
         <div
           className="relative p-2 rounded-lg"
           style={{
             background: 'var(--bg-card)',
-            border: '1px solid var(--border-subtle)',
+            border: `1px solid ${structureComplete ? 'var(--success)' : 'var(--border-subtle)'}`,
             boxShadow: 'var(--elevation-2)',
           }}
         >
-          {/* File icon */}
+          {/* File icon with upload animation */}
           <div className="flex items-center gap-1 mb-1">
-            <svg
+            <motion.svg
               className="w-4 h-4"
-              style={{ color: 'var(--success)' }}
+              style={{ color: uploadComplete ? 'var(--success)' : 'var(--text-muted)' }}
               fill="currentColor"
               viewBox="0 0 24 24"
+              initial={{ y: -5, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.3 }}
             >
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm4 18H6V4h7v5h5v11z" />
-            </svg>
+            </motion.svg>
             <span className="text-[8px] font-medium" style={{ color: 'var(--text-muted)' }}>
-              .xlsx
+              budget.xlsx
             </span>
           </div>
+
+          {/* Upload progress bar */}
+          {!uploadComplete && (
+            <div className="mb-1">
+              <div
+                className="h-1 w-full rounded-full overflow-hidden"
+                style={{ background: 'var(--bg-secondary)' }}
+              >
+                <motion.div
+                  className="h-full rounded-full"
+                  style={{ background: 'var(--info)' }}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${uploadProgress * 100}%` }}
+                />
+              </div>
+              <span className="text-[6px]" style={{ color: 'var(--text-muted)' }}>
+                Uploading...
+              </span>
+            </div>
+          )}
+
           {/* Grid representation with sequential highlighting */}
           <div className="space-y-0.5">
             {[...Array(4)].map((_, row) => (
               <div key={row} className="flex gap-0.5">
                 {[...Array(3)].map((_, col) => {
                   const cellIndex = row * 3 + col
-                  const isScanning = parsingProgress > 0 && cellIndex === scanningCellIndex
-                  const isScanned = parsingProgress > 0 && cellIndex < scanningCellIndex
+                  const isScanning = scanningCellIndex === cellIndex
+                  const isScanned = structureComplete && cellIndex < scanningCellIndex
+                  const isStructureDetected = structureDetectProgress > 0 && !structureComplete
 
                   return (
                     <motion.div
@@ -95,15 +142,22 @@ export function ImportStage({ progress = 0 }: ImportStageProps) {
                           ? 'var(--info)'
                           : isScanned
                           ? 'var(--success-muted)'
+                          : isStructureDetected
+                          ? 'var(--info-muted)'
                           : row === 0
                           ? 'var(--accent-muted)'
                           : 'var(--border)',
                       }}
                       animate={isScanning ? {
                         opacity: [1, 0.5, 1],
+                      } : isStructureDetected ? {
+                        opacity: [0.5, 1, 0.5],
                       } : {}}
                       transition={isScanning ? {
-                        duration: 0.3,
+                        duration: 0.2,
+                        repeat: Infinity,
+                      } : isStructureDetected ? {
+                        duration: 0.8,
                         repeat: Infinity,
                       } : {}}
                     />
@@ -112,15 +166,50 @@ export function ImportStage({ progress = 0 }: ImportStageProps) {
               </div>
             ))}
           </div>
+
+          {/* Structure detection status */}
+          {uploadComplete && !structureComplete && (
+            <motion.div
+              className="mt-1 flex items-center gap-1"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              <motion.div
+                className="w-2 h-2 rounded-full"
+                style={{ background: 'var(--info)' }}
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 0.6, repeat: Infinity }}
+              />
+              <span className="text-[6px]" style={{ color: 'var(--info)' }}>
+                Detecting structure...
+              </span>
+            </motion.div>
+          )}
+
+          {/* Structure detected badge */}
+          {structureComplete && !scanComplete && (
+            <motion.div
+              className="mt-1 flex items-center gap-1"
+              initial={{ opacity: 0, y: 3 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <svg className="w-2.5 h-2.5" style={{ color: 'var(--success)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-[6px]" style={{ color: 'var(--success)' }}>
+                32 rows detected
+              </span>
+            </motion.div>
+          )}
         </div>
       </motion.div>
 
       {/* Data particles flowing from Excel to NAHB panel */}
-      {parsingProgress > 0.2 && categorizeProgress < 0.9 && (
+      {scanComplete && !showSummary && (
         <div className="absolute inset-0 pointer-events-none">
           {particles.map((particle) => {
             const particleProgress = Math.max(0, Math.min(1,
-              (parsingProgress - 0.2 - particle.delay) * 2
+              (mappingProgress - particle.delay) * 1.5
             ))
             if (particleProgress <= 0 || particleProgress >= 1) return null
 
@@ -131,12 +220,12 @@ export function ImportStage({ progress = 0 }: ImportStageProps) {
                 style={{
                   background: 'var(--info)',
                   boxShadow: '0 0 6px var(--info)',
-                  left: `${25 + particleProgress * 45}%`,
+                  left: `${22 + particleProgress * 48}%`,
                   top: `calc(50% + ${particle.offsetY}px)`,
-                  opacity: particleProgress < 0.1
-                    ? particleProgress * 10
-                    : particleProgress > 0.9
-                    ? (1 - particleProgress) * 10
+                  opacity: particleProgress < 0.15
+                    ? particleProgress * 6.67
+                    : particleProgress > 0.85
+                    ? (1 - particleProgress) * 6.67
                     : 1,
                 }}
               />
@@ -145,13 +234,15 @@ export function ImportStage({ progress = 0 }: ImportStageProps) {
         </div>
       )}
 
-      {/* Processing indicator with counter */}
-      {parsingProgress > 0 && (
+      {/* Central processing indicator */}
+      {scanComplete && !showSummary && (
         <motion.div
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
           style={{
-            opacity: categorizeProgress < 0.8 ? 1 : 1 - (categorizeProgress - 0.8) * 5,
+            opacity: mappingComplete ? Math.max(0, 1 - (resultsProgress - 0.5) * 4) : 1,
           }}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
         >
           <div className="flex flex-col items-center gap-1">
             <div className="flex items-center gap-2">
@@ -166,22 +257,19 @@ export function ImportStage({ progress = 0 }: ImportStageProps) {
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </motion.svg>
-              <span
-                className="text-[9px] font-medium"
-                style={{ color: 'var(--info)' }}
-              >
+              <span className="text-[9px] font-medium" style={{ color: 'var(--info)' }}>
                 AI Mapping
               </span>
             </div>
             {/* Progress counter */}
-            {showMappingCounter && (
+            {mappingComplete && (
               <motion.span
                 className="text-[8px] font-mono"
                 style={{ color: 'var(--text-muted)' }}
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                Mapping {mappingCount}/5...
+                Mapping {mappingCount}/8...
               </motion.span>
             )}
           </div>
@@ -190,46 +278,60 @@ export function ImportStage({ progress = 0 }: ImportStageProps) {
 
       {/* Output: NAHB categorized list */}
       <motion.div
-        className="absolute right-2 top-1/2 -translate-y-1/2 w-28 md:w-36"
+        className="absolute right-2 top-1/2 -translate-y-1/2 w-32 md:w-40"
         style={{
-          opacity: categorizeProgress > 0 ? 1 : 0,
-          transform: `translateY(-50%) scale(${0.9 + categorizeProgress * 0.1})`,
+          opacity: mappingComplete ? 1 : 0,
+          transform: `translateY(-50%) scale(${0.95 + (mappingComplete ? 0.05 : 0)})`,
         }}
       >
         <div
           className="rounded-lg overflow-hidden"
           style={{
             background: 'var(--bg-card)',
-            border: '1px solid var(--border-subtle)',
-            boxShadow: 'var(--elevation-2)',
+            border: showSummary ? '1px solid var(--success)' : '1px solid var(--border-subtle)',
+            boxShadow: showSummary ? '0 4px 12px rgba(16, 185, 129, 0.15)' : 'var(--elevation-2)',
           }}
         >
           {/* Header */}
           <div
-            className="px-2 py-1 flex items-center gap-1"
+            className="px-2 py-1 flex items-center justify-between"
             style={{
-              background: 'var(--bg-secondary)',
+              background: showSummary
+                ? 'color-mix(in srgb, var(--success) 8%, var(--bg-secondary))'
+                : 'var(--bg-secondary)',
               borderBottom: '1px solid var(--border-subtle)',
             }}
           >
-            <div
-              className="w-3 h-3 rounded flex items-center justify-center"
-              style={{ background: 'var(--accent)' }}
-            >
-              <span className="text-[5px] font-bold text-white">TD3</span>
+            <div className="flex items-center gap-1">
+              <div
+                className="w-3 h-3 rounded flex items-center justify-center"
+                style={{ background: 'var(--accent)' }}
+              >
+                <span className="text-[5px] font-bold text-white">TD3</span>
+              </div>
+              <span className="text-[7px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                NAHB Budget
+              </span>
             </div>
-            <span className="text-[7px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
-              NAHB Budget
-            </span>
+            {showSummary && (
+              <motion.span
+                className="text-[6px] px-1 py-0.5 rounded-full"
+                style={{ background: 'var(--success-muted)', color: 'var(--success)' }}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 500 }}
+              >
+                Ready
+              </motion.span>
+            )}
           </div>
 
-          {/* Budget lines */}
-          <div className="p-1 space-y-0.5">
+          {/* Budget lines - scrollable container for 8 lines */}
+          <div className="p-1 space-y-0.5 max-h-28 overflow-hidden">
             {budgetLines.map((line, i) => {
               const isVisible = i < visibleLines
-              const isLatest = i === visibleLines - 1 && categorizeProgress < 1
-              // Confidence badge appears slightly after line appears
-              const showConfidence = isVisible && categorizeProgress > (i + 1) * 0.2 + 0.1
+              const isLatest = i === visibleLines - 1 && !showSummary
+              const showConfidence = isVisible && resultsProgress > (i + 1) * 0.11
 
               return (
                 <motion.div
@@ -245,8 +347,8 @@ export function ImportStage({ progress = 0 }: ImportStageProps) {
                       : '1px solid transparent',
                   }}
                   initial={false}
-                  animate={isVisible ? { x: 0 } : { x: 10 }}
-                  transition={{ duration: 0.2 }}
+                  animate={isVisible ? { x: 0, opacity: 1 } : { x: 10, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
                 >
                   <span
                     className="text-[6px] font-mono w-6"
@@ -289,7 +391,7 @@ export function ImportStage({ progress = 0 }: ImportStageProps) {
                       className="absolute -right-0.5 -top-0.5 w-2 h-2"
                       initial={{ scale: 0, opacity: 1 }}
                       animate={{ scale: [0, 1.5, 0], opacity: [1, 1, 0] }}
-                      transition={{ duration: 0.6 }}
+                      transition={{ duration: 0.5 }}
                     >
                       <svg viewBox="0 0 24 24" fill="var(--success)" className="w-full h-full">
                         <path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z" />
@@ -301,26 +403,43 @@ export function ImportStage({ progress = 0 }: ImportStageProps) {
             })}
           </div>
 
-          {/* Confidence indicator */}
-          {categorizeProgress > 0.7 && (
+          {/* Summary footer */}
+          {showSummary && (
             <motion.div
-              className="px-2 py-1 flex items-center gap-1"
+              className="px-2 py-1.5 space-y-1"
               style={{ borderTop: '1px solid var(--border-subtle)' }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
             >
-              <svg
-                className="w-2.5 h-2.5"
-                style={{ color: 'var(--success)' }}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="text-[7px]" style={{ color: 'var(--success)' }}>
-                96% avg confidence
-              </span>
+              {/* Stats row */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  <svg
+                    className="w-2.5 h-2.5"
+                    style={{ color: 'var(--success)' }}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-[7px]" style={{ color: 'var(--success)' }}>
+                    8 categories mapped
+                  </span>
+                </div>
+                <span className="text-[7px] font-mono" style={{ color: 'var(--text-muted)' }}>
+                  96% avg
+                </span>
+              </div>
+              {/* Total */}
+              <div className="flex items-center justify-between pt-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                <span className="text-[7px]" style={{ color: 'var(--text-muted)' }}>
+                  Total Budget
+                </span>
+                <span className="text-[8px] font-bold font-mono" style={{ color: 'var(--text-primary)' }}>
+                  $231,700
+                </span>
+              </div>
             </motion.div>
           )}
         </div>
