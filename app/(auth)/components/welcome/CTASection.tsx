@@ -29,7 +29,7 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
             <h2
-              className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-4 tracking-tight uppercase whitespace-nowrap"
+              className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-4 tracking-tight uppercase whitespace-nowrap w-fit mx-auto text-center"
               style={{ color: 'var(--text-primary)' }}
             >
               Construction Finance.
