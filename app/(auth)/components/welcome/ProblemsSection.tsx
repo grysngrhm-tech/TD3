@@ -68,7 +68,7 @@ export const ProblemsSection = forwardRef<HTMLElement, ProblemsSectionProps>(
           }}
         >
           {/* Section Header - always visible, scrolls into view naturally */}
-          <div className="text-center mb-8 md:mb-10">
+          <div className="text-center mb-2">
             <motion.span
               className="inline-block text-xs font-semibold tracking-wider uppercase mb-4 px-3 py-1 rounded-full"
               style={{
@@ -102,7 +102,7 @@ export const ProblemsSection = forwardRef<HTMLElement, ProblemsSectionProps>(
                   }}
                 >
                   {/* Visual - fixed height container for title alignment */}
-                  <div className="mb-4 h-44 sm:h-52 md:h-64 flex items-center justify-center overflow-hidden">
+                  <div className="h-44 sm:h-52 md:h-64 flex items-center justify-center overflow-hidden">
                     <Visual progress={progress} />
                   </div>
 

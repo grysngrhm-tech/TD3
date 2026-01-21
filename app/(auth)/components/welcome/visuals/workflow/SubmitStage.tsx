@@ -44,12 +44,12 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
   const completeProgress = Math.max(0, Math.min(1, (progress - 0.80) / 0.20))
 
   // Unified coordinate system: Y positions (% from container top) for draw lines and invoices
-  // Draw card line items appear at these Y percentages within the container
-  // Invoices are positioned to align horizontally with their matching draw lines
+  // Both draw card and invoices are vertically centered, with matching Y offsets
+  // These Y values represent offsets from center (positive = below center)
   const matchData = [
-    { category: 'Framing', requested: '$12,400', match: 96, drawY: 22, invoiceY: 14, vendor: 'Acme Lumber', amount: '$12,380', color: 'var(--info)' },
-    { category: 'Electrical', requested: '$8,200', match: 88, drawY: 32, invoiceY: 36, vendor: 'City Electric', amount: '$8,180', color: 'var(--accent)' },
-    { category: 'Plumbing', requested: '$6,800', match: 95, drawY: 42, invoiceY: 58, vendor: 'Pro Plumbing', amount: '$6,750', color: 'var(--success)' },
+    { category: 'Framing', requested: '$12,400', match: 96, yOffset: -15, vendor: 'Acme Lumber', amount: '$12,380', color: 'var(--info)' },
+    { category: 'Electrical', requested: '$8,200', match: 88, yOffset: 0, vendor: 'City Electric', amount: '$8,180', color: 'var(--accent)' },
+    { category: 'Plumbing', requested: '$6,800', match: 95, yOffset: 15, vendor: 'Pro Plumbing', amount: '$6,750', color: 'var(--success)' },
   ]
 
   // Draw lines data - 4 items (includes one without invoice match)
@@ -60,14 +60,14 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
     { category: 'Roofing', requested: '$4,500', match: 92 },
   ]
 
-  // 3 invoices that match to draw lines (derived from matchData for backwards compatibility)
+  // 3 invoices that match to draw lines (derived from matchData)
   const invoices = matchData.map((m, i) => ({
     vendor: m.vendor,
     amount: m.amount,
     category: m.category,
     matchLine: i,
     color: m.color,
-    invoiceY: m.invoiceY,
+    yOffset: m.yOffset,
   }))
 
   // Calculate which line items are visible during population phase
@@ -111,10 +111,10 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
     >
       {/* Draw Request Card */}
       <motion.div
-        className="absolute left-[2%] md:left-[3%] top-1/2 -translate-y-1/2 w-[38%] min-w-[130px]"
+        className="absolute left-[2%] md:left-[3%] top-1/2 w-[38%] min-w-[130px]"
         style={{
           opacity: drawEntryProgress,
-          transform: `translateX(${(1 - drawEntryProgress) * -30}px)`,
+          transform: `translateY(-50%) translateX(${(1 - drawEntryProgress) * -30}px)`,
         }}
       >
         <div
@@ -269,17 +269,14 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
             // Invoice container starts at ~63% (100% - 2% - 35%)
             const startX = 41
             const endX = 62
-            // Use Y positions from matchData - draw line Y and invoice center Y
-            const startY = match.drawY
-            const endY = match.invoiceY
-            // Quadratic bezier curve for smooth connection
-            const midX = (startX + endX) / 2
-            const midY = (startY + endY) / 2
-
+            // Both elements are centered at 50%, with yOffset from center
+            // Convert yOffset to absolute Y percentage (50 + offset scaled for viewBox)
+            const y = 50 + match.yOffset * 0.8
+            // Straight horizontal lines since elements are aligned
             return (
               <motion.path
                 key={i}
-                d={`M ${startX} ${startY} Q ${midX} ${midY} ${endX} ${endY}`}
+                d={`M ${startX} ${y} L ${endX} ${y}`}
                 fill="none"
                 stroke={`url(#lineGrad${i})`}
                 strokeWidth="0.5"
@@ -296,8 +293,8 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
         </svg>
       )}
 
-      {/* Invoice Cards - positioned using percentage-based Y coordinates */}
-      <div className="absolute right-[2%] md:right-[3%] top-0 bottom-0 w-[35%] min-w-[110px]">
+      {/* Invoice Cards - centered container with offset positioning to match draw lines */}
+      <div className="absolute right-[2%] md:right-[3%] top-1/2 -translate-y-1/2 w-[35%] min-w-[110px]">
         {invoices.map((invoice, i) => {
           const invProgress = Math.max(0, Math.min(1, (invoiceUploadProgress - i * 0.25) * 2))
           const isScanning = scanningInvoiceIndex === i && scanProgress > 0 && !invoiceScanComplete(i)
@@ -310,9 +307,9 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
               key={invoice.vendor}
               className="absolute w-full"
               style={{
-                // Position at percentage Y and center vertically on that point
-                top: `${invoice.invoiceY}%`,
-                transform: `translateY(calc(-50% + ${(1 - invProgress) * -15}px)) scale(${0.92 + invProgress * 0.08})`,
+                // Position using yOffset from center to align with draw card lines
+                top: '50%',
+                transform: `translateY(calc(-50% + ${invoice.yOffset * 2.5}px + ${(1 - invProgress) * -15}px)) scale(${0.92 + invProgress * 0.08})`,
                 opacity: invProgress,
                 zIndex: 3 - i,
               }}
