@@ -7,7 +7,7 @@
  *
  * RULES:
  * 1. Hero and CTA sections always display DIFFERENT words on the same page view
- * 2. Primary word (Hero) differs from last visit's word (stored in localStorage)
+ * 2. Words are randomly selected on each page load
  * 3. Words remain stable during a page view (no re-randomizing on re-render)
  */
 
@@ -45,54 +45,6 @@ export const ACCENT_WORDS = [
 
 export type AccentWord = typeof ACCENT_WORDS[number]
 
-// localStorage key for persisting last-used word
-const STORAGE_KEY = 'td3-accent-word-last'
-
-/**
- * Gets the last-used accent word from localStorage.
- * Returns null if not found or on server-side.
- */
-function getLastUsedWord(): AccentWord | null {
-  if (typeof window === 'undefined') return null
-
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored && ACCENT_WORDS.includes(stored as AccentWord)) {
-      return stored as AccentWord
-    }
-  } catch {
-    // localStorage may be unavailable (private browsing, etc.)
-  }
-
-  return null
-}
-
-/**
- * Stores the primary word as last-used in localStorage.
- */
-function setLastUsedWord(word: AccentWord): void {
-  if (typeof window === 'undefined') return
-
-  try {
-    localStorage.setItem(STORAGE_KEY, word)
-  } catch {
-    // Silently fail if localStorage is unavailable
-  }
-}
-
-/**
- * Selects a random word from the list, optionally excluding certain words.
- */
-function selectRandomWord(exclude: AccentWord[] = []): AccentWord {
-  const available = ACCENT_WORDS.filter(word => !exclude.includes(word))
-
-  // Fallback to full list if all words are excluded (shouldn't happen with 25 words)
-  const pool = available.length > 0 ? available : ACCENT_WORDS
-
-  const randomIndex = Math.floor(Math.random() * pool.length)
-  return pool[randomIndex]
-}
-
 /**
  * Selection result containing words for both Hero and CTA sections.
  */
@@ -104,32 +56,24 @@ export interface AccentWordSelection {
 }
 
 /**
- * Selects two distinct accent words for Hero and CTA sections.
+ * Selects two distinct random accent words for Hero and CTA sections.
  *
- * SELECTION LOGIC:
- * 1. Get last-used word from localStorage (if any)
- * 2. Select Hero word: random, but different from last-used if possible
- * 3. Select CTA word: random, but different from Hero word
- * 4. Store Hero word as new last-used word
- *
- * This ensures:
- * - Hero and CTA never show the same word on a page view
- * - Consecutive visits show different Hero words
- * - Selection is deterministic per call (call once, use the result)
+ * Both words are randomly selected on each call, with the only constraint
+ * being that Hero and CTA must display different words.
  *
  * @returns Object containing heroWord and ctaWord
  */
 export function selectAccentWords(): AccentWordSelection {
-  const lastUsed = getLastUsedWord()
+  // Pick random index for Hero
+  const heroIndex = Math.floor(Math.random() * ACCENT_WORDS.length)
+  const heroWord = ACCENT_WORDS[heroIndex]
 
-  // Select Hero word: different from last-used if possible
-  const heroWord = selectRandomWord(lastUsed ? [lastUsed] : [])
-
-  // Select CTA word: different from Hero word
-  const ctaWord = selectRandomWord([heroWord])
-
-  // Persist Hero word for next visit
-  setLastUsedWord(heroWord)
+  // Pick random index for CTA, ensuring it differs from Hero
+  let ctaIndex = Math.floor(Math.random() * (ACCENT_WORDS.length - 1))
+  if (ctaIndex >= heroIndex) {
+    ctaIndex++ // Skip over the hero index
+  }
+  const ctaWord = ACCENT_WORDS[ctaIndex]
 
   return { heroWord, ctaWord }
 }
