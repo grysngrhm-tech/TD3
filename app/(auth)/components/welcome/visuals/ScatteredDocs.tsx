@@ -18,7 +18,8 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
   const phaseB = Math.max(0, (progress - 0.4) / 0.6)  // 40-100%: 0→1
 
   // Combined intensity that only grows (never shrinks)
-  const chaosIntensity = phaseA + phaseB * 1.5
+  // Reduced multiplier for more restrained escalation
+  const chaosIntensity = phaseA + phaseB * 0.8
 
   // Documents with final expanded positions and orbital parameters
   // They START overlapping in center and expand outward while orbiting
@@ -36,9 +37,9 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
     const expandProgress = Math.min(1, progress * 1.5)
     const easedExpand = 1 - Math.pow(1 - expandProgress, 3)
 
-    // Spread multiplier: grows from 1 to 2.5 in second half
-    // Documents venture far beyond original positions
-    const spreadMultiplier = 1 + phaseB * 1.5
+    // Spread multiplier: grows from 1 to 1.4 in second half
+    // Documents venture modestly beyond original positions
+    const spreadMultiplier = 1 + phaseB * 0.4
 
     // Base position (spreads wider over time)
     const baseX = doc.finalX * easedExpand * spreadMultiplier
@@ -50,39 +51,39 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
 
     // Orbit radius GROWS in second half (not shrinks!)
     // Phase A: normal growth to full radius
-    // Phase B: continues growing to 3x
+    // Phase B: continues growing modestly (1.5x additional)
     const baseOrbitRadius = doc.orbitRadius * phaseA
-    const escalatedOrbitRadius = doc.orbitRadius * phaseB * 3
+    const escalatedOrbitRadius = doc.orbitRadius * phaseB * 1.5
     const currentOrbitRadius = baseOrbitRadius + escalatedOrbitRadius
 
     const orbitX = Math.cos(knotAngle + docIndex * 1.25) * currentOrbitRadius
     const orbitY = Math.sin(knotAngle + docIndex * 1.25) * currentOrbitRadius
 
-    // === LISSAJOUS LOOPING (Wild patterns in second half) ===
+    // === LISSAJOUS LOOPING (Subtle patterns in second half) ===
     // Creates elegant figure-8 and pretzel-like patterns
     const lissajousDelta = (docIndex * Math.PI) / 5
-    const lissajousAmplitude = phaseB * 60  // Grows to 60px in second half
+    const lissajousAmplitude = phaseB * 20  // Grows to 20px in second half (restrained)
 
     const lissX = Math.sin(doc.lissA * knotAngle + lissajousDelta) * lissajousAmplitude
     const lissY = Math.sin(doc.lissB * knotAngle) * lissajousAmplitude * 0.7
 
     // === MULTI-LAYER TURBULENCE ===
-    // Three harmonic waves for unpredictable, chaotic motion
-    const turbulenceScale = 1 + phaseB * 2  // 1x → 3x
-    const t1 = Math.sin(progress * 15 + docIndex * 2) * 5
-    const t2 = Math.sin(progress * 23 + docIndex * 3.5) * 8 * phaseB
-    const t3 = Math.cos(progress * 37 + docIndex * 1.7) * 12 * phaseB
+    // Three harmonic waves for organic, chaotic motion (restrained)
+    const turbulenceScale = 1 + phaseB * 0.6  // 1x → 1.6x
+    const t1 = Math.sin(progress * 15 + docIndex * 2) * 4
+    const t2 = Math.sin(progress * 23 + docIndex * 3.5) * 5 * phaseB
+    const t3 = Math.cos(progress * 37 + docIndex * 1.7) * 6 * phaseB
     const turbulence = (t1 + t2 + t3) * turbulenceScale
 
     // === FINAL POSITION ===
     const finalX = baseX + orbitX + lissX + turbulence
     const finalY = baseY + orbitY + lissY + turbulence * 0.7
 
-    // === ROTATION (Accelerating) ===
-    const spinAcceleration = 1 + phaseB * 2  // 1x → 3x speed
+    // === ROTATION (Gradually accelerating) ===
+    const spinAcceleration = 1 + phaseB * 0.6  // 1x → 1.6x speed
     const spinRotation = knotProgress * 180 * spinAcceleration * (docIndex % 2 === 0 ? 1 : -1)
-    const wobble = Math.sin(progress * 12 + docIndex) * 15 * chaosIntensity
-    const spinJitter = Math.sin(progress * 30 + docIndex * 4) * 30 * phaseB
+    const wobble = Math.sin(progress * 12 + docIndex) * 12 * chaosIntensity
+    const spinJitter = Math.sin(progress * 30 + docIndex * 4) * 15 * phaseB
     const totalRotation = spinRotation + wobble + spinJitter
 
     return {
@@ -107,16 +108,16 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
 
   return (
     <div className={`relative w-full h-32 md:h-36 ${className}`}>
-      {/* Central chaos vortex - grows in second half instead of fading */}
+      {/* Central chaos vortex - grows subtly in second half */}
       <div
         className="absolute inset-0 flex items-center justify-center pointer-events-none"
-        style={{ opacity: 0.2 + phaseB * 0.15 }}
+        style={{ opacity: 0.15 + phaseB * 0.1 }}
       >
         <div
           className="rounded-full"
           style={{
-            width: 40 + chaosIntensity * 80,
-            height: 40 + chaosIntensity * 80,
+            width: 40 + chaosIntensity * 45,
+            height: 40 + chaosIntensity * 45,
             background: 'radial-gradient(circle, var(--error) 0%, transparent 70%)',
             transform: `rotate(${progress * 360}deg)`,
           }}
@@ -126,7 +127,7 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
       {/* Spiral lines showing the knotting motion - more and larger in second half */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ opacity: 0.2 + chaosIntensity * 0.2 }}
+        style={{ opacity: 0.15 + chaosIntensity * 0.15 }}
       >
         <defs>
           <linearGradient id="spiralGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -136,7 +137,7 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
         </defs>
         {Array.from({ length: spiralCount }).map((_, i) => {
           const angle = progress * 360 * 2 + i * (360 / spiralCount)
-          const radius = 20 + chaosIntensity * 40 + phaseB * 30
+          const radius = 20 + chaosIntensity * 25 + phaseB * 15
           const cx = 50 + Math.cos((angle * Math.PI) / 180) * radius * 0.3
           const cy = 50 + Math.sin((angle * Math.PI) / 180) * radius * 0.3
           return (
@@ -221,30 +222,30 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
       {questionMarkCount > 0 && (
         <>
           {[
-            { angle: 0, distance: 75, size: 'text-sm', color: '--error' },
-            { angle: 45, distance: 70, size: 'text-xs', color: '--warning' },
-            { angle: 90, distance: 80, size: 'text-base', color: '--error' },
-            { angle: 135, distance: 72, size: 'text-sm', color: '--warning' },
-            { angle: 180, distance: 78, size: 'text-xs', color: '--error' },
-            { angle: 225, distance: 68, size: 'text-sm', color: '--warning' },
-            { angle: 270, distance: 82, size: 'text-base', color: '--error' },
-            { angle: 315, distance: 74, size: 'text-xs', color: '--warning' },
+            { angle: 0, distance: 70, size: 'text-sm', color: '--error' },
+            { angle: 45, distance: 65, size: 'text-xs', color: '--warning' },
+            { angle: 90, distance: 72, size: 'text-base', color: '--error' },
+            { angle: 135, distance: 68, size: 'text-sm', color: '--warning' },
+            { angle: 180, distance: 70, size: 'text-xs', color: '--error' },
+            { angle: 225, distance: 64, size: 'text-sm', color: '--warning' },
+            { angle: 270, distance: 74, size: 'text-base', color: '--error' },
+            { angle: 315, distance: 66, size: 'text-xs', color: '--warning' },
           ].slice(0, questionMarkCount).map((qm, i) => {
-            // Question marks orbit faster in second half
-            const orbitSpeed = 200 + phaseB * 300
+            // Question marks orbit moderately faster in second half
+            const orbitSpeed = 200 + phaseB * 120
             const orbitAngle = (qm.angle - progress * orbitSpeed) * (Math.PI / 180)
 
-            // Distance grows with chaos
-            const currentDistance = qm.distance * (0.6 + chaosIntensity * 0.5)
+            // Distance grows modestly with chaos
+            const currentDistance = qm.distance * (0.6 + chaosIntensity * 0.3)
             const qmX = Math.cos(orbitAngle) * currentDistance * 0.9
             const qmY = Math.sin(orbitAngle) * currentDistance * 0.7
 
-            // Spin wildly - faster in second half
-            const spinSpeed = 300 + phaseB * 400
+            // Spin faster in second half (restrained)
+            const spinSpeed = 300 + phaseB * 180
             const spin = progress * spinSpeed * (i % 2 === 0 ? 1 : -1)
 
-            // Scale pulses in second half
-            const scale = 1 + Math.sin(progress * 20 + i * 2) * 0.2 * phaseB
+            // Scale pulses subtly in second half
+            const scale = 1 + Math.sin(progress * 20 + i * 2) * 0.15 * phaseB
 
             return (
               <div
