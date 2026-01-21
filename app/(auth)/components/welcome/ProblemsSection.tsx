@@ -49,7 +49,7 @@ export const ProblemsSection = forwardRef<HTMLElement, ProblemsSectionProps>(
     return (
       <section
         ref={ref}
-        className="relative min-h-screen flex flex-col items-center px-4 pt-16 md:pt-20 pb-8"
+        className="relative min-h-screen flex flex-col items-center px-4 pt-4 md:pt-6 pb-8"
         style={{ background: 'var(--bg-primary)' }}
       >
         {/* Warm color accent overlay - reinforces problem/challenge tone */}
