@@ -11,13 +11,12 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
   // All values derived from scroll progress - no time-based state
   // Progress can exceed 1 as user scrolls past
 
-  // Scatter intensity increases with progress
-  const scatterIntensity = progress * 1.5
+  // Phase-based animation: expand then contract back toward center with swirl
+  const peakProgress = 0.5  // Maximum expansion point
+  const expansionPhase = Math.min(progress, peakProgress) / peakProgress  // 0-1 during expansion
+  const contractionPhase = Math.max(0, (progress - peakProgress) / 0.5)   // 0-1+ during contraction
 
-  // At high progress, documents fly toward edges
-  const deconstructAmount = Math.max(0, (progress - 0.7) * 3)
-
-  // Documents with base positions - scatter outward based on progress
+  // Documents with base positions
   const documents = [
     { id: 1, label: 'Budget_v3_final.xlsx', baseX: -35, baseY: -25, baseRotate: -5, colorVar: '--success' },
     { id: 2, label: 'Draw_Request_07.pdf', baseX: 40, baseY: -20, baseRotate: 8, colorVar: '--info' },
@@ -26,19 +25,28 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
     { id: 5, label: 'Notes.txt', baseX: 5, baseY: 40, baseRotate: -3, colorVar: '--purple' },
   ]
 
-  // Calculate document position based on progress
-  const getDocPosition = (doc: typeof documents[0]) => {
-    // Horizontal scatter is primary - documents spread sideways to not cover text
-    // Multiplier increases dramatically with progress (especially past 1)
-    const horizontalMultiplier = 1 + scatterIntensity * 1.5 + deconstructAmount * 2.5
-    const scatterX = doc.baseX * horizontalMultiplier
+  // Calculate document position based on progress - expand then swirl back
+  const getDocPosition = (doc: typeof documents[0], docIndex: number) => {
+    // Horizontal scatter: expand then pull back toward center
+    const horizontalMultiplier = 1 + expansionPhase * 0.8 - contractionPhase * 0.5
 
-    // Vertical scatter is minimal - just slight drift
-    const verticalMultiplier = 1 + scatterIntensity * 0.15 + deconstructAmount * 0.3
-    const scatterY = doc.baseY * verticalMultiplier
+    // Add swirl/orbital motion at high progress
+    const swirlAngle = contractionPhase * 45 * (docIndex % 2 === 0 ? 1 : -1)
+    const swirlRad = (swirlAngle * Math.PI) / 180
+    const swirlRadius = contractionPhase * 15
 
-    // Rotation increases with scatter for chaos effect
-    const rotation = doc.baseRotate * (1 + scatterIntensity * 0.8 + deconstructAmount * 3)
+    const baseScatterX = doc.baseX * horizontalMultiplier
+    const baseScatterY = doc.baseY * (1 + expansionPhase * 0.2 - contractionPhase * 0.15)
+
+    // Apply swirl offset
+    const swirlOffsetX = Math.cos(swirlRad + docIndex) * swirlRadius
+    const swirlOffsetY = Math.sin(swirlRad + docIndex) * swirlRadius
+
+    const scatterX = baseScatterX + swirlOffsetX
+    const scatterY = baseScatterY + swirlOffsetY
+
+    // Rotation increases for chaos effect, especially during contraction phase
+    const rotation = doc.baseRotate * (1 + expansionPhase * 0.5 + contractionPhase * 1.5)
 
     return {
       x: scatterX,
@@ -69,7 +77,7 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
 
       {/* Scattered documents - positions driven by scroll progress */}
       {documents.map((doc, index) => {
-        const pos = getDocPosition(doc)
+        const pos = getDocPosition(doc, index)
         // Stagger appearance based on index
         const appearProgress = Math.max(0, Math.min(1, (progress - index * 0.05) * 3))
 
@@ -154,28 +162,32 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
         ))}
       </svg>
 
-      {/* Question marks - appear and spread horizontally at higher progress */}
+      {/* Question marks - appear near documents with increasing chaos (stay contained) */}
       {questionMarkCount > 0 && (
         <>
           {[
-            // Spread primarily horizontally, minimal vertical
-            { x: 85 + deconstructAmount * 60, y: -10 - deconstructAmount * 5, size: 'text-sm', color: '--error' },
-            { x: -80 - deconstructAmount * 55, y: 5 + deconstructAmount * 3, size: 'text-xs', color: '--warning' },
-            { x: 100 + deconstructAmount * 80, y: 8 + deconstructAmount * 5, size: 'text-base', color: '--error' },
-            { x: -95 - deconstructAmount * 70, y: -5 - deconstructAmount * 3, size: 'text-sm', color: '--warning' },
-          ].slice(0, questionMarkCount).map((qm, i) => (
-            <div
-              key={i}
-              className={`absolute top-1/2 left-1/2 ${qm.size} font-bold`}
-              style={{
-                color: `var(${qm.color})`,
-                transform: `translate(-50%, -50%) translate(${qm.x}px, ${qm.y}px)`,
-                opacity: Math.min(1, (progress - 0.3 - i * 0.1) * 3),
-              }}
-            >
-              ?
-            </div>
-          ))}
+            // Fixed positions near documents - no outward expansion
+            { x: 70, y: -15, size: 'text-sm', color: '--error' },
+            { x: -65, y: 10, size: 'text-xs', color: '--warning' },
+            { x: 75, y: 20, size: 'text-base', color: '--error' },
+            { x: -70, y: -8, size: 'text-sm', color: '--warning' },
+          ].slice(0, questionMarkCount).map((qm, i) => {
+            // Add subtle rotation/wobble at high progress for chaos effect
+            const wobbleRotation = contractionPhase * 15 * (i % 2 === 0 ? 1 : -1)
+            return (
+              <div
+                key={i}
+                className={`absolute top-1/2 left-1/2 ${qm.size} font-bold`}
+                style={{
+                  color: `var(${qm.color})`,
+                  transform: `translate(-50%, -50%) translate(${qm.x}px, ${qm.y}px) rotate(${wobbleRotation}deg)`,
+                  opacity: Math.min(1, (progress - 0.3 - i * 0.1) * 3),
+                }}
+              >
+                ?
+              </div>
+            )
+          })}
         </>
       )}
     </div>

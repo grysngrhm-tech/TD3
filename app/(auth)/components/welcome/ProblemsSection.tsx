@@ -96,8 +96,8 @@ export const ProblemsSection = forwardRef<HTMLElement, ProblemsSectionProps>(
                     transform: `translateY(${(1 - Math.min(1, colProgress * 2)) * 30}px)`,
                   }}
                 >
-                  {/* Visual - receives unbounded progress for extended animations */}
-                  <div className="mb-6">
+                  {/* Visual - fixed height container for title alignment */}
+                  <div className="mb-6 h-32 md:h-36 flex items-center justify-center">
                     <Visual progress={progress} />
                   </div>
 
