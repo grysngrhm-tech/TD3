@@ -24,7 +24,7 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
 
   // Glow pulsation for the stress ring (oscillates 0-1)
   const pulseAmount = Math.sin(progress * 15) * 0.5 + 0.5
-  const glowIntensity = stressIntensity * 12
+  const glowIntensity = stressIntensity * 10
 
   const tasks = [
     { label: 'Categorize', baseAngle: 0 },
@@ -37,17 +37,26 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
   // 12 tick marks for clock-like appearance
   const tickMarks = Array.from({ length: 12 }, (_, i) => i * 30)
 
+  // Clock dimensions
+  const clockSize = { base: 64, md: 72 } // w-16/w-18 equivalent
+  const labelRadius = 72 // Much further out - clear separation from clock
+
   return (
-    <div className={`relative w-full h-32 md:h-36 flex items-center justify-center gap-4 md:gap-6 ${className}`}>
-      {/* Left side: Clock with external labels */}
-      <div className="relative">
-        {/* Task labels - positioned OUTSIDE the clock face */}
+    <div className={`relative w-full h-36 md:h-40 flex items-center justify-center gap-6 md:gap-8 ${className}`}>
+      {/* Left side: Clock with well-separated labels */}
+      <div className="relative flex items-center justify-center" style={{ width: labelRadius * 2 + 40, height: labelRadius * 2 + 20 }}>
+        {/* Task labels - positioned FAR outside the clock face with connecting lines */}
         {tasks.map((task, i) => {
           const rad = (task.baseAngle - 90) * (Math.PI / 180)
-          // Radius 52px - clearly outside the ~40-48px clock radius
-          const radius = 52
-          const x = Math.cos(rad) * radius
-          const y = Math.sin(rad) * radius
+          const x = Math.cos(rad) * labelRadius
+          const y = Math.sin(rad) * labelRadius
+
+          // Line connection points (from clock edge to label)
+          const clockEdgeRadius = 36
+          const lineStartX = Math.cos(rad) * clockEdgeRadius
+          const lineStartY = Math.sin(rad) * clockEdgeRadius
+          const lineEndX = Math.cos(rad) * (labelRadius - 8)
+          const lineEndY = Math.sin(rad) * (labelRadius - 8)
 
           // Which task is currently "active" based on rotation
           const normalizedRotation = (rotation % 360 + 360) % 360
@@ -56,44 +65,69 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
                           Math.abs(normalizedRotation - task.baseAngle - 360) < 36
 
           return (
-            <motion.div
-              key={task.label}
-              className="absolute top-1/2 left-1/2 z-10"
-              style={{
-                transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
-                opacity: isActive ? 1 : 0.6 + stressIntensity * 0.2,
-              }}
-            >
-              <span
-                className="text-[9px] md:text-[10px] font-semibold whitespace-nowrap"
+            <div key={task.label}>
+              {/* Connecting line from clock to label */}
+              <svg
+                className="absolute top-1/2 left-1/2 pointer-events-none"
                 style={{
-                  color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+                  width: labelRadius * 2,
+                  height: labelRadius * 2,
+                  transform: 'translate(-50%, -50%)',
+                  overflow: 'visible',
                 }}
               >
-                {task.label}
-              </span>
-            </motion.div>
+                <line
+                  x1={labelRadius + lineStartX}
+                  y1={labelRadius + lineStartY}
+                  x2={labelRadius + lineEndX}
+                  y2={labelRadius + lineEndY}
+                  stroke={isActive ? 'var(--accent)' : 'var(--border)'}
+                  strokeWidth={isActive ? 1.5 : 1}
+                  strokeDasharray={isActive ? 'none' : '2 2'}
+                  opacity={isActive ? 0.8 : 0.4}
+                />
+              </svg>
+
+              {/* Label */}
+              <motion.div
+                className="absolute top-1/2 left-1/2 z-10"
+                style={{
+                  transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
+                }}
+              >
+                <span
+                  className="text-[10px] md:text-[11px] font-semibold whitespace-nowrap px-1.5 py-0.5 rounded"
+                  style={{
+                    color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+                    background: isActive ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
+                    opacity: isActive ? 1 : 0.7 + stressIntensity * 0.2,
+                  }}
+                >
+                  {task.label}
+                </span>
+              </motion.div>
+            </div>
           )
         })}
 
-        {/* Clock face - slightly smaller to give room for external labels */}
+        {/* Clock face - compact and clean */}
         <motion.div
-          className="relative w-20 h-20 md:w-24 md:h-24 rounded-full"
+          className="relative w-16 h-16 md:w-18 md:h-18 rounded-full flex-shrink-0"
           style={{
+            width: clockSize.base,
+            height: clockSize.base,
             background: 'var(--bg-secondary)',
             border: '2px solid var(--border)',
             boxShadow: `inset 0 2px 6px rgba(0,0,0,0.08), var(--elevation-2)`,
           }}
         >
-          {/* 12 tick marks around the clock edge for clock-like appearance */}
+          {/* 12 tick marks around the clock edge */}
           {tickMarks.map((angle, i) => {
             const rad = (angle - 90) * (Math.PI / 180)
-            const outerRadius = 38 // md:46
-            const innerRadius = i % 3 === 0 ? 32 : 34 // Longer ticks at 12, 3, 6, 9
-            const x1 = Math.cos(rad) * innerRadius
-            const y1 = Math.sin(rad) * innerRadius
-            const x2 = Math.cos(rad) * outerRadius
-            const y2 = Math.sin(rad) * outerRadius
+            const tickRadius = clockSize.base / 2 - 6
+            const tickLength = i % 3 === 0 ? 5 : 3
+            const tickX = Math.cos(rad) * (tickRadius - tickLength / 2)
+            const tickY = Math.sin(rad) * (tickRadius - tickLength / 2)
 
             return (
               <div
@@ -101,9 +135,9 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
                 className="absolute top-1/2 left-1/2"
                 style={{
                   width: 1.5,
-                  height: i % 3 === 0 ? 6 : 4,
-                  background: 'var(--border)',
-                  transform: `translate(-50%, -50%) translate(${(x1 + x2) / 2}px, ${(y1 + y2) / 2}px) rotate(${angle}deg)`,
+                  height: tickLength,
+                  background: i % 3 === 0 ? 'var(--text-muted)' : 'var(--border)',
+                  transform: `translate(-50%, -50%) translate(${tickX}px, ${tickY}px) rotate(${angle}deg)`,
                   borderRadius: 1,
                 }}
               />
@@ -115,12 +149,27 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
             className="absolute top-1/2 left-1/2 origin-bottom"
             style={{
               width: 2,
-              height: 24,
+              height: clockSize.base / 2 - 10,
               marginLeft: -1,
-              marginTop: -24,
+              marginTop: -(clockSize.base / 2 - 10),
               background: 'var(--accent)',
               borderRadius: 'var(--radius-xs)',
               transform: `rotate(${rotation}deg)`,
+            }}
+          />
+
+          {/* Second hand (shorter, thinner, moves faster) */}
+          <div
+            className="absolute top-1/2 left-1/2 origin-bottom"
+            style={{
+              width: 1,
+              height: clockSize.base / 2 - 14,
+              marginLeft: -0.5,
+              marginTop: -(clockSize.base / 2 - 14),
+              background: 'var(--error)',
+              borderRadius: 'var(--radius-xs)',
+              transform: `rotate(${rotation * 3}deg)`,
+              opacity: 0.8,
             }}
           />
 
@@ -130,26 +179,26 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
             style={{ background: 'var(--accent)' }}
           />
 
-          {/* Stress indicator ring - contained within the clock */}
+          {/* Stress indicator ring */}
           <div
             className="absolute rounded-full pointer-events-none"
             style={{
-              inset: -4,
+              inset: -3,
               border: `2px solid var(--error)`,
-              opacity: 0.5 + stressIntensity * 0.4,
-              boxShadow: `0 0 ${glowIntensity * pulseAmount}px ${glowIntensity * 0.4 * pulseAmount}px var(--error)`,
+              opacity: 0.4 + stressIntensity * 0.4,
+              boxShadow: `0 0 ${glowIntensity * pulseAmount}px ${glowIntensity * 0.3 * pulseAmount}px var(--error)`,
             }}
           />
         </motion.div>
       </div>
 
-      {/* Right side: Timer stats */}
+      {/* Right side: Timer stats - larger and more prominent */}
       <div
-        className="text-left"
-        style={{ opacity: progress > 0.2 ? 1 : progress * 5 }}
+        className="text-left flex-shrink-0"
+        style={{ opacity: progress > 0.1 ? 1 : progress * 10 }}
       >
         <div
-          className="font-mono text-lg md:text-xl font-bold leading-tight"
+          className="font-mono text-xl md:text-2xl font-bold leading-none"
           style={{
             color: hoursWasted > 6 ? 'var(--error)' : 'var(--warning)',
             fontVariantNumeric: 'tabular-nums',
@@ -158,16 +207,33 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
           {displayHours}h {displayMinutes.toString().padStart(2, '0')}m
         </div>
         <div
-          className="text-[10px] md:text-[11px] font-medium leading-tight mt-0.5"
+          className="text-[11px] md:text-xs font-medium leading-tight mt-1"
           style={{ color: 'var(--text-muted)' }}
         >
           wasted on
         </div>
         <div
-          className="text-[10px] md:text-[11px] font-medium leading-tight"
+          className="text-[11px] md:text-xs font-semibold leading-tight"
           style={{ color: 'var(--error)' }}
         >
           repetitive tasks
+        </div>
+
+        {/* Visual stress indicator - dots that fill up */}
+        <div className="flex gap-1 mt-2">
+          {[...Array(5)].map((_, i) => {
+            const filled = progress > (i + 1) * 0.2
+            return (
+              <div
+                key={i}
+                className="w-1.5 h-1.5 rounded-full transition-colors"
+                style={{
+                  background: filled ? 'var(--error)' : 'var(--border)',
+                  opacity: filled ? 0.8 : 0.4,
+                }}
+              />
+            )
+          })}
         </div>
       </div>
     </div>
