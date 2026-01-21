@@ -6,6 +6,7 @@ import { UnifiedDashboard, AutomationFlow } from './visuals'
 
 interface SolutionsSectionProps {
   progress?: number
+  viewportScale?: number
 }
 
 const solutionsData = {
@@ -38,7 +39,7 @@ const solutionsData = {
 }
 
 export const SolutionsSection = forwardRef<HTMLElement, SolutionsSectionProps>(
-  function SolutionsSection({ progress = 0 }, ref) {
+  function SolutionsSection({ progress = 0, viewportScale = 1 }, ref) {
     // Map 0-1 progress to animation stages (compressed for tighter scroll)
     const headerOpacity = Math.min(1, progress * 5)                          // 0-20%
     const col1Progress = Math.max(0, Math.min(1, (progress - 0.1) * 4))      // 10-35%
@@ -58,7 +59,14 @@ export const SolutionsSection = forwardRef<HTMLElement, SolutionsSectionProps>(
             background: 'radial-gradient(ellipse 100% 80% at 50% 80%, color-mix(in srgb, var(--success) 5%, transparent) 0%, transparent 70%)',
           }}
         />
-        <div className="w-full max-w-5xl mx-auto">
+        {/* Content wrapper with viewport-based scaling */}
+        <div
+          className="w-full max-w-5xl mx-auto"
+          style={{
+            transform: viewportScale < 1 ? `scale(${viewportScale})` : undefined,
+            transformOrigin: 'center center',
+          }}
+        >
           {/* Section Header */}
           <motion.div
             className="text-center mb-8 md:mb-10"
