@@ -141,7 +141,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
         ScrollTrigger.create({
           trigger: workflowContainerRef.current,
           start: 'top top',
-          end: '+=300%',
+          end: '+=600%',
           pin: workflowRef.current,
           pinSpacing: true,
           scrub: 0.5,
