@@ -20,8 +20,8 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
           background: 'linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)',
         }}
       >
-        <div className="w-full max-w-xl mx-auto text-center">
-          {/* Headline - accentWord rotates across visits (see lib/accentWords.ts) */}
+        {/* Headline - full width container for proper centering */}
+        <div className="w-full text-center mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -29,20 +29,28 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
             <h2
-              className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-4 tracking-tight uppercase whitespace-nowrap w-fit mx-auto text-center"
+              className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-4 tracking-tight uppercase whitespace-nowrap"
               style={{ color: 'var(--text-primary)' }}
             >
               Construction Finance.
               <br />
               <span style={{ color: 'var(--accent)' }}>{accentWord}.</span>
             </h2>
-            <p
-              className="text-base md:text-lg mb-8"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              Sign in to access loan tracking, draw management, funding workflows, and financial reporting.
-            </p>
           </motion.div>
+        </div>
+
+        {/* Content container - constrained width for login card */}
+        <div className="w-full max-w-xl mx-auto text-center">
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-100px' }}
+            transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+            className="text-base md:text-lg mb-8"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            Sign in to access loan tracking, draw management, funding workflows, and financial reporting.
+          </motion.p>
 
           {/* Login Card */}
           <motion.div
