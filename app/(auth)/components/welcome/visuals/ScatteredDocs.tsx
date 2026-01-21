@@ -130,7 +130,7 @@ export function ScatteredDocs({ progress = 0, className = '' }: ScatteredDocsPro
   const spiralCount = 3 + Math.floor(phaseB * 3)  // 3 → 6 spirals
 
   return (
-    <div className={`relative w-full h-24 sm:h-32 md:h-36 ${className}`}>
+    <div className={`relative w-full h-44 sm:h-52 md:h-64 ${className}`}>
       {/* Central chaos vortex - grows subtly in second half */}
       <div
         className="absolute inset-0 flex items-center justify-center pointer-events-none"

@@ -56,7 +56,7 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
   // Mobile layout: vertical stack with clock face and timer below
   if (isMobile) {
     return (
-      <div className={`flex flex-col items-center gap-2 h-24 ${className}`}>
+      <div className={`flex flex-col items-center gap-2 h-44 ${className}`}>
         {/* Clock face only - no orbital labels */}
         <div
           className="relative rounded-full flex-shrink-0"
@@ -159,7 +159,7 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
 
   // Desktop layout: clock with orbital labels + timer stats
   return (
-    <div className={`relative w-full h-36 md:h-40 flex items-center justify-center gap-6 md:gap-8 ${className}`}>
+    <div className={`relative w-full h-44 sm:h-52 md:h-64 flex items-center justify-center gap-6 md:gap-8 ${className}`}>
       {/* Left side: Clock with well-separated labels */}
       <div className="relative flex items-center justify-center" style={{ width: labelRadius * 2 + 40, height: labelRadius * 2 + 20 }}>
         {/* Task labels - positioned FAR outside the clock face with connecting lines */}

@@ -31,7 +31,7 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
   const activePackets = packetPositions.filter(p => progress > p).length
 
   return (
-    <div className={`relative w-full h-24 sm:h-28 md:h-32 flex items-center justify-center ${className}`}>
+    <div className={`relative w-full h-44 sm:h-52 md:h-64 flex items-center justify-center ${className}`}>
       <div className="flex items-center gap-2 md:gap-4">
         {steps.map((step, index) => {
           const isActive = index <= currentStep

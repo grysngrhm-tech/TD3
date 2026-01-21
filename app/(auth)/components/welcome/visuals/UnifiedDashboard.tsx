@@ -76,7 +76,7 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
   const baseScale = 0.9 + Math.min(progress, 1) * 0.1
 
   return (
-    <div className={`relative w-full h-24 sm:h-28 md:h-32 flex items-center justify-center ${className}`}>
+    <div className={`relative w-full h-44 sm:h-52 md:h-64 flex items-center justify-center ${className}`}>
       {/* Dashboard frame - stays centered and contained */}
       <motion.div
         className="relative w-full max-w-xs overflow-hidden"
