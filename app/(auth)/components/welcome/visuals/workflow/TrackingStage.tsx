@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 
 interface TrackingStageProps {
   progress?: number
@@ -138,8 +138,22 @@ export function TrackingStage({ progress = 0 }: TrackingStageProps) {
     )
   }
 
+  // Mobile detection for scaling
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  const mobileScale = isMobile ? 1.15 : 1
+
   return (
-    <div className="relative w-full h-full flex items-center justify-center p-2">
+    <div
+      className="relative w-full h-full flex items-center justify-center p-2"
+      style={{ transform: `scale(${mobileScale})`, transformOrigin: 'center center' }}
+    >
       <motion.div
         className="w-full max-w-[95%]"
         style={{

@@ -29,7 +29,7 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
             <h2
-              className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-4 tracking-tight uppercase whitespace-nowrap"
+              className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-semibold mb-4 tracking-tight uppercase whitespace-normal sm:whitespace-nowrap leading-tight"
               style={{ color: 'var(--text-primary)' }}
             >
               Construction Finance.
@@ -58,7 +58,7 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
             transition={{ duration: 0.6, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="card-ios p-6 md:p-8"
+            className="card-ios p-4 sm:p-6 md:p-8"
             style={{
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06)',
             }}
@@ -96,7 +96,7 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
         >
           <div className="max-w-5xl mx-auto px-4">
             {/* Three columns with descriptions - tighter spacing */}
-            <div className="grid md:grid-cols-3 gap-6 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-6">
               {/* TD3 Column */}
               <div>
                 <div className="flex items-center gap-2 mb-2">

@@ -102,7 +102,7 @@ export const ProblemsSection = forwardRef<HTMLElement, ProblemsSectionProps>(
                   }}
                 >
                   {/* Visual - fixed height container for title alignment */}
-                  <div className="mb-6 h-32 md:h-36 flex items-center justify-center">
+                  <div className="mb-6 h-24 sm:h-32 md:h-36 flex items-center justify-center overflow-hidden">
                     <Visual progress={progress} />
                   </div>
 

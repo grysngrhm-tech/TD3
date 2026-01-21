@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 
 interface FundingStageProps {
   progress?: number
@@ -80,8 +80,22 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
     }))
   }, [])
 
+  // Mobile detection for scaling
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  const mobileScale = isMobile ? 1.15 : 1
+
   return (
-    <div className="relative w-full h-full flex items-center justify-center p-2 overflow-hidden">
+    <div
+      className="relative w-full h-full flex items-center justify-center p-2 overflow-hidden"
+      style={{ transform: `scale(${mobileScale})`, transformOrigin: 'center center' }}
+    >
       {/* Confetti celebration */}
       {showSuccess && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">

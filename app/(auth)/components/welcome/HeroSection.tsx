@@ -61,7 +61,7 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-            className="text-4xl md:text-5xl lg:text-6xl font-semibold mb-4 tracking-tight uppercase whitespace-nowrap"
+            className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-semibold mb-4 tracking-tight uppercase whitespace-normal sm:whitespace-nowrap leading-tight"
             style={{ color: 'var(--text-primary)' }}
           >
             Construction Finance.
@@ -77,7 +77,7 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="text-lg md:text-xl mb-10 max-w-lg mx-auto"
+            className="text-base md:text-lg lg:text-xl mb-8 md:mb-10 max-w-lg mx-auto"
             style={{ color: 'var(--text-secondary)' }}
           >
             A purpose-built system for managing construction loans, draws, and funding with precision and control.
@@ -88,7 +88,7 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="card-ios p-6 md:p-8 max-w-md mx-auto"
+            className="card-ios p-4 sm:p-6 md:p-8 max-w-md mx-auto"
             style={{
               boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06)',
             }}

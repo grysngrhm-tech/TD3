@@ -31,7 +31,7 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
   const activePackets = packetPositions.filter(p => progress > p).length
 
   return (
-    <div className={`relative w-full h-28 md:h-32 flex items-center justify-center ${className}`}>
+    <div className={`relative w-full h-24 sm:h-28 md:h-32 flex items-center justify-center ${className}`}>
       <div className="flex items-center gap-2 md:gap-4">
         {steps.map((step, index) => {
           const isActive = index <= currentStep
@@ -41,10 +41,10 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
 
           return (
             <div key={step.label} className="flex items-center">
-              {/* Step circle */}
+              {/* Step circle - larger on mobile for touch targets */}
               <div className="relative">
                 <div
-                  className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center"
+                  className="w-12 h-12 sm:w-10 md:w-12 md:h-12 flex items-center justify-center"
                   style={{
                     background: isActive
                       ? `color-mix(in srgb, var(${step.colorVar}) 15%, transparent)`
@@ -60,7 +60,7 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
                 >
                   {step.icon === 'upload' && (
                     <svg
-                      className="w-4 h-4 md:w-5 md:h-5"
+                      className="w-5 h-5 sm:w-4 md:w-5 md:h-5"
                       style={{ color: isActive ? `var(${step.colorVar})` : 'var(--text-muted)' }}
                       fill="none"
                       stroke="currentColor"
@@ -71,7 +71,7 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
                   )}
                   {step.icon === 'ai' && (
                     <svg
-                      className="w-4 h-4 md:w-5 md:h-5"
+                      className="w-5 h-5 sm:w-4 md:w-5 md:h-5"
                       style={{
                         color: isActive ? `var(${step.colorVar})` : 'var(--text-muted)',
                         // Rotation driven by progress when this step is current
@@ -86,7 +86,7 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
                   )}
                   {step.icon === 'check' && (
                     <svg
-                      className="w-4 h-4 md:w-5 md:h-5"
+                      className="w-5 h-5 sm:w-4 md:w-5 md:h-5"
                       style={{ color: isActive ? `var(${step.colorVar})` : 'var(--text-muted)' }}
                       fill="none"
                       stroke="currentColor"
@@ -99,7 +99,7 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
 
                 {/* Label */}
                 <p
-                  className="text-[9px] md:text-[10px] font-medium text-center mt-1"
+                  className="text-[11px] sm:text-[9px] md:text-[10px] font-medium text-center mt-1"
                   style={{
                     color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
                     opacity: isActive ? 1 : 0.6,
@@ -111,7 +111,7 @@ export function AutomationFlow({ progress = 0, className = '' }: AutomationFlowP
 
               {/* Connector line with scroll-driven packets */}
               {index < steps.length - 1 && (
-                <div className="relative w-6 md:w-8 h-0.5 mx-1">
+                <div className="relative w-4 sm:w-6 md:w-8 h-0.5 mx-1">
                   <div
                     className="absolute inset-0"
                     style={{ background: 'var(--border)' }}

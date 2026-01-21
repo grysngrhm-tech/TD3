@@ -55,8 +55,8 @@ export function WorkflowStageDetail({
             className="overflow-hidden"
           >
             <div className="px-4 pb-6 pt-2">
-              {/* Animation container */}
-              <div className="relative h-48 mb-4 rounded-xl overflow-hidden">
+              {/* Animation container - reduced height for mobile */}
+              <div className="relative h-32 sm:h-40 md:h-48 mb-4 rounded-xl overflow-hidden">
                 <AnimationComponent progress={progress} />
               </div>
 
