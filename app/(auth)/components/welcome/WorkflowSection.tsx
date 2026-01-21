@@ -161,7 +161,7 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
     return (
       <section
         ref={ref}
-        className="relative min-h-screen flex flex-col items-center justify-center px-4 py-12 md:py-16"
+        className="relative min-h-screen flex flex-col items-center px-4 pt-16 md:pt-20 pb-8"
         style={{ background: 'var(--bg-primary)' }}
       >
         {/* Content wrapper with viewport-based scaling */}
