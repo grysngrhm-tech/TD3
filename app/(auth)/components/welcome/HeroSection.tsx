@@ -62,10 +62,11 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-            className="text-4xl md:text-5xl lg:text-6xl font-semibold mb-4 tracking-tight"
+            className="text-4xl md:text-5xl lg:text-6xl font-semibold mb-4 tracking-tight uppercase"
             style={{ color: 'var(--text-primary)' }}
           >
-            Construction Finance.{' '}
+            Construction Finance.
+            <br />
             <span style={{ color: 'var(--accent)' }}>{accentWord}.</span>
           </motion.h1>
 
