@@ -9,41 +9,81 @@ interface FundingStageProps {
 
 /**
  * Stage 5: Fund with Controls
- * Visualizes the controlled funding step with typing animations,
- * field checkmarks, authorization, processing state, and celebration
+ *
+ * Timing phases - OVERLAPPING for fluid animation:
+ * - 0-18%:  Panel Entry (funding form slides up)
+ * - 10-30%: Amount Display (overlaps with entry)
+ * - 22-45%: Date Selection (overlaps with amount)
+ * - 35-58%: Reference Entry (overlaps with date)
+ * - 50-72%: Authorization (overlaps with reference)
+ * - 65-85%: Processing (overlaps with auth)
+ * - 78-95%: Success (overlaps with processing)
+ * - 88-100%: Lock (overlaps with success)
  */
 export function FundingStage({ progress = 0 }: FundingStageProps) {
-  // Derive all values from scroll progress
-  const panelReveal = Math.min(1, progress * 2.5) // 0-40%
-  const dateSelected = progress > 0.25
-  const wireRefEntered = progress > 0.45
-  const authorizationShown = progress > 0.55
-  const processingState = progress > 0.65 && progress < 0.8
-  const fundingComplete = progress > 0.8
-  const lockReveal = Math.max(0, Math.min(1, (progress - 0.85) * 6.67)) // 85-100%
+  // Phase progress calculations with OVERLAPPING timing
 
-  // Typing animation progress for wire reference
+  // Phase 1: Panel Entry (0-18%)
+  const panelEntryProgress = Math.min(1, progress / 0.18)
+
+  // Phase 2: Amount Display (10-30%)
+  const amountProgress = Math.max(0, Math.min(1, (progress - 0.10) / 0.20))
+
+  // Phase 3: Date Selection (22-45%)
+  const dateProgress = Math.max(0, Math.min(1, (progress - 0.22) / 0.23))
+
+  // Phase 4: Reference Entry (35-58%)
+  const refProgress = Math.max(0, Math.min(1, (progress - 0.35) / 0.23))
+
+  // Phase 5: Authorization (50-72%)
+  const authProgress = Math.max(0, Math.min(1, (progress - 0.50) / 0.22))
+
+  // Phase 6: Processing (65-85%)
+  const processingProgress = Math.max(0, Math.min(1, (progress - 0.65) / 0.20))
+
+  // Phase 7: Success (78-95%)
+  const successProgress = Math.max(0, Math.min(1, (progress - 0.78) / 0.17))
+
+  // Phase 8: Lock (88-100%)
+  const lockProgress = Math.max(0, Math.min(1, (progress - 0.88) / 0.12))
+
+  // Amount counting animation
+  const targetAmount = 45600
+  const displayedAmount = Math.floor(targetAmount * Math.min(amountProgress * 1.5, 1))
+
+  // Wire reference typing animation
   const wireRefText = 'WIRE-2026-0120-001'
-  const typingProgress = Math.max(0, Math.min(1, (progress - 0.45) * 5))
-  const visibleChars = Math.floor(typingProgress * wireRefText.length)
+  const visibleChars = Math.floor(refProgress * wireRefText.length)
   const displayedWireRef = wireRefText.slice(0, visibleChars)
-  const showCursor = wireRefEntered && !authorizationShown
+  const showCursor = refProgress > 0 && refProgress < 1
 
-  // Confetti particles for celebration
+  // Date selection states
+  const showCalendar = dateProgress > 0.2 && dateProgress < 0.7
+  const dateSelected = dateProgress > 0.6
+
+  // Processing states
+  const showProcessing = processingProgress > 0
+  const processingStep = Math.floor(processingProgress * 3)
+
+  // Final states
+  const showSuccess = successProgress > 0
+  const showLock = lockProgress > 0
+
+  // Confetti particles
   const confettiParticles = useMemo(() => {
-    return Array.from({ length: 12 }, (_, i) => ({
+    return Array.from({ length: 16 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
-      delay: Math.random() * 0.3,
+      delay: Math.random() * 0.4,
       color: ['var(--success)', 'var(--info)', 'var(--accent)', 'var(--warning)'][i % 4],
-      size: 3 + Math.random() * 3,
+      size: 3 + Math.random() * 4,
     }))
   }, [])
 
   return (
     <div className="relative w-full h-full flex items-center justify-center p-2 overflow-hidden">
-      {/* Confetti celebration particles */}
-      {fundingComplete && lockReveal > 0.3 && (
+      {/* Confetti celebration */}
+      {showSuccess && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           {confettiParticles.map((particle) => (
             <motion.div
@@ -58,13 +98,13 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
               }}
               initial={{ y: 0, opacity: 1, rotate: 0 }}
               animate={{
-                y: 200,
+                y: 250,
                 opacity: [1, 1, 0],
-                rotate: 360,
-                x: [0, Math.random() * 40 - 20, Math.random() * 60 - 30],
+                rotate: 720,
+                x: [0, Math.random() * 50 - 25, Math.random() * 80 - 40],
               }}
               transition={{
-                duration: 1.5,
+                duration: 2,
                 delay: particle.delay,
                 ease: 'easeOut',
               }}
@@ -75,38 +115,40 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
 
       {/* Funding control panel */}
       <motion.div
-        className="w-full max-w-[180px] md:max-w-[200px]"
+        className="w-full max-w-[200px] md:max-w-[220px]"
         style={{
-          opacity: panelReveal,
-          transform: `translateY(${(1 - panelReveal) * 20}px)`,
+          opacity: panelEntryProgress,
+          transform: `translateY(${(1 - panelEntryProgress) * 30}px)`,
         }}
       >
         <div
           className="rounded-xl overflow-hidden relative"
           style={{
             background: 'var(--bg-card)',
-            border: fundingComplete
+            border: showSuccess
               ? '1px solid var(--success)'
               : '1px solid var(--border-subtle)',
-            boxShadow: fundingComplete
-              ? '0 4px 16px rgba(16, 185, 129, 0.2)'
+            boxShadow: showSuccess
+              ? '0 4px 20px rgba(16, 185, 129, 0.25)'
               : 'var(--elevation-2)',
+            transition: 'border-color 0.3s, box-shadow 0.3s',
           }}
         >
           {/* Header */}
           <div
             className="px-3 py-2 flex items-center justify-between"
             style={{
-              background: fundingComplete
+              background: showSuccess
                 ? 'color-mix(in srgb, var(--success) 10%, var(--bg-secondary))'
                 : 'var(--bg-secondary)',
               borderBottom: '1px solid var(--border-subtle)',
+              transition: 'background 0.3s',
             }}
           >
             <div className="flex items-center gap-2">
               <svg
                 className="w-4 h-4"
-                style={{ color: fundingComplete ? 'var(--success)' : 'var(--accent)' }}
+                style={{ color: showSuccess ? 'var(--success)' : 'var(--accent)' }}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -118,19 +160,19 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
               </span>
             </div>
             <span
-              className="text-[7px] px-1.5 py-0.5 rounded-full"
+              className="text-[7px] px-1.5 py-0.5 rounded-full font-medium"
               style={{
-                background: fundingComplete ? 'var(--success-muted)' : 'var(--accent-muted)',
-                color: fundingComplete ? 'var(--success)' : 'var(--accent)',
+                background: showSuccess ? 'var(--success-muted)' : 'var(--accent-muted)',
+                color: showSuccess ? 'var(--success)' : 'var(--accent)',
               }}
             >
-              {fundingComplete ? 'Complete' : 'Oak Heights'}
+              {showSuccess ? 'Complete' : 'Oak Heights'}
             </span>
           </div>
 
           {/* Form fields */}
           <div className="p-3 space-y-2">
-            {/* Amount */}
+            {/* Amount field */}
             <div className="relative">
               <label className="text-[7px] block mb-0.5" style={{ color: 'var(--text-muted)' }}>
                 Wire Amount
@@ -140,20 +182,19 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
                   className="flex-1 px-2 py-1.5 rounded font-mono text-[10px] font-semibold"
                   style={{
                     background: 'var(--bg-secondary)',
-                    border: '1px solid var(--border)',
+                    border: amountProgress > 0.5 ? '1px solid var(--success)' : '1px solid var(--border)',
                     color: 'var(--text-primary)',
                   }}
                 >
-                  $45,600.00
+                  ${displayedAmount.toLocaleString()}.00
                 </div>
-                {/* Checkmark for validated field */}
-                {panelReveal > 0.5 && (
+                {amountProgress > 0.8 && (
                   <motion.div
                     className="w-4 h-4 rounded-full flex items-center justify-center"
                     style={{ background: 'var(--success)' }}
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                    transition={{ type: 'spring', stiffness: 500 }}
                   >
                     <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -163,39 +204,70 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
               </div>
             </div>
 
-            {/* Funding Date */}
+            {/* Date field */}
             <div className="relative">
               <label className="text-[7px] block mb-0.5" style={{ color: 'var(--text-muted)' }}>
                 Funding Date
               </label>
               <div className="flex items-center gap-1">
                 <div
-                  className="flex-1 px-2 py-1.5 rounded text-[9px] flex items-center justify-between"
+                  className="flex-1 px-2 py-1.5 rounded text-[9px] flex items-center justify-between relative"
                   style={{
                     background: 'var(--bg-secondary)',
-                    border: dateSelected ? '1px solid var(--accent)' : '1px solid var(--border)',
+                    border: dateSelected ? '1px solid var(--success)' : dateProgress > 0 ? '1px solid var(--accent)' : '1px solid var(--border)',
                     color: dateSelected ? 'var(--text-primary)' : 'var(--text-muted)',
                   }}
                 >
                   <span>{dateSelected ? 'Jan 20, 2026' : 'Select date...'}</span>
                   <svg
                     className="w-3 h-3"
-                    style={{ color: 'var(--text-muted)' }}
+                    style={{ color: dateProgress > 0 ? 'var(--accent)' : 'var(--text-muted)' }}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
+
+                  {/* Mini calendar picker animation */}
+                  {showCalendar && (
+                    <motion.div
+                      className="absolute -bottom-10 left-0 right-0 p-1 rounded-lg z-10"
+                      style={{
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border)',
+                        boxShadow: 'var(--elevation-2)',
+                      }}
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                    >
+                      <div className="grid grid-cols-7 gap-0.5">
+                        {[18, 19, 20, 21, 22, 23, 24].map((day) => (
+                          <motion.div
+                            key={day}
+                            className="w-3 h-3 rounded text-[5px] flex items-center justify-center"
+                            style={{
+                              background: day === 20 ? 'var(--accent)' : 'transparent',
+                              color: day === 20 ? 'white' : 'var(--text-muted)',
+                            }}
+                            animate={day === 20 ? { scale: [1, 1.2, 1] } : {}}
+                            transition={{ duration: 0.3 }}
+                          >
+                            {day}
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
-                {/* Checkmark for validated field */}
                 {dateSelected && (
                   <motion.div
                     className="w-4 h-4 rounded-full flex items-center justify-center"
                     style={{ background: 'var(--success)' }}
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                    transition={{ type: 'spring', stiffness: 500 }}
                   >
                     <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -205,39 +277,37 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
               </div>
             </div>
 
-            {/* Wire Reference with typing animation */}
+            {/* Wire reference field */}
             <div className="relative">
               <label className="text-[7px] block mb-0.5" style={{ color: 'var(--text-muted)' }}>
-                Wire Reference (optional)
+                Wire Reference
               </label>
               <div className="flex items-center gap-1">
                 <div
                   className="flex-1 px-2 py-1.5 rounded text-[9px] font-mono relative"
                   style={{
                     background: 'var(--bg-secondary)',
-                    border: wireRefEntered ? '1px solid var(--accent)' : '1px solid var(--border)',
-                    color: wireRefEntered ? 'var(--text-primary)' : 'var(--text-muted)',
+                    border: refProgress > 0.9 ? '1px solid var(--success)' : refProgress > 0 ? '1px solid var(--accent)' : '1px solid var(--border)',
+                    color: refProgress > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
                   }}
                 >
-                  {wireRefEntered ? displayedWireRef : 'Enter reference...'}
-                  {/* Typing cursor */}
+                  {refProgress > 0 ? displayedWireRef : 'Enter reference...'}
                   {showCursor && (
                     <motion.span
                       className="inline-block w-0.5 h-3 ml-0.5"
                       style={{ background: 'var(--accent)' }}
                       animate={{ opacity: [1, 0, 1] }}
-                      transition={{ duration: 0.8, repeat: Infinity }}
+                      transition={{ duration: 0.6, repeat: Infinity }}
                     />
                   )}
                 </div>
-                {/* Checkmark for validated field */}
-                {authorizationShown && (
+                {refProgress >= 1 && (
                   <motion.div
                     className="w-4 h-4 rounded-full flex items-center justify-center"
                     style={{ background: 'var(--success)' }}
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                    transition={{ type: 'spring', stiffness: 500 }}
                   >
                     <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -247,36 +317,89 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
               </div>
             </div>
 
-            {/* Authorization badge */}
-            {authorizationShown && (
+            {/* Authorization section */}
+            {authProgress > 0 && (
               <motion.div
-                className="flex items-center gap-2 px-2 py-1.5 rounded-lg"
+                className="p-2 rounded-lg"
                 style={{
                   background: 'color-mix(in srgb, var(--info) 8%, var(--bg-secondary))',
-                  border: '1px solid color-mix(in srgb, var(--info) 20%, transparent)',
+                  border: '1px solid color-mix(in srgb, var(--info) 25%, transparent)',
                 }}
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
               >
-                {/* User avatar */}
-                <motion.div
-                  className="w-5 h-5 rounded-full flex items-center justify-center"
-                  style={{ background: 'var(--info)' }}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.1, type: 'spring', stiffness: 500 }}
-                >
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </motion.div>
-                <div>
-                  <p className="text-[7px] font-medium" style={{ color: 'var(--info)' }}>
-                    Authorized by John Smith
-                  </p>
-                  <p className="text-[5px]" style={{ color: 'var(--text-muted)' }}>
-                    fund_draws permission verified
-                  </p>
+                <div className="flex items-center gap-2">
+                  <motion.div
+                    className="w-6 h-6 rounded-full flex items-center justify-center"
+                    style={{ background: 'var(--info)' }}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.1, type: 'spring', stiffness: 500 }}
+                  >
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </motion.div>
+                  <div className="flex-1">
+                    <p className="text-[8px] font-semibold" style={{ color: 'var(--info)' }}>
+                      {authProgress < 0.6 ? 'Verifying authorization...' : 'Authorized by John Smith'}
+                    </p>
+                    <p className="text-[6px]" style={{ color: 'var(--text-muted)' }}>
+                      {authProgress < 0.6 ? 'Checking permissions' : 'fund_draws permission verified'}
+                    </p>
+                  </div>
+                  {authProgress > 0.6 && (
+                    <motion.div
+                      className="w-4 h-4 rounded-full flex items-center justify-center"
+                      style={{ background: 'var(--success)' }}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                    >
+                      <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Processing timeline */}
+            {showProcessing && !showSuccess && (
+              <motion.div
+                className="p-2 rounded-lg"
+                style={{
+                  background: 'color-mix(in srgb, var(--warning) 8%, var(--bg-secondary))',
+                  border: '1px solid color-mix(in srgb, var(--warning) 25%, transparent)',
+                }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                <div className="flex items-center gap-3">
+                  {['Initiated', 'Processing', 'Complete'].map((step, i) => (
+                    <div key={step} className="flex items-center gap-1.5">
+                      <motion.div
+                        className="w-2 h-2 rounded-full"
+                        style={{
+                          background: i <= processingStep ? 'var(--warning)' : 'var(--border)',
+                        }}
+                        animate={i === processingStep ? { scale: [1, 1.3, 1] } : {}}
+                        transition={{ duration: 0.5, repeat: i === processingStep ? Infinity : 0 }}
+                      />
+                      <span
+                        className="text-[6px]"
+                        style={{
+                          color: i <= processingStep ? 'var(--warning)' : 'var(--text-muted)',
+                          fontWeight: i === processingStep ? 600 : 400,
+                        }}
+                      >
+                        {step}
+                      </span>
+                      {i < 2 && (
+                        <div className="w-3 h-px" style={{ background: i < processingStep ? 'var(--warning)' : 'var(--border)' }} />
+                      )}
+                    </div>
+                  ))}
                 </div>
               </motion.div>
             )}
@@ -287,17 +410,17 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
             className="px-3 py-2"
             style={{ borderTop: '1px solid var(--border-subtle)' }}
           >
-            <button
+            <motion.button
               className="w-full py-2 rounded-lg text-[9px] font-semibold flex items-center justify-center gap-1.5"
               style={{
-                background: fundingComplete ? 'var(--success)' : 'var(--accent)',
+                background: showSuccess ? 'var(--success)' : 'var(--accent)',
                 color: 'white',
-                boxShadow: fundingComplete
-                  ? '0 4px 12px rgba(16, 185, 129, 0.3)'
+                boxShadow: showSuccess
+                  ? '0 4px 16px rgba(16, 185, 129, 0.35)'
                   : '0 4px 12px rgba(149, 6, 6, 0.25)',
               }}
             >
-              {processingState ? (
+              {showProcessing && !showSuccess ? (
                 <>
                   <motion.svg
                     className="w-3.5 h-3.5"
@@ -309,9 +432,9 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </motion.svg>
-                  Processing...
+                  Initiating Wire...
                 </>
-              ) : fundingComplete ? (
+              ) : showSuccess ? (
                 <>
                   <motion.svg
                     className="w-3.5 h-3.5"
@@ -322,7 +445,7 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
                     animate={{ scale: 1 }}
                     transition={{ type: 'spring', stiffness: 500 }}
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                   </motion.svg>
                   Funded Successfully
                 </>
@@ -334,62 +457,70 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
                   Mark as Funded
                 </>
               )}
-            </button>
+            </motion.button>
           </div>
         </div>
       </motion.div>
 
-      {/* Lock indicator for completed funding */}
-      {lockReveal > 0 && (
+      {/* Lock indicator */}
+      {showLock && (
         <motion.div
-          className="absolute -top-1 -right-1 md:right-4 md:top-2"
+          className="absolute right-2 md:right-6 top-3"
           initial={{ scale: 0, rotate: -180 }}
-          animate={{ scale: 1, rotate: 0, opacity: lockReveal }}
+          animate={{ scale: 1, rotate: 0 }}
           transition={{ type: 'spring', stiffness: 300 }}
         >
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center"
+            className="w-10 h-10 rounded-full flex items-center justify-center"
             style={{
               background: 'var(--success)',
-              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)',
+              boxShadow: '0 4px 16px rgba(16, 185, 129, 0.5)',
             }}
           >
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
         </motion.div>
       )}
 
-      {/* Auto-update indicator */}
-      {fundingComplete && lockReveal > 0.5 && (
+      {/* Final status */}
+      {lockProgress > 0.3 && (
         <motion.div
-          className="absolute bottom-1 left-1/2 -translate-x-1/2"
+          className="absolute bottom-2 left-1/2 -translate-x-1/2"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
         >
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full"
+          <div
+            className="px-4 py-2 rounded-xl flex items-center gap-3"
             style={{
-              background: 'color-mix(in srgb, var(--success) 10%, var(--bg-secondary))',
-              border: '1px solid color-mix(in srgb, var(--success) 30%, transparent)',
+              background: 'color-mix(in srgb, var(--success) 10%, var(--bg-card))',
+              border: '1px solid color-mix(in srgb, var(--success) 35%, transparent)',
+              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.15)',
             }}
           >
             <motion.svg
-              className="w-2.5 h-2.5"
+              className="w-4 h-4"
               style={{ color: 'var(--success)' }}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              transition={{ delay: 0.3, type: 'spring' }}
+              transition={{ type: 'spring' }}
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </motion.svg>
-            <span className="text-[7px]" style={{ color: 'var(--success)' }}>
-              Balances updated, data locked
-            </span>
+            <div>
+              <div className="text-[8px] font-semibold" style={{ color: 'var(--success)' }}>
+                Transaction Recorded
+              </div>
+              <div className="text-[6px] flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
+                <span>Balances updated</span>
+                <span>•</span>
+                <span>Data locked</span>
+              </div>
+            </div>
           </div>
         </motion.div>
       )}

@@ -141,16 +141,16 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
       return () => window.removeEventListener('resize', checkMobile)
     }, [])
 
-    // Header fades in quickly at the start (0-12.5%)
-    const headerOpacity = Math.min(1, progress * 8)
+    // Header fades in quickly at the start (0-5%)
+    const headerOpacity = Math.min(1, progress * 20)
 
-    // Content area fades in after header starts (8-20%)
-    const contentOpacity = Math.max(0, Math.min(1, (progress - 0.08) * 8))
+    // Content area fades in after header (5-10%)
+    const contentOpacity = Math.max(0, Math.min(1, (progress - 0.05) * 20))
 
-    // Stages start after 20% progress, use remaining 80% for 6 stages
-    // This gives each stage ~13.3% of scroll and ensures header/content
-    // are fully visible before stage animations begin
-    const stageStartProgress = 0.20
+    // Stages start after 10% progress, use remaining 90% for 6 stages
+    // With doubled scroll distance (300%), each stage now gets ~15% of scroll
+    // which equals ~45% of viewport height - plenty of dwell time
+    const stageStartProgress = 0.10
     const normalizedStageProgress = Math.max(0, progress - stageStartProgress) / (1 - stageStartProgress)
     const activeStageFloat = Math.min(normalizedStageProgress * 6, 5.999)
     const activeStage = Math.floor(activeStageFloat)
