@@ -29,11 +29,12 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
             <h2
-              className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-4 leading-tight"
+              className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-4 tracking-tight uppercase"
               style={{ color: 'var(--text-primary)' }}
             >
-              Construction finance,{' '}
-              <span style={{ color: 'var(--accent)' }}>{accentWord.toLowerCase()}.</span>
+              Construction Finance.
+              <br />
+              <span style={{ color: 'var(--accent)' }}>{accentWord}.</span>
             </h2>
             <p
               className="text-base md:text-lg mb-8"
