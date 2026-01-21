@@ -22,8 +22,9 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
   // Stress intensity increases with progress
   const stressIntensity = Math.min(1, progress * 1.5)
 
-  // At high progress, elements start to scatter/deconstruct
-  const deconstructAmount = Math.max(0, (progress - 0.7) * 3) // starts at 70% progress
+  // Glow pulsation for the stress ring (oscillates 0-1)
+  const pulseAmount = Math.sin(progress * 15) * 0.5 + 0.5
+  const glowIntensity = stressIntensity * 10
 
   const tasks = [
     { label: 'Categorize', baseAngle: 0 },
@@ -33,26 +34,29 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
     { label: 'Report', baseAngle: 288 },
   ]
 
+  // 12 tick marks for clock-like appearance
+  const tickMarks = Array.from({ length: 12 }, (_, i) => i * 30)
+
+  // Clock dimensions
+  const clockSize = { base: 64, md: 72 } // w-16/w-18 equivalent
+  const labelRadius = 72 // Much further out - clear separation from clock
+
   return (
-    <div className={`relative w-full h-32 md:h-36 flex items-center justify-center ${className}`}>
-      {/* Clock face */}
-      <motion.div
-        className="relative w-24 h-24 md:w-28 md:h-28 rounded-full"
-        style={{
-          background: 'var(--bg-secondary)',
-          border: '3px solid var(--border)',
-          boxShadow: `inset 0 2px 8px rgba(0,0,0,0.1), var(--elevation-2)`,
-          // At high progress, clock expands slightly before flying apart
-          transform: `scale(${1 + deconstructAmount * 0.1})`,
-        }}
-      >
-        {/* Task labels around the clock - scatter outward at high progress */}
+    <div className={`relative w-full h-36 md:h-40 flex items-center justify-center gap-6 md:gap-8 ${className}`}>
+      {/* Left side: Clock with well-separated labels */}
+      <div className="relative flex items-center justify-center" style={{ width: labelRadius * 2 + 40, height: labelRadius * 2 + 20 }}>
+        {/* Task labels - positioned FAR outside the clock face with connecting lines */}
         {tasks.map((task, i) => {
           const rad = (task.baseAngle - 90) * (Math.PI / 180)
-          // Base radius expands dramatically at high progress
-          const radius = 44 + (deconstructAmount * 40)
-          const x = Math.cos(rad) * radius
-          const y = Math.sin(rad) * radius
+          const x = Math.cos(rad) * labelRadius
+          const y = Math.sin(rad) * labelRadius
+
+          // Line connection points (from clock edge to label)
+          const clockEdgeRadius = 36
+          const lineStartX = Math.cos(rad) * clockEdgeRadius
+          const lineStartY = Math.sin(rad) * clockEdgeRadius
+          const lineEndX = Math.cos(rad) * (labelRadius - 8)
+          const lineEndY = Math.sin(rad) * (labelRadius - 8)
 
           // Which task is currently "active" based on rotation
           const normalizedRotation = (rotation % 360 + 360) % 360
@@ -61,94 +65,176 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
                           Math.abs(normalizedRotation - task.baseAngle - 360) < 36
 
           return (
-            <motion.div
-              key={task.label}
-              className="absolute top-1/2 left-1/2"
-              style={{
-                transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
-                opacity: isActive ? 1 : 0.5 + (deconstructAmount * 0.3),
-              }}
-            >
-              <span
-                className="text-[8px] md:text-[9px] font-medium whitespace-nowrap"
+            <div key={task.label}>
+              {/* Connecting line from clock to label */}
+              <svg
+                className="absolute top-1/2 left-1/2 pointer-events-none"
                 style={{
-                  color: isActive ? 'var(--accent)' : 'var(--text-muted)',
-                  transform: `scale(${isActive ? 1.1 : 1})`,
+                  width: labelRadius * 2,
+                  height: labelRadius * 2,
+                  transform: 'translate(-50%, -50%)',
+                  overflow: 'visible',
                 }}
               >
-                {task.label}
-              </span>
-            </motion.div>
+                <line
+                  x1={labelRadius + lineStartX}
+                  y1={labelRadius + lineStartY}
+                  x2={labelRadius + lineEndX}
+                  y2={labelRadius + lineEndY}
+                  stroke={isActive ? 'var(--accent)' : 'var(--border)'}
+                  strokeWidth={isActive ? 1.5 : 1}
+                  strokeDasharray={isActive ? 'none' : '2 2'}
+                  opacity={isActive ? 0.8 : 0.4}
+                />
+              </svg>
+
+              {/* Label */}
+              <motion.div
+                className="absolute top-1/2 left-1/2 z-10"
+                style={{
+                  transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
+                }}
+              >
+                <span
+                  className="text-[10px] md:text-[11px] font-semibold whitespace-nowrap px-1.5 py-0.5 rounded"
+                  style={{
+                    color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+                    background: isActive ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
+                    opacity: isActive ? 1 : 0.7 + stressIntensity * 0.2,
+                  }}
+                >
+                  {task.label}
+                </span>
+              </motion.div>
+            </div>
           )
         })}
 
-        {/* Clock hand - rotation driven purely by scroll */}
-        <div
-          className="absolute top-1/2 left-1/2 origin-bottom"
+        {/* Clock face - compact and clean */}
+        <motion.div
+          className="relative w-16 h-16 md:w-18 md:h-18 rounded-full flex-shrink-0"
           style={{
-            width: 3,
-            height: 28,
-            marginLeft: -1.5,
-            marginTop: -28,
-            background: 'var(--accent)',
-            borderRadius: 'var(--radius-xs)',
-            transform: `rotate(${rotation}deg)`,
+            width: clockSize.base,
+            height: clockSize.base,
+            background: 'var(--bg-secondary)',
+            border: '2px solid var(--border)',
+            boxShadow: `inset 0 2px 6px rgba(0,0,0,0.08), var(--elevation-2)`,
           }}
-        />
+        >
+          {/* 12 tick marks around the clock edge */}
+          {tickMarks.map((angle, i) => {
+            const rad = (angle - 90) * (Math.PI / 180)
+            const tickRadius = clockSize.base / 2 - 6
+            const tickLength = i % 3 === 0 ? 5 : 3
+            const tickX = Math.cos(rad) * (tickRadius - tickLength / 2)
+            const tickY = Math.sin(rad) * (tickRadius - tickLength / 2)
 
-        {/* Center dot */}
-        <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full"
-          style={{ background: 'var(--accent)' }}
-        />
+            return (
+              <div
+                key={angle}
+                className="absolute top-1/2 left-1/2"
+                style={{
+                  width: 1.5,
+                  height: tickLength,
+                  background: i % 3 === 0 ? 'var(--text-muted)' : 'var(--border)',
+                  transform: `translate(-50%, -50%) translate(${tickX}px, ${tickY}px) rotate(${angle}deg)`,
+                  borderRadius: 1,
+                }}
+              />
+            )
+          })}
 
-        {/* Stress indicator ring - grows with progress */}
-        <div
-          className="absolute rounded-full pointer-events-none"
-          style={{
-            inset: -4 - (stressIntensity * 8) - (deconstructAmount * 20),
-            border: `2px solid var(--error)`,
-            opacity: stressIntensity * 0.6,
-            transform: `scale(${1 + deconstructAmount * 0.3})`,
-          }}
-        />
-      </motion.div>
+          {/* Clock hand - rotation driven purely by scroll */}
+          <div
+            className="absolute top-1/2 left-1/2 origin-bottom"
+            style={{
+              width: 2,
+              height: clockSize.base / 2 - 10,
+              marginLeft: -1,
+              marginTop: -(clockSize.base / 2 - 10),
+              background: 'var(--accent)',
+              borderRadius: 'var(--radius-xs)',
+              transform: `rotate(${rotation}deg)`,
+            }}
+          />
 
-      {/* Time counter - positioned clearly below, grows with scroll */}
-      <motion.div
-        className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-center"
-        style={{ opacity: progress > 0.2 ? 1 : progress * 5 }}
+          {/* Second hand (shorter, thinner, moves faster) */}
+          <div
+            className="absolute top-1/2 left-1/2 origin-bottom"
+            style={{
+              width: 1,
+              height: clockSize.base / 2 - 14,
+              marginLeft: -0.5,
+              marginTop: -(clockSize.base / 2 - 14),
+              background: 'var(--error)',
+              borderRadius: 'var(--radius-xs)',
+              transform: `rotate(${rotation * 3}deg)`,
+              opacity: 0.8,
+            }}
+          />
+
+          {/* Center dot */}
+          <div
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full"
+            style={{ background: 'var(--accent)' }}
+          />
+
+          {/* Stress indicator ring */}
+          <div
+            className="absolute rounded-full pointer-events-none"
+            style={{
+              inset: -3,
+              border: `2px solid var(--error)`,
+              opacity: 0.4 + stressIntensity * 0.4,
+              boxShadow: `0 0 ${glowIntensity * pulseAmount}px ${glowIntensity * 0.3 * pulseAmount}px var(--error)`,
+            }}
+          />
+        </motion.div>
+      </div>
+
+      {/* Right side: Timer stats - larger and more prominent */}
+      <div
+        className="text-left flex-shrink-0"
+        style={{ opacity: progress > 0.1 ? 1 : progress * 10 }}
       >
         <div
-          className="font-mono text-sm md:text-base font-semibold"
+          className="font-mono text-xl md:text-2xl font-bold leading-none"
           style={{
             color: hoursWasted > 6 ? 'var(--error)' : 'var(--warning)',
             fontVariantNumeric: 'tabular-nums',
-            transform: `scale(${1 + deconstructAmount * 0.2})`,
           }}
         >
           {displayHours}h {displayMinutes.toString().padStart(2, '0')}m
         </div>
         <div
-          className="text-[9px] md:text-[10px] font-medium mt-0.5"
+          className="text-[11px] md:text-xs font-medium leading-tight mt-1"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          wasted on
+        </div>
+        <div
+          className="text-[11px] md:text-xs font-semibold leading-tight"
           style={{ color: 'var(--error)' }}
         >
-          wasted on repetitive tasks
+          repetitive tasks
         </div>
-      </motion.div>
 
-      {/* Pulsing dots - pulse speed visual based on progress position */}
-      <div className="absolute top-1 right-4 flex gap-1">
-        {[...Array(Math.min(5, Math.ceil(progress * 5)))].map((_, i) => (
-          <div
-            key={i}
-            className="w-1.5 h-1.5 rounded-full"
-            style={{
-              background: 'var(--error)',
-              opacity: 0.4 + (stressIntensity * 0.4),
-            }}
-          />
-        ))}
+        {/* Visual stress indicator - dots that fill up */}
+        <div className="flex gap-1 mt-2">
+          {[...Array(5)].map((_, i) => {
+            const filled = progress > (i + 1) * 0.2
+            return (
+              <div
+                key={i}
+                className="w-1.5 h-1.5 rounded-full transition-colors"
+                style={{
+                  background: filled ? 'var(--error)' : 'var(--border)',
+                  opacity: filled ? 0.8 : 0.4,
+                }}
+              />
+            )
+          })}
+        </div>
       </div>
     </div>
   )

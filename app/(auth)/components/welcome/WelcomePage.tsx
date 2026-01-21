@@ -63,6 +63,10 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
   const [currentSection, setCurrentSection] = useState(0)
   const [showProgressIndicator, setShowProgressIndicator] = useState(false)
 
+  // Viewport-based scale factor for shorter screens
+  // Scales down content when viewport height is below threshold
+  const [viewportScale, setViewportScale] = useState(1)
+
   useEffect(() => {
     const checkReducedMotion = () => {
       setPrefersReducedMotion(
@@ -77,6 +81,33 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
     return () => {
       motionQuery.removeEventListener('change', checkReducedMotion)
     }
+  }, [])
+
+  // Calculate viewport scale based on screen height
+  useEffect(() => {
+    const calculateScale = () => {
+      const vh = window.innerHeight
+      // Reference height where scale = 1 (typical desktop)
+      const referenceHeight = 900
+      // Minimum height we support (scale bottoms out here)
+      const minHeight = 600
+      // Minimum scale factor (don't go below 0.75)
+      const minScale = 0.75
+
+      if (vh >= referenceHeight) {
+        setViewportScale(1)
+      } else if (vh <= minHeight) {
+        setViewportScale(minScale)
+      } else {
+        // Linear interpolation between minScale and 1
+        const ratio = (vh - minHeight) / (referenceHeight - minHeight)
+        setViewportScale(minScale + ratio * (1 - minScale))
+      }
+    }
+
+    calculateScale()
+    window.addEventListener('resize', calculateScale)
+    return () => window.removeEventListener('resize', calculateScale)
   }, [])
 
   useEffect(() => {
@@ -136,12 +167,12 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
         })
       }
 
-      // Workflow Section - Pinned (slightly longer for 4-step animation)
+      // Workflow Section - Pinned (extended for 6-stage animation with dwell time)
       if (workflowContainerRef.current && workflowRef.current) {
         ScrollTrigger.create({
           trigger: workflowContainerRef.current,
           start: 'top top',
-          end: '+=150%',
+          end: '+=600%',
           pin: workflowRef.current,
           pinSpacing: true,
           scrub: 0.5,
@@ -396,12 +427,14 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
         <ProblemsSection
           ref={problemsRef}
           progress={problemsProgress}
+          viewportScale={viewportScale}
         />
       ) : (
         <div ref={problemsContainerRef}>
           <ProblemsSection
             ref={problemsRef}
             progress={problemsProgress}
+            viewportScale={viewportScale}
           />
         </div>
       )}
@@ -411,12 +444,14 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
         <SolutionsSection
           ref={solutionsRef}
           progress={solutionsProgress}
+          viewportScale={viewportScale}
         />
       ) : (
         <div ref={solutionsContainerRef}>
           <SolutionsSection
             ref={solutionsRef}
             progress={solutionsProgress}
+            viewportScale={viewportScale}
           />
         </div>
       )}
@@ -426,12 +461,14 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
         <WorkflowSection
           ref={workflowRef}
           progress={workflowProgress}
+          viewportScale={viewportScale}
         />
       ) : (
         <div ref={workflowContainerRef}>
           <WorkflowSection
             ref={workflowRef}
             progress={workflowProgress}
+            viewportScale={viewportScale}
           />
         </div>
       )}
