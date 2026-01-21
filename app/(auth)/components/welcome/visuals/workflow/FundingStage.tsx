@@ -11,59 +11,66 @@ interface FundingStageProps {
  * Stage 5: Fund with Controls
  *
  * Timing phases - OVERLAPPING for fluid animation:
- * - 0-18%:  Panel Entry (funding form slides up)
- * - 10-30%: Amount Display (overlaps with entry)
- * - 22-45%: Date Selection (overlaps with amount)
- * - 35-58%: Reference Entry (overlaps with date)
- * - 50-72%: Authorization (overlaps with reference)
- * - 65-85%: Processing (overlaps with auth)
- * - 78-95%: Success (overlaps with processing)
- * - 88-100%: Lock (overlaps with success)
+ * - 0-15%:  Panel Entry (funding form slides up)
+ * - 8-25%:  Wire Breakdown (overlaps with entry)
+ * - 18-38%: Amount Display (overlaps with breakdown)
+ * - 30-48%: Bank Info (overlaps with amount)
+ * - 40-58%: Memo Entry (overlaps with bank)
+ * - 50-70%: Authorization (overlaps with memo)
+ * - 62-82%: Processing (overlaps with auth)
+ * - 75-92%: Success (overlaps with processing)
+ * - 85-100%: Lock (overlaps with success)
  */
 export function FundingStage({ progress = 0 }: FundingStageProps) {
   // Phase progress calculations with OVERLAPPING timing
 
-  // Phase 1: Panel Entry (0-18%)
-  const panelEntryProgress = Math.min(1, progress / 0.18)
+  // Phase 1: Panel Entry (0-15%)
+  const panelEntryProgress = Math.min(1, progress / 0.15)
 
-  // Phase 2: Amount Display (10-30%)
-  const amountProgress = Math.max(0, Math.min(1, (progress - 0.10) / 0.20))
+  // Phase 2: Wire Breakdown (8-25%)
+  const breakdownProgress = Math.max(0, Math.min(1, (progress - 0.08) / 0.17))
 
-  // Phase 3: Date Selection (22-45%)
-  const dateProgress = Math.max(0, Math.min(1, (progress - 0.22) / 0.23))
+  // Phase 3: Amount Display (18-38%)
+  const amountProgress = Math.max(0, Math.min(1, (progress - 0.18) / 0.20))
 
-  // Phase 4: Reference Entry (35-58%)
-  const refProgress = Math.max(0, Math.min(1, (progress - 0.35) / 0.23))
+  // Phase 4: Bank Info (30-48%)
+  const bankProgress = Math.max(0, Math.min(1, (progress - 0.30) / 0.18))
 
-  // Phase 5: Authorization (50-72%)
-  const authProgress = Math.max(0, Math.min(1, (progress - 0.50) / 0.22))
+  // Phase 5: Memo Entry (40-58%)
+  const memoProgress = Math.max(0, Math.min(1, (progress - 0.40) / 0.18))
 
-  // Phase 6: Processing (65-85%)
-  const processingProgress = Math.max(0, Math.min(1, (progress - 0.65) / 0.20))
+  // Phase 6: Authorization (50-70%)
+  const authProgress = Math.max(0, Math.min(1, (progress - 0.50) / 0.20))
 
-  // Phase 7: Success (78-95%)
-  const successProgress = Math.max(0, Math.min(1, (progress - 0.78) / 0.17))
+  // Phase 7: Processing (62-82%)
+  const processingProgress = Math.max(0, Math.min(1, (progress - 0.62) / 0.20))
 
-  // Phase 8: Lock (88-100%)
-  const lockProgress = Math.max(0, Math.min(1, (progress - 0.88) / 0.12))
+  // Phase 8: Success (75-92%)
+  const successProgress = Math.max(0, Math.min(1, (progress - 0.75) / 0.17))
+
+  // Phase 9: Lock (85-100%)
+  const lockProgress = Math.max(0, Math.min(1, (progress - 0.85) / 0.15))
+
+  // Wire breakdown data
+  const wireBreakdown = [
+    { id: 'D4', amount: 27400 },
+    { id: 'D5', amount: 18200 },
+  ]
+  const wireTotal = wireBreakdown.reduce((sum, d) => sum + d.amount, 0)
 
   // Amount counting animation
-  const targetAmount = 45600
-  const displayedAmount = Math.floor(targetAmount * Math.min(amountProgress * 1.5, 1))
+  const displayedAmount = Math.floor(wireTotal * Math.min(amountProgress * 1.5, 1))
 
-  // Wire reference typing animation
-  const wireRefText = 'WIRE-2026-0120-001'
-  const visibleChars = Math.floor(refProgress * wireRefText.length)
-  const displayedWireRef = wireRefText.slice(0, visibleChars)
-  const showCursor = refProgress > 0 && refProgress < 1
+  // Memo typing animation
+  const memoText = 'Oak Heights - Draws 4,5 - Jan 2026'
+  const visibleMemoChars = Math.floor(memoProgress * memoText.length)
+  const displayedMemo = memoText.slice(0, visibleMemoChars)
+  const showMemoCursor = memoProgress > 0 && memoProgress < 1
 
-  // Date selection states
-  const showCalendar = dateProgress > 0.2 && dateProgress < 0.7
-  const dateSelected = dateProgress > 0.6
-
-  // Processing states
+  // Processing states - now 5 steps
   const showProcessing = processingProgress > 0
-  const processingStep = Math.floor(processingProgress * 3)
+  const processingSteps = ['Initiating', 'Validating', 'Sending', 'Confirming', 'Complete']
+  const processingStep = Math.min(Math.floor(processingProgress * 5), 4)
 
   // Final states
   const showSuccess = successProgress > 0
@@ -185,7 +192,62 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
           </div>
 
           {/* Form fields */}
-          <div className="p-3 space-y-2">
+          <div className="p-2.5 space-y-2">
+            {/* Wire breakdown section - shows draws being funded */}
+            {breakdownProgress > 0 && (
+              <motion.div
+                className="p-1.5 rounded-lg"
+                style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-subtle)',
+                }}
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+              >
+                <p className="text-[6px] font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
+                  Wire Breakdown
+                </p>
+                <div className="space-y-0.5">
+                  {wireBreakdown.map((draw, i) => {
+                    const lineVisible = breakdownProgress > (i + 1) * 0.4
+                    return (
+                      <motion.div
+                        key={draw.id}
+                        className="flex items-center justify-between"
+                        style={{
+                          opacity: lineVisible ? 1 : 0,
+                          transform: `translateX(${lineVisible ? 0 : -8}px)`,
+                          transition: 'all 0.2s ease-out',
+                        }}
+                      >
+                        <span className="text-[7px]" style={{ color: 'var(--text-secondary)' }}>
+                          Draw #{draw.id}
+                        </span>
+                        <span className="text-[7px] font-mono" style={{ color: 'var(--text-primary)' }}>
+                          ${draw.amount.toLocaleString()}
+                        </span>
+                      </motion.div>
+                    )
+                  })}
+                </div>
+                {breakdownProgress > 0.8 && (
+                  <motion.div
+                    className="flex items-center justify-between pt-1 mt-1"
+                    style={{ borderTop: '1px solid var(--border-subtle)' }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  >
+                    <span className="text-[7px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                      Wire Total
+                    </span>
+                    <span className="text-[8px] font-bold font-mono" style={{ color: 'var(--accent)' }}>
+                      ${wireTotal.toLocaleString()}
+                    </span>
+                  </motion.div>
+                )}
+              </motion.div>
+            )}
+
             {/* Amount field */}
             <div className="relative">
               <label className="text-[7px] block mb-0.5" style={{ color: 'var(--text-muted)' }}>
@@ -218,95 +280,70 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
               </div>
             </div>
 
-            {/* Date field */}
-            <div className="relative">
-              <label className="text-[7px] block mb-0.5" style={{ color: 'var(--text-muted)' }}>
-                Funding Date
-              </label>
-              <div className="flex items-center gap-1">
+            {/* Bank info section */}
+            {bankProgress > 0 && (
+              <motion.div
+                className="relative"
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <label className="text-[7px] block mb-0.5" style={{ color: 'var(--text-muted)' }}>
+                  Recipient Bank
+                </label>
                 <div
-                  className="flex-1 px-2 py-1.5 rounded text-[9px] flex items-center justify-between relative"
+                  className="px-2 py-1.5 rounded flex items-center gap-2"
                   style={{
                     background: 'var(--bg-secondary)',
-                    border: dateSelected ? '1px solid var(--success)' : dateProgress > 0 ? '1px solid var(--accent)' : '1px solid var(--border)',
-                    color: dateSelected ? 'var(--text-primary)' : 'var(--text-muted)',
+                    border: bankProgress > 0.5 ? '1px solid var(--success)' : '1px solid var(--border)',
                   }}
                 >
-                  <span>{dateSelected ? 'Jan 20, 2026' : 'Select date...'}</span>
-                  <svg
-                    className="w-3 h-3"
-                    style={{ color: dateProgress > 0 ? 'var(--accent)' : 'var(--text-muted)' }}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  <svg className="w-3.5 h-3.5" style={{ color: 'var(--info)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
                   </svg>
-
-                  {/* Mini calendar picker animation */}
-                  {showCalendar && (
+                  <div className="flex-1">
+                    <span className="text-[8px] font-medium block" style={{ color: 'var(--text-primary)' }}>
+                      First National Bank
+                    </span>
+                    <span className="text-[6px] font-mono" style={{ color: 'var(--text-muted)' }}>
+                      ****4521 • Verified
+                    </span>
+                  </div>
+                  {bankProgress > 0.7 && (
                     <motion.div
-                      className="absolute -bottom-10 left-0 right-0 p-1 rounded-lg z-10"
-                      style={{
-                        background: 'var(--bg-card)',
-                        border: '1px solid var(--border)',
-                        boxShadow: 'var(--elevation-2)',
-                      }}
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -5 }}
+                      className="w-4 h-4 rounded-full flex items-center justify-center"
+                      style={{ background: 'var(--success)' }}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
                     >
-                      <div className="grid grid-cols-7 gap-0.5">
-                        {[18, 19, 20, 21, 22, 23, 24].map((day) => (
-                          <motion.div
-                            key={day}
-                            className="w-3 h-3 rounded text-[5px] flex items-center justify-center"
-                            style={{
-                              background: day === 20 ? 'var(--accent)' : 'transparent',
-                              color: day === 20 ? 'white' : 'var(--text-muted)',
-                            }}
-                            animate={day === 20 ? { scale: [1, 1.2, 1] } : {}}
-                            transition={{ duration: 0.3 }}
-                          >
-                            {day}
-                          </motion.div>
-                        ))}
-                      </div>
+                      <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
                     </motion.div>
                   )}
                 </div>
-                {dateSelected && (
-                  <motion.div
-                    className="w-4 h-4 rounded-full flex items-center justify-center"
-                    style={{ background: 'var(--success)' }}
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: 'spring', stiffness: 500 }}
-                  >
-                    <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </motion.div>
-                )}
-              </div>
-            </div>
+              </motion.div>
+            )}
 
-            {/* Wire reference field */}
-            <div className="relative">
-              <label className="text-[7px] block mb-0.5" style={{ color: 'var(--text-muted)' }}>
-                Wire Reference
-              </label>
-              <div className="flex items-center gap-1">
+            {/* Memo field */}
+            {memoProgress > 0 && (
+              <motion.div
+                className="relative"
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <label className="text-[7px] block mb-0.5" style={{ color: 'var(--text-muted)' }}>
+                  Wire Memo
+                </label>
                 <div
-                  className="flex-1 px-2 py-1.5 rounded text-[9px] font-mono relative"
+                  className="px-2 py-1.5 rounded text-[8px] font-mono relative"
                   style={{
                     background: 'var(--bg-secondary)',
-                    border: refProgress > 0.9 ? '1px solid var(--success)' : refProgress > 0 ? '1px solid var(--accent)' : '1px solid var(--border)',
-                    color: refProgress > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
+                    border: memoProgress > 0.9 ? '1px solid var(--success)' : memoProgress > 0 ? '1px solid var(--accent)' : '1px solid var(--border)',
+                    color: memoProgress > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
                   }}
                 >
-                  {refProgress > 0 ? displayedWireRef : 'Enter reference...'}
-                  {showCursor && (
+                  {memoProgress > 0 ? displayedMemo : 'Enter memo...'}
+                  {showMemoCursor && (
                     <motion.span
                       className="inline-block w-0.5 h-3 ml-0.5"
                       style={{ background: 'var(--accent)' }}
@@ -315,21 +352,8 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
                     />
                   )}
                 </div>
-                {refProgress >= 1 && (
-                  <motion.div
-                    className="w-4 h-4 rounded-full flex items-center justify-center"
-                    style={{ background: 'var(--success)' }}
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: 'spring', stiffness: 500 }}
-                  >
-                    <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </motion.div>
-                )}
-              </div>
-            </div>
+              </motion.div>
+            )}
 
             {/* Authorization section */}
             {authProgress > 0 && (
@@ -375,10 +399,26 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
                     </motion.div>
                   )}
                 </div>
+                {/* Dual control indicator for large amounts */}
+                {authProgress > 0.7 && (
+                  <motion.div
+                    className="mt-1.5 pt-1.5 flex items-center gap-1"
+                    style={{ borderTop: '1px solid color-mix(in srgb, var(--info) 20%, transparent)' }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  >
+                    <svg className="w-2.5 h-2.5" style={{ color: 'var(--info)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    <span className="text-[5px]" style={{ color: 'var(--text-muted)' }}>
+                      Single approval sufficient (&lt;$100K)
+                    </span>
+                  </motion.div>
+                )}
               </motion.div>
             )}
 
-            {/* Processing timeline */}
+            {/* Processing timeline - expanded steps */}
             {showProcessing && !showSuccess && (
               <motion.div
                 className="p-2 rounded-lg"
@@ -389,9 +429,9 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               >
-                <div className="flex items-center gap-3">
-                  {['Initiated', 'Processing', 'Complete'].map((step, i) => (
-                    <div key={step} className="flex items-center gap-1.5">
+                <div className="flex items-center justify-between">
+                  {processingSteps.slice(0, 4).map((step, i) => (
+                    <div key={step} className="flex items-center gap-1">
                       <motion.div
                         className="w-2 h-2 rounded-full"
                         style={{
@@ -401,7 +441,7 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
                         transition={{ duration: 0.5, repeat: i === processingStep ? Infinity : 0 }}
                       />
                       <span
-                        className="text-[6px]"
+                        className="text-[5px]"
                         style={{
                           color: i <= processingStep ? 'var(--warning)' : 'var(--text-muted)',
                           fontWeight: i === processingStep ? 600 : 400,
@@ -409,11 +449,23 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
                       >
                         {step}
                       </span>
-                      {i < 2 && (
-                        <div className="w-3 h-px" style={{ background: i < processingStep ? 'var(--warning)' : 'var(--border)' }} />
+                      {i < 3 && (
+                        <div
+                          className="w-2 h-px"
+                          style={{ background: i < processingStep ? 'var(--warning)' : 'var(--border)' }}
+                        />
                       )}
                     </div>
                   ))}
+                </div>
+                {/* Wire type indicator */}
+                <div className="mt-1.5 flex items-center gap-1">
+                  <span className="text-[5px] px-1 py-0.5 rounded" style={{ background: 'var(--warning-muted)', color: 'var(--warning)' }}>
+                    ACH/Wire
+                  </span>
+                  <span className="text-[5px]" style={{ color: 'var(--text-muted)' }}>
+                    Same-day processing
+                  </span>
                 </div>
               </motion.div>
             )}
