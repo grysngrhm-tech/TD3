@@ -6,10 +6,12 @@ import { LoginForm } from './LoginForm'
 
 interface CTASectionProps {
   redirectTo?: string
+  /** Rotating accent word displayed after "Construction finance," */
+  accentWord?: string
 }
 
 export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
-  function CTASection({ redirectTo = '/' }, ref) {
+  function CTASection({ redirectTo = '/', accentWord = 'clearly organized' }, ref) {
     return (
       <section
         ref={ref}
@@ -19,7 +21,7 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
         }}
       >
         <div className="w-full max-w-xl mx-auto text-center">
-          {/* Headline - confident, not salesy */}
+          {/* Headline - accentWord rotates across visits (see lib/accentWords.ts) */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -30,7 +32,8 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
               className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-4 leading-tight"
               style={{ color: 'var(--text-primary)' }}
             >
-              Construction finance, clearly organized.
+              Construction finance,{' '}
+              <span style={{ color: 'var(--accent)' }}>{accentWord.toLowerCase()}.</span>
             </h2>
             <p
               className="text-base md:text-lg mb-8"

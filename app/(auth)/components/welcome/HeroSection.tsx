@@ -6,10 +6,12 @@ import { LoginForm } from './LoginForm'
 
 interface HeroSectionProps {
   redirectTo?: string
+  /** Rotating accent word displayed after "Construction Finance." */
+  accentWord?: string
 }
 
 export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
-  function HeroSection({ redirectTo = '/' }, ref) {
+  function HeroSection({ redirectTo = '/', accentWord = 'Refined' }, ref) {
     return (
       <section
         ref={ref}
@@ -55,7 +57,7 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
             </motion.div>
           </motion.div>
 
-          {/* Headline */}
+          {/* Headline - accentWord rotates across visits (see lib/accentWords.ts) */}
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -64,7 +66,7 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
             style={{ color: 'var(--text-primary)' }}
           >
             Construction Finance.{' '}
-            <span style={{ color: 'var(--accent)' }}>Refined.</span>
+            <span style={{ color: 'var(--accent)' }}>{accentWord}.</span>
           </motion.h1>
 
           {/* Subhead */}
