@@ -128,11 +128,13 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
       // Problems Section - Pinned
       // ScrollTrigger handles progress 0-1 during pin phase
       // After progress=1, getBoundingClientRect takes over for extended progress
+      // Note: Reduced from 120% to 100% to compensate for the more visually active
+      // ScatteredDocs animation which makes this section feel longer than Solution
       if (problemsContainerRef.current && problemsRef.current) {
         ScrollTrigger.create({
           trigger: problemsContainerRef.current,
           start: 'top top',
-          end: '+=120%',
+          end: '+=100%',
           pin: problemsRef.current,
           pinSpacing: true,
           scrub: 0.5,
