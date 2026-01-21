@@ -29,6 +29,7 @@ interface WorkflowStageDetailProps {
   isActive: boolean
   AnimationComponent?: ComponentType<{ progress: number }>
   isMobile?: boolean
+  hideAnimation?: boolean
 }
 
 export function WorkflowStageDetail({
@@ -38,6 +39,7 @@ export function WorkflowStageDetail({
   isActive,
   AnimationComponent = PlaceholderAnimation,
   isMobile = false,
+  hideAnimation = false,
 }: WorkflowStageDetailProps) {
   if (isMobile) {
     // Mobile: Inline expanded content
@@ -79,8 +81,9 @@ export function WorkflowStageDetail({
   }
 
   // Desktop: Full right panel with crossfade transitions
+  // When hideAnimation is true, render only the text content (animation is shown separately)
   return (
-    <div className="relative h-full flex flex-col">
+    <div className="relative flex flex-col">
       <AnimatePresence mode="wait">
         <motion.div
           key={stage.id}
@@ -88,22 +91,24 @@ export function WorkflowStageDetail({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          className="flex-1 flex flex-col"
+          className="flex flex-col"
         >
-          {/* Animation container - takes ~50% of height */}
-          <div className="relative flex-1 min-h-[200px] mb-6 rounded-2xl overflow-hidden">
-            <div
-              className="absolute inset-0"
-              style={{
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-xl)',
-              }}
-            />
-            <div className="relative h-full p-4">
-              <AnimationComponent progress={progress} />
+          {/* Animation container - only shown when hideAnimation is false */}
+          {!hideAnimation && (
+            <div className="relative flex-1 min-h-[200px] mb-6 rounded-2xl overflow-hidden">
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-xl)',
+                }}
+              />
+              <div className="relative h-full p-4">
+                <AnimationComponent progress={progress} />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Stage number badge */}
           <div className="flex items-center gap-3 mb-3">
@@ -126,7 +131,7 @@ export function WorkflowStageDetail({
 
           {/* Title */}
           <motion.h3
-            className="text-xl md:text-2xl font-semibold mb-3"
+            className="text-lg md:text-xl font-semibold mb-2"
             style={{ color: 'var(--text-primary)' }}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
@@ -137,7 +142,7 @@ export function WorkflowStageDetail({
 
           {/* Description */}
           <motion.p
-            className="text-sm md:text-base leading-relaxed"
+            className="text-sm leading-relaxed"
             style={{ color: 'var(--text-secondary)' }}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
@@ -147,7 +152,7 @@ export function WorkflowStageDetail({
           </motion.p>
 
           {/* Progress indicator */}
-          <div className="mt-auto pt-6">
+          <div className="mt-4 pt-4">
             <div
               className="h-1 rounded-full overflow-hidden"
               style={{ background: 'var(--border)' }}

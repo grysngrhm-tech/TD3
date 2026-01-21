@@ -115,7 +115,7 @@ export function FundingStage({ progress = 0 }: FundingStageProps) {
 
       {/* Funding control panel */}
       <motion.div
-        className="w-full max-w-[200px] md:max-w-[220px]"
+        className="w-full max-w-[280px] md:max-w-[340px] lg:max-w-[400px]"
         style={{
           opacity: panelEntryProgress,
           transform: `translateY(${(1 - panelEntryProgress) * 30}px)`,
