@@ -142,11 +142,9 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
       return () => window.removeEventListener('resize', checkMobile)
     }, [])
 
-    // Header fades in quickly at the start (0-5%)
-    const headerOpacity = Math.min(1, progress * 20)
-
-    // Content area fades in after header (5-10%)
-    const contentOpacity = Math.max(0, Math.min(1, (progress - 0.05) * 20))
+    // Header is always visible so it scrolls into view naturally before pinning
+    // Content area fades in after the section pins (progress > 0)
+    const contentOpacity = Math.max(0, Math.min(1, progress * 20))  // 0-5%
 
     // Stages start after 10% progress, use remaining 90% for 6 stages
     // With doubled scroll distance (300%), each stage now gets ~15% of scroll
@@ -172,12 +170,9 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
             transformOrigin: 'center center',
           }}
         >
-          {/* Section Header */}
-          <motion.div
-            className="text-center mb-8 md:mb-12"
-            style={{ opacity: headerOpacity }}
-          >
-            <motion.span
+          {/* Section Header - always visible, scrolls into view naturally */}
+          <div className="text-center mb-8 md:mb-12">
+            <span
               className="inline-block text-xs font-semibold tracking-wider uppercase mb-4 px-3 py-1 rounded-full"
               style={{
                 background: 'var(--accent-muted)',
@@ -185,7 +180,7 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
               }}
             >
               The Workflow
-            </motion.span>
+            </span>
             <h2
               className="text-2xl md:text-3xl lg:text-4xl font-semibold max-w-2xl mx-auto leading-tight mb-4"
               style={{ color: 'var(--text-primary)' }}
@@ -201,7 +196,7 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
               designed for accuracy, transparency, and efficient funding
               operations.
             </p>
-          </motion.div>
+          </div>
 
           {/* Main content area */}
           <motion.div
