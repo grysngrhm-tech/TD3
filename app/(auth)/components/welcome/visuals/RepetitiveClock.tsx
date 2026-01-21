@@ -22,8 +22,9 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
   // Stress intensity increases with progress
   const stressIntensity = Math.min(1, progress * 1.5)
 
-  // At high progress, elements start to scatter/deconstruct
-  const deconstructAmount = Math.max(0, (progress - 0.7) * 3) // starts at 70% progress
+  // Glow pulsation for the stress ring (oscillates 0-1)
+  const pulseAmount = Math.sin(progress * 15) * 0.5 + 0.5
+  const glowIntensity = stressIntensity * 15
 
   const tasks = [
     { label: 'Categorize', baseAngle: 0 },
@@ -42,15 +43,13 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
           background: 'var(--bg-secondary)',
           border: '3px solid var(--border)',
           boxShadow: `inset 0 2px 8px rgba(0,0,0,0.1), var(--elevation-2)`,
-          // At high progress, clock expands slightly before flying apart
-          transform: `scale(${1 + deconstructAmount * 0.1})`,
         }}
       >
-        {/* Task labels around the clock - scatter outward at high progress */}
+        {/* Task labels around the clock - grow in size instead of scattering */}
         {tasks.map((task, i) => {
           const rad = (task.baseAngle - 90) * (Math.PI / 180)
-          // Base radius expands dramatically at high progress
-          const radius = 44 + (deconstructAmount * 40)
+          // Fixed radius - labels stay in place
+          const radius = 44
           const x = Math.cos(rad) * radius
           const y = Math.sin(rad) * radius
 
@@ -60,20 +59,24 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
                           Math.abs(normalizedRotation - task.baseAngle + 360) < 36 ||
                           Math.abs(normalizedRotation - task.baseAngle - 360) < 36
 
+          // Labels grow in font size with stress intensity
+          const labelScale = 1 + stressIntensity * 0.4
+
           return (
             <motion.div
               key={task.label}
               className="absolute top-1/2 left-1/2"
               style={{
                 transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
-                opacity: isActive ? 1 : 0.5 + (deconstructAmount * 0.3),
+                opacity: isActive ? 1 : 0.5 + stressIntensity * 0.3,
               }}
             >
               <span
                 className="text-[8px] md:text-[9px] font-medium whitespace-nowrap"
                 style={{
                   color: isActive ? 'var(--accent)' : 'var(--text-muted)',
-                  transform: `scale(${isActive ? 1.1 : 1})`,
+                  transform: `scale(${isActive ? labelScale * 1.1 : labelScale})`,
+                  display: 'inline-block',
                 }}
               >
                 {task.label}
@@ -102,19 +105,19 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
           style={{ background: 'var(--accent)' }}
         />
 
-        {/* Stress indicator ring - grows with progress */}
+        {/* Stress indicator ring - fixed size with pulsing glow */}
         <div
           className="absolute rounded-full pointer-events-none"
           style={{
-            inset: -4 - (stressIntensity * 8) - (deconstructAmount * 20),
+            inset: -6,
             border: `2px solid var(--error)`,
-            opacity: stressIntensity * 0.6,
-            transform: `scale(${1 + deconstructAmount * 0.3})`,
+            opacity: 0.6 + stressIntensity * 0.4,
+            boxShadow: `0 0 ${glowIntensity * pulseAmount}px ${glowIntensity * 0.5 * pulseAmount}px var(--error)`,
           }}
         />
       </motion.div>
 
-      {/* Time counter - positioned clearly below, grows with scroll */}
+      {/* Time counter - positioned clearly below */}
       <motion.div
         className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-center"
         style={{ opacity: progress > 0.2 ? 1 : progress * 5 }}
@@ -124,7 +127,6 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
           style={{
             color: hoursWasted > 6 ? 'var(--error)' : 'var(--warning)',
             fontVariantNumeric: 'tabular-nums',
-            transform: `scale(${1 + deconstructAmount * 0.2})`,
           }}
         >
           {displayHours}h {displayMinutes.toString().padStart(2, '0')}m
