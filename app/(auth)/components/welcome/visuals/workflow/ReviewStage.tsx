@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 
 interface ReviewStageProps {
   progress?: number
@@ -78,8 +78,22 @@ export function ReviewStage({ progress = 0 }: ReviewStageProps) {
   // Flag shake animation triggers
   const flagShaking = flagProgress > 0.2 && flagProgress < 0.6
 
+  // Mobile detection for scaling
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  const mobileScale = isMobile ? 1.15 : 1
+
   return (
-    <div className="relative w-full h-full flex items-center justify-center p-2">
+    <div
+      className="relative w-full h-full flex items-center justify-center p-2"
+      style={{ transform: `scale(${mobileScale})`, transformOrigin: 'center center' }}
+    >
       {/* Grid layout: main panel + sidebar */}
       <div className="w-full max-w-[95%] flex gap-3 lg:gap-4">
         {/* Main review panel */}

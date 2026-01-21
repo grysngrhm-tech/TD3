@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { useState, useEffect } from 'react'
 
 interface SubmitStageProps {
   progress?: number
@@ -72,8 +73,22 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
     return sum + num
   }, 0)
 
+  // Mobile detection for scaling
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  const mobileScale = isMobile ? 1.15 : 1
+
   return (
-    <div className="relative w-full h-full flex items-center justify-center p-2 overflow-hidden">
+    <div
+      className="relative w-full h-full flex items-center justify-center p-2 overflow-hidden"
+      style={{ transform: `scale(${mobileScale})`, transformOrigin: 'center center' }}
+    >
       {/* Draw Request Card */}
       <motion.div
         className="absolute left-[3%] md:left-[5%] top-2 w-[35%] min-w-[120px]"

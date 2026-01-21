@@ -102,7 +102,7 @@ export const SolutionsSection = forwardRef<HTMLElement, SolutionsSectionProps>(
                   }}
                 >
                   {/* Visual - receives unbounded progress for extended animations */}
-                  <div className="mb-6">
+                  <div className="mb-6 h-24 sm:h-32 md:h-36 flex items-center justify-center overflow-hidden">
                     <Visual progress={progress} />
                   </div>
 

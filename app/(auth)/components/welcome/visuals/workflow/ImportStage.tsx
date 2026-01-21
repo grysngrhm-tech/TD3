@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 
 interface ImportStageProps {
   progress?: number
@@ -21,6 +21,16 @@ interface ImportStageProps {
  * - 88-100%: Summary/completion (overlaps with results)
  */
 export function ImportStage({ progress = 0 }: ImportStageProps) {
+  // Mobile detection for scaled rendering
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   // Phase calculations with OVERLAPPING timing for fluid animation
   const uploadProgress = Math.min(1, progress / 0.15) // 0-15%
   const uploadComplete = progress > 0.08
@@ -67,8 +77,14 @@ export function ImportStage({ progress = 0 }: ImportStageProps) {
   // Mapping counter
   const mappingCount = Math.min(visibleLines, 8)
 
+  // Mobile: scale up entire animation for readability
+  const mobileScale = isMobile ? 1.15 : 1
+
   return (
-    <div className="relative w-full h-full flex items-center justify-center p-4 overflow-hidden">
+    <div
+      className="relative w-full h-full flex items-center justify-center p-4 overflow-hidden"
+      style={{ transform: `scale(${mobileScale})`, transformOrigin: 'center center' }}
+    >
       {/* Source file (Excel/CSV) */}
       <motion.div
         className="absolute left-[5%] md:left-[8%] top-1/2 -translate-y-1/2 w-[25%] min-w-[80px]"
