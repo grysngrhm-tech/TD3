@@ -49,7 +49,7 @@ export const SolutionsSection = forwardRef<HTMLElement, SolutionsSectionProps>(
     return (
       <section
         ref={ref}
-        className="relative min-h-screen flex flex-col items-center px-4 pt-4 md:pt-6 pb-8"
+        className="relative min-h-screen flex flex-col items-center justify-start px-4 pt-0 pb-8"
         style={{ background: 'var(--bg-secondary)' }}
       >
         {/* Cool color accent overlay - reinforces solution/success tone */}
