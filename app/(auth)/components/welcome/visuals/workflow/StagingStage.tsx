@@ -152,7 +152,7 @@ export function StagingStage({ progress = 0 }: StagingStageProps) {
 
       {/* Individual draw cards - before batch formation */}
       {showIndividualCards && (
-        <div className="flex flex-wrap gap-2 justify-center relative z-10">
+        <div className="flex flex-wrap gap-3 md:gap-4 lg:gap-6 justify-center relative z-10">
           {draws.map((draw, i) => {
             const entryVisible = cardsEntryProgress > i * 0.25
             const entry = entryAngles[i]
@@ -163,7 +163,7 @@ export function StagingStage({ progress = 0 }: StagingStageProps) {
             return (
               <motion.div
                 key={draw.id}
-                className="w-22 md:w-26 relative"
+                className="w-28 md:w-32 lg:w-36 xl:w-40 relative"
                 style={{
                   opacity: entryVisible ? 1 : 0,
                   transform: entryVisible
@@ -277,10 +277,10 @@ export function StagingStage({ progress = 0 }: StagingStageProps) {
 
       {/* Batch cards - after formation */}
       {showBatches && (
-        <div className="flex gap-3 md:gap-4">
+        <div className="flex gap-4 md:gap-6 lg:gap-8">
           {/* Oak Heights Batch */}
           <motion.div
-            className="w-30 md:w-36"
+            className="w-36 md:w-44 lg:w-52"
             initial={{ opacity: 0, scale: 0.85, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
@@ -386,7 +386,7 @@ export function StagingStage({ progress = 0 }: StagingStageProps) {
 
           {/* Pine Valley Batch */}
           <motion.div
-            className="w-26 md:w-30"
+            className="w-32 md:w-38 lg:w-44"
             initial={{ opacity: 0, scale: 0.85, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25, delay: 0.1 }}

@@ -1,6 +1,6 @@
 'use client'
 
-import { forwardRef, useState, useEffect, type ComponentType } from 'react'
+import React, { forwardRef, useState, useEffect, type ComponentType } from 'react'
 import { motion } from 'framer-motion'
 import { WorkflowTimeline, type StageData } from './WorkflowTimeline'
 import { WorkflowStageDetail } from './WorkflowStageDetail'
@@ -253,34 +253,29 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
                 />
               </div>
             ) : (
-              /* Desktop: Side-by-side layout */
-              <div
-                className="flex gap-6 lg:gap-8 min-h-[500px] rounded-2xl p-6"
-                style={{
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border-subtle)',
-                  boxShadow: 'var(--elevation-2)',
-                }}
-              >
-                {/* Left column: Timeline */}
-                <div className="w-48 lg:w-56 flex-shrink-0 border-r border-[var(--border-subtle)] pr-6">
+              /* Desktop: Animation left, timeline+content right - no card wrapper */
+              <div className="flex gap-6 lg:gap-8">
+                {/* Left column: Animation - takes ~55-60% width */}
+                <div className="flex-1 min-w-0 h-[280px] lg:h-[300px] relative">
+                  {React.createElement(STAGE_ANIMATIONS[activeStage], { progress: stageProgress })}
+                </div>
+
+                {/* Right column: Timeline + Content - takes ~40-45% width */}
+                <div className="w-[45%] lg:w-[42%] flex-shrink-0 flex flex-col gap-4">
                   <WorkflowTimeline
                     stages={WORKFLOW_STAGES}
                     activeStage={activeStage}
                     stageProgress={stageProgress}
                     isMobile={false}
+                    compact={true}
                   />
-                </div>
-
-                {/* Right column: Stage detail */}
-                <div className="flex-1 min-w-0">
                   <WorkflowStageDetail
                     stage={WORKFLOW_STAGES[activeStage]}
                     stageIndex={activeStage}
                     progress={stageProgress}
                     isActive={true}
                     isMobile={false}
-                    AnimationComponent={STAGE_ANIMATIONS[activeStage]}
+                    hideAnimation={true}
                   />
                 </div>
               </div>

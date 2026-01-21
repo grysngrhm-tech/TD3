@@ -71,7 +71,7 @@ export function ImportStage({ progress = 0 }: ImportStageProps) {
     <div className="relative w-full h-full flex items-center justify-center p-4 overflow-hidden">
       {/* Source file (Excel/CSV) */}
       <motion.div
-        className="absolute left-4 top-1/2 -translate-y-1/2 w-16 md:w-20"
+        className="absolute left-4 md:left-6 lg:left-8 top-1/2 -translate-y-1/2 w-20 md:w-24 lg:w-28 xl:w-32"
         style={{
           opacity: Math.min(1, uploadProgress * 2),
           transform: `translateY(-50%) translateX(${mappingComplete ? 10 : 0}px) scale(${mappingComplete ? 0.95 : 1})`,
@@ -220,7 +220,7 @@ export function ImportStage({ progress = 0 }: ImportStageProps) {
                 style={{
                   background: 'var(--info)',
                   boxShadow: '0 0 6px var(--info)',
-                  left: `${22 + particleProgress * 48}%`,
+                  left: `${18 + particleProgress * 54}%`,
                   top: `calc(50% + ${particle.offsetY}px)`,
                   opacity: particleProgress < 0.15
                     ? particleProgress * 6.67
@@ -278,7 +278,7 @@ export function ImportStage({ progress = 0 }: ImportStageProps) {
 
       {/* Output: NAHB categorized list */}
       <motion.div
-        className="absolute right-2 top-1/2 -translate-y-1/2 w-32 md:w-40"
+        className="absolute right-2 md:right-4 lg:right-6 top-1/2 -translate-y-1/2 w-40 md:w-48 lg:w-56 xl:w-64"
         style={{
           opacity: mappingComplete ? 1 : 0,
           transform: `translateY(-50%) scale(${0.95 + (mappingComplete ? 0.05 : 0)})`,

@@ -16,6 +16,7 @@ interface WorkflowTimelineProps {
   activeStage: number // 0-5
   stageProgress: number // 0-1 within current stage
   isMobile?: boolean
+  compact?: boolean
 }
 
 export function WorkflowTimeline({
@@ -23,6 +24,7 @@ export function WorkflowTimeline({
   activeStage,
   stageProgress,
   isMobile = false,
+  compact = false,
 }: WorkflowTimelineProps) {
   // Calculate overall progress for the vertical line fill
   const overallProgress = (activeStage + stageProgress) / stages.length
@@ -106,11 +108,17 @@ export function WorkflowTimeline({
   }
 
   // Desktop: Vertical stacked cards with progress line
+  // Compact mode: smaller circles, tighter spacing
+  const circleSize = compact ? 'w-8 h-8' : 'w-10 h-10'
+  const iconSize = compact ? 'w-4 h-4' : 'w-5 h-5'
+  const fontSize = compact ? 'text-xs' : 'text-sm'
+  const lineLeft = compact ? 'left-4' : 'left-5'
+
   return (
-    <div className="relative flex flex-col gap-1 py-4">
+    <div className={`relative flex flex-col ${compact ? 'gap-0.5' : 'gap-1'} py-2`}>
       {/* Vertical progress line */}
       <div
-        className="absolute left-5 top-8 bottom-8 w-0.5"
+        className={`absolute ${lineLeft} top-6 bottom-6 w-0.5`}
         style={{ background: 'var(--border)' }}
       >
         {/* Progress fill */}
@@ -137,7 +145,7 @@ export function WorkflowTimeline({
         return (
           <motion.div
             key={stage.id}
-            className="relative flex items-center gap-3 pl-2 pr-3 py-2 rounded-xl cursor-default transition-all duration-300"
+            className={`relative flex items-center gap-2 ${compact ? 'pl-1 pr-2 py-1' : 'pl-2 pr-3 py-2'} rounded-xl cursor-default transition-all duration-300`}
             style={{
               background: isActive
                 ? 'color-mix(in srgb, var(--accent) 8%, var(--bg-card))'
@@ -147,13 +155,13 @@ export function WorkflowTimeline({
                 : '1px solid transparent',
               opacity,
               transform: `scale(${scale})`,
-              marginTop: index > 0 ? '-4px' : 0, // Slight overlap for stacking effect
+              marginTop: index > 0 ? (compact ? '-2px' : '-4px') : 0,
               zIndex: isActive ? 10 : stages.length - distance,
             }}
           >
             {/* Step number circle */}
             <div
-              className="relative z-10 flex items-center justify-center w-10 h-10 rounded-full flex-shrink-0 transition-all duration-300"
+              className={`relative z-10 flex items-center justify-center ${circleSize} rounded-full flex-shrink-0 transition-all duration-300`}
               style={{
                 background: isActive
                   ? 'var(--accent)'
@@ -168,15 +176,15 @@ export function WorkflowTimeline({
                     : 'var(--border)'
                 }`,
                 boxShadow: isActive
-                  ? '0 0 20px rgba(149, 6, 6, 0.5)'
+                  ? '0 0 16px rgba(149, 6, 6, 0.4)'
                   : isCompleted
-                  ? '0 0 12px rgba(16, 185, 129, 0.3)'
+                  ? '0 0 8px rgba(16, 185, 129, 0.25)'
                   : 'none',
               }}
             >
               {isCompleted ? (
                 <svg
-                  className="w-5 h-5 text-white"
+                  className={`${iconSize} text-white`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -190,7 +198,7 @@ export function WorkflowTimeline({
                 </svg>
               ) : (
                 <span
-                  className="text-sm font-bold"
+                  className={`${fontSize} font-bold`}
                   style={{
                     color: isActive ? 'white' : 'var(--text-muted)',
                   }}
@@ -203,7 +211,7 @@ export function WorkflowTimeline({
             {/* Stage title */}
             <div className="flex-1 min-w-0">
               <h4
-                className="text-sm font-semibold truncate transition-colors duration-300"
+                className={`${fontSize} font-semibold truncate transition-colors duration-300`}
                 style={{
                   color: isActive
                     ? 'var(--text-primary)'
@@ -224,7 +232,7 @@ export function WorkflowTimeline({
                 className="flex-shrink-0"
               >
                 <svg
-                  className="w-4 h-4"
+                  className={compact ? 'w-3 h-3' : 'w-4 h-4'}
                   style={{ color: 'var(--accent)' }}
                   fill="none"
                   stroke="currentColor"

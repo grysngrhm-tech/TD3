@@ -80,14 +80,16 @@ export function ReviewStage({ progress = 0 }: ReviewStageProps) {
 
   return (
     <div className="relative w-full h-full flex items-center justify-center p-2">
-      {/* Main review panel */}
-      <motion.div
-        className="w-full max-w-[200px] md:max-w-[240px]"
-        style={{
-          opacity: panelReveal,
-          transform: `scale(${0.92 + panelReveal * 0.08})`,
-        }}
-      >
+      {/* Grid layout: main panel + sidebar */}
+      <div className="w-full max-w-[320px] md:max-w-[400px] lg:max-w-[480px] flex gap-3 lg:gap-4">
+        {/* Main review panel */}
+        <motion.div
+          className="flex-1 min-w-0"
+          style={{
+            opacity: panelReveal,
+            transform: `scale(${0.92 + panelReveal * 0.08})`,
+          }}
+        >
         <div
           className="rounded-xl overflow-hidden"
           style={{
@@ -337,79 +339,80 @@ export function ReviewStage({ progress = 0 }: ReviewStageProps) {
         </div>
       </motion.div>
 
-      {/* Historical context sidebar */}
-      {historyProgress > 0 && (
-        <motion.div
-          className="absolute right-0 md:right-2 top-1/2 -translate-y-1/2 w-20 md:w-24"
-          initial={{ opacity: 0, x: 15 }}
-          animate={{ opacity: historyProgress, x: 0 }}
-        >
-          <div
-            className="rounded-lg p-2"
-            style={{
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-subtle)',
-              boxShadow: 'var(--elevation-2)',
-            }}
+        {/* Historical context sidebar - inline, not absolute */}
+        {historyProgress > 0 && (
+          <motion.div
+            className="w-24 md:w-28 lg:w-32 flex-shrink-0"
+            initial={{ opacity: 0, x: 15 }}
+            animate={{ opacity: historyProgress, x: 0 }}
           >
-            <div className="flex items-center gap-1 mb-2">
-              <svg className="w-3 h-3" style={{ color: 'var(--text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="text-[7px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                Draw History
-              </span>
-            </div>
-            <div className="space-y-1.5">
-              {pastDraws.map((draw, i) => {
-                const drawVisible = historyProgress > (i + 1) * 0.25
+            <div
+              className="rounded-lg p-2 h-full"
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-subtle)',
+                boxShadow: 'var(--elevation-2)',
+              }}
+            >
+              <div className="flex items-center gap-1 mb-2">
+                <svg className="w-3 h-3" style={{ color: 'var(--text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-[7px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                  Draw History
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {pastDraws.map((draw, i) => {
+                  const drawVisible = historyProgress > (i + 1) * 0.25
 
-                return (
-                  <motion.div
-                    key={draw.number}
-                    className="flex items-center gap-1.5"
-                    style={{
-                      opacity: drawVisible ? 1 : 0,
-                      transform: `translateX(${drawVisible ? 0 : 8}px)`,
-                      transition: 'all 0.3s ease-out',
-                    }}
-                  >
-                    <div
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ background: 'var(--success)' }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[6px] font-medium" style={{ color: 'var(--text-primary)' }}>
-                          #{draw.number}
-                        </span>
-                        <span className="text-[6px] font-mono" style={{ color: 'var(--success)' }}>
-                          {draw.amount}
+                  return (
+                    <motion.div
+                      key={draw.number}
+                      className="flex items-center gap-1.5"
+                      style={{
+                        opacity: drawVisible ? 1 : 0,
+                        transform: `translateX(${drawVisible ? 0 : 8}px)`,
+                        transition: 'all 0.3s ease-out',
+                      }}
+                    >
+                      <div
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ background: 'var(--success)' }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[6px] font-medium" style={{ color: 'var(--text-primary)' }}>
+                            #{draw.number}
+                          </span>
+                          <span className="text-[6px] font-mono" style={{ color: 'var(--success)' }}>
+                            {draw.amount}
+                          </span>
+                        </div>
+                        <span className="text-[5px]" style={{ color: 'var(--text-muted)' }}>
+                          {draw.date}
                         </span>
                       </div>
-                      <span className="text-[5px]" style={{ color: 'var(--text-muted)' }}>
-                        {draw.date}
-                      </span>
-                    </div>
-                  </motion.div>
-                )
-              })}
+                    </motion.div>
+                  )
+                })}
+              </div>
+              {historyProgress > 0.8 && (
+                <motion.div
+                  className="mt-2 pt-1.5 text-center"
+                  style={{ borderTop: '1px solid var(--border-subtle)' }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <span className="text-[6px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+                    Total: $74,400
+                  </span>
+                </motion.div>
+              )}
             </div>
-            {historyProgress > 0.8 && (
-              <motion.div
-                className="mt-2 pt-1.5 text-center"
-                style={{ borderTop: '1px solid var(--border-subtle)' }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-              >
-                <span className="text-[6px] font-medium" style={{ color: 'var(--text-secondary)' }}>
-                  Total: $74,400
-                </span>
-              </motion.div>
-            )}
-          </div>
-        </motion.div>
-      )}
+          </motion.div>
+        )}
+      </div>
     </div>
   )
 }
