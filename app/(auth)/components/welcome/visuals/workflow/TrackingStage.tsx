@@ -141,7 +141,7 @@ export function TrackingStage({ progress = 0 }: TrackingStageProps) {
   return (
     <div className="relative w-full h-full flex items-center justify-center p-2">
       <motion.div
-        className="w-full max-w-[300px] md:max-w-[380px] lg:max-w-[440px]"
+        className="w-full max-w-[95%]"
         style={{
           opacity: dashboardReveal,
           transform: `scale(${0.88 + dashboardReveal * 0.12})`,

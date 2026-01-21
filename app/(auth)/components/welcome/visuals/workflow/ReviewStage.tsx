@@ -81,7 +81,7 @@ export function ReviewStage({ progress = 0 }: ReviewStageProps) {
   return (
     <div className="relative w-full h-full flex items-center justify-center p-2">
       {/* Grid layout: main panel + sidebar */}
-      <div className="w-full max-w-[320px] md:max-w-[400px] lg:max-w-[480px] flex gap-3 lg:gap-4">
+      <div className="w-full max-w-[95%] flex gap-3 lg:gap-4">
         {/* Main review panel */}
         <motion.div
           className="flex-1 min-w-0"

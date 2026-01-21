@@ -163,7 +163,7 @@ export function StagingStage({ progress = 0 }: StagingStageProps) {
             return (
               <motion.div
                 key={draw.id}
-                className="w-28 md:w-32 lg:w-36 xl:w-40 relative"
+                className="w-[30%] min-w-[100px] relative"
                 style={{
                   opacity: entryVisible ? 1 : 0,
                   transform: entryVisible
@@ -280,7 +280,7 @@ export function StagingStage({ progress = 0 }: StagingStageProps) {
         <div className="flex gap-4 md:gap-6 lg:gap-8">
           {/* Oak Heights Batch */}
           <motion.div
-            className="w-36 md:w-44 lg:w-52"
+            className="w-[42%] min-w-[140px]"
             initial={{ opacity: 0, scale: 0.85, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
@@ -386,7 +386,7 @@ export function StagingStage({ progress = 0 }: StagingStageProps) {
 
           {/* Pine Valley Batch */}
           <motion.div
-            className="w-32 md:w-38 lg:w-44"
+            className="w-[35%] min-w-[120px]"
             initial={{ opacity: 0, scale: 0.85, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25, delay: 0.1 }}
