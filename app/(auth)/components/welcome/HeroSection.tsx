@@ -27,13 +27,12 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
           }}
         />
 
-        <div className="relative z-10 w-full max-w-xl mx-auto text-center">
-          {/* Logo with pulsing glow */}
+        {/* Logo with pulsing glow - full width container for proper centering */}
+        <div className="relative z-10 w-full text-center mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="mb-8"
           >
             <motion.div
               className="relative w-20 h-20 rounded-2xl mx-auto mb-6 flex items-center justify-center"
@@ -42,9 +41,9 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
               }}
               animate={{
                 boxShadow: [
-                  '0 8px 32px rgba(149, 6, 6, 0.3)',
-                  '0 8px 48px rgba(149, 6, 6, 0.5)',
-                  '0 8px 32px rgba(149, 6, 6, 0.3)',
+                  '0 0 32px rgba(149, 6, 6, 0.3)',
+                  '0 0 48px rgba(149, 6, 6, 0.5)',
+                  '0 0 32px rgba(149, 6, 6, 0.3)',
                 ],
               }}
               transition={{
@@ -62,14 +61,17 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-            className="text-4xl md:text-5xl lg:text-6xl font-semibold mb-4 tracking-tight uppercase whitespace-nowrap w-fit mx-auto text-center"
+            className="text-4xl md:text-5xl lg:text-6xl font-semibold mb-4 tracking-tight uppercase whitespace-nowrap"
             style={{ color: 'var(--text-primary)' }}
           >
             Construction Finance.
             <br />
             <span style={{ color: 'var(--accent)' }}>{accentWord}.</span>
           </motion.h1>
+        </div>
 
+        {/* Content container - constrained width for login card */}
+        <div className="relative z-10 w-full max-w-xl mx-auto text-center">
           {/* Subhead */}
           <motion.p
             initial={{ opacity: 0, y: 20 }}
