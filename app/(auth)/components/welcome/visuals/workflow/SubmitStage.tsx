@@ -43,7 +43,16 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
   // Phase 7: Match Complete (80-100%)
   const completeProgress = Math.max(0, Math.min(1, (progress - 0.80) / 0.20))
 
-  // Draw lines data - 4 items
+  // Unified coordinate system: Y positions (% from container top) for draw lines and invoices
+  // Draw card line items appear at these Y percentages within the container
+  // Invoices are positioned to align horizontally with their matching draw lines
+  const matchData = [
+    { category: 'Framing', requested: '$12,400', match: 96, drawY: 22, invoiceY: 14, vendor: 'Acme Lumber', amount: '$12,380', color: 'var(--info)' },
+    { category: 'Electrical', requested: '$8,200', match: 88, drawY: 32, invoiceY: 36, vendor: 'City Electric', amount: '$8,180', color: 'var(--accent)' },
+    { category: 'Plumbing', requested: '$6,800', match: 95, drawY: 42, invoiceY: 58, vendor: 'Pro Plumbing', amount: '$6,750', color: 'var(--success)' },
+  ]
+
+  // Draw lines data - 4 items (includes one without invoice match)
   const drawLines = [
     { category: 'Framing', requested: '$12,400', match: 96 },
     { category: 'Electrical', requested: '$8,200', match: 88 },
@@ -51,12 +60,15 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
     { category: 'Roofing', requested: '$4,500', match: 92 },
   ]
 
-  // 3 invoices that match to draw lines
-  const invoices = [
-    { vendor: 'Acme Lumber Co.', amount: '$12,380', category: 'Framing', matchLine: 0, color: 'var(--info)' },
-    { vendor: 'City Electric', amount: '$8,180', category: 'Electrical', matchLine: 1, color: 'var(--accent)' },
-    { vendor: 'Pro Plumbing', amount: '$6,750', category: 'Plumbing', matchLine: 2, color: 'var(--success)' },
-  ]
+  // 3 invoices that match to draw lines (derived from matchData for backwards compatibility)
+  const invoices = matchData.map((m, i) => ({
+    vendor: m.vendor,
+    amount: m.amount,
+    category: m.category,
+    matchLine: i,
+    color: m.color,
+    invoiceY: m.invoiceY,
+  }))
 
   // Calculate which line items are visible during population phase
   const visibleLines = Math.ceil(drawPopProgress * drawLines.length)
@@ -243,36 +255,39 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
           preserveAspectRatio="none"
         >
           <defs>
-            {invoices.map((inv, i) => (
+            {matchData.map((m, i) => (
               <linearGradient key={`grad${i}`} id={`lineGrad${i}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor={inv.color} stopOpacity="0.9" />
+                <stop offset="0%" stopColor={m.color} stopOpacity="0.9" />
                 <stop offset="50%" stopColor="var(--success)" stopOpacity="1" />
-                <stop offset="100%" stopColor={inv.color} stopOpacity="0.9" />
+                <stop offset="100%" stopColor={m.color} stopOpacity="0.9" />
               </linearGradient>
             ))}
           </defs>
-          {invoices.map((inv, i) => {
+          {matchData.map((match, i) => {
             if (i >= matchedCount) return null
-            // Draw Y positions (percentage-based)
-            const drawY = 18 + i * 8
-            // Invoice Y positions
-            const invY = 22 + i * 20
-            // Curved path from draw line to invoice
-            const midX = 50
-            const midY = (drawY + invY) / 2
+            // Draw card ends at ~40% (left-[2%] + w-[38%])
+            // Invoice container starts at ~63% (100% - 2% - 35%)
+            const startX = 41
+            const endX = 62
+            // Use Y positions from matchData - draw line Y and invoice center Y
+            const startY = match.drawY
+            const endY = match.invoiceY
+            // Quadratic bezier curve for smooth connection
+            const midX = (startX + endX) / 2
+            const midY = (startY + endY) / 2
 
             return (
               <motion.path
                 key={i}
-                d={`M 40 ${drawY} Q ${midX} ${midY} 60 ${invY}`}
+                d={`M ${startX} ${startY} Q ${midX} ${midY} ${endX} ${endY}`}
                 fill="none"
                 stroke={`url(#lineGrad${i})`}
-                strokeWidth="0.4"
+                strokeWidth="0.5"
                 strokeDasharray="2 1"
                 initial={{ pathLength: 0, opacity: 0 }}
                 animate={{
                   pathLength: 1,
-                  opacity: showValidated ? 0.4 : 0.8,
+                  opacity: showValidated ? 0.5 : 0.9,
                 }}
                 transition={{ duration: 0.5, delay: i * 0.15 }}
               />
@@ -281,8 +296,8 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
         </svg>
       )}
 
-      {/* Invoice Cards - stacked/cascaded */}
-      <div className="absolute right-[2%] md:right-[3%] top-2 w-[35%] min-w-[110px]">
+      {/* Invoice Cards - positioned using percentage-based Y coordinates */}
+      <div className="absolute right-[2%] md:right-[3%] top-0 bottom-0 w-[35%] min-w-[110px]">
         {invoices.map((invoice, i) => {
           const invProgress = Math.max(0, Math.min(1, (invoiceUploadProgress - i * 0.25) * 2))
           const isScanning = scanningInvoiceIndex === i && scanProgress > 0 && !invoiceScanComplete(i)
@@ -295,14 +310,15 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
               key={invoice.vendor}
               className="absolute w-full"
               style={{
-                top: `${i * 48}px`,
+                // Position at percentage Y and center vertically on that point
+                top: `${invoice.invoiceY}%`,
+                transform: `translateY(calc(-50% + ${(1 - invProgress) * -15}px)) scale(${0.92 + invProgress * 0.08})`,
                 opacity: invProgress,
-                transform: `translateY(${(1 - invProgress) * -15}px) scale(${0.92 + invProgress * 0.08})`,
                 zIndex: 3 - i,
               }}
             >
               <div
-                className="rounded-lg overflow-hidden relative"
+                className="rounded overflow-hidden relative"
                 style={{
                   background: 'var(--bg-card)',
                   border: isValidated
@@ -330,17 +346,17 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
                   />
                 )}
 
-                {/* Header */}
+                {/* Header - more compact */}
                 <div
-                  className="px-1.5 py-1 flex items-center justify-between"
+                  className="px-1 py-0.5 flex items-center justify-between"
                   style={{
                     background: 'var(--bg-secondary)',
                     borderBottom: '1px solid var(--border-subtle)',
                   }}
                 >
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
                     <svg
-                      className="w-2.5 h-2.5"
+                      className="w-2 h-2"
                       style={{ color: isExtracted ? invoice.color : 'var(--text-muted)' }}
                       fill="none"
                       stroke="currentColor"
@@ -348,13 +364,13 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <span className="text-[6px] font-medium truncate" style={{ color: 'var(--text-secondary)' }}>
-                      Invoice {i + 1}
+                    <span className="text-[5px] font-medium truncate" style={{ color: 'var(--text-secondary)' }}>
+                      Inv {i + 1}
                     </span>
                   </div>
                   {isExtracted && (
                     <motion.span
-                      className="text-[5px] px-1 rounded-full"
+                      className="text-[4px] px-0.5 rounded-full"
                       style={{ background: `color-mix(in srgb, ${invoice.color} 20%, transparent)`, color: invoice.color }}
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -364,23 +380,23 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
                   )}
                 </div>
 
-                {/* Invoice content */}
-                <div className="p-1.5 space-y-0.5">
+                {/* Invoice content - more compact */}
+                <div className="p-1 space-y-0">
                   {/* Vendor line */}
-                  <div className="h-2 relative rounded overflow-hidden">
+                  <div className="h-[7px] relative rounded overflow-hidden">
                     <div
                       className="absolute inset-0 rounded"
                       style={{ background: 'var(--border)' }}
                     />
                     {isExtracted && (
                       <motion.div
-                        className="absolute inset-0 flex items-center px-1 rounded"
+                        className="absolute inset-0 flex items-center px-0.5 rounded"
                         style={{ background: 'var(--bg-card)' }}
                         initial={{ width: 0 }}
                         animate={{ width: '100%' }}
                         transition={{ duration: 0.25 }}
                       >
-                        <span className="text-[6px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                        <span className="text-[5px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>
                           {invoice.vendor}
                         </span>
                       </motion.div>
@@ -388,10 +404,10 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
                   </div>
 
                   {/* Amount line */}
-                  <div className="flex items-center justify-between pt-0.5">
-                    <span className="text-[5px]" style={{ color: 'var(--text-muted)' }}>Total</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[4px]" style={{ color: 'var(--text-muted)' }}>Total</span>
                     <span
-                      className="text-[7px] font-mono font-semibold"
+                      className="text-[6px] font-mono font-semibold"
                       style={{ color: isExtracted ? 'var(--text-primary)' : 'var(--border)' }}
                     >
                       {isExtracted ? invoice.amount : '$--,---'}
@@ -402,13 +418,13 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
                 {/* Match indicator */}
                 {isValidated && (
                   <motion.div
-                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center"
+                    className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center"
                     style={{ background: 'var(--success)', boxShadow: '0 2px 6px rgba(16, 185, 129, 0.4)' }}
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: 'spring', stiffness: 500 }}
                   >
-                    <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                     </svg>
                   </motion.div>
