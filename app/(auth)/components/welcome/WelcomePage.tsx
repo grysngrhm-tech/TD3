@@ -10,6 +10,7 @@ import { ProblemsSection } from './ProblemsSection'
 import { SolutionsSection } from './SolutionsSection'
 import { WorkflowSection } from './WorkflowSection'
 import { CTASection } from './CTASection'
+import { useAccentWords } from '@/app/hooks/useAccentWords'
 
 // Register GSAP plugins
 if (typeof window !== 'undefined') {
@@ -32,6 +33,9 @@ interface WelcomePageProps {
 export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
   const searchParams = useSearchParams()
   const redirectTo = propRedirectTo || searchParams.get('redirect') || '/'
+
+  // Rotating accent words for Hero and CTA headlines
+  const { heroWord, ctaWord } = useAccentWords()
 
   // Refs for sections
   const heroRef = useRef<HTMLElement>(null)
@@ -420,6 +424,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
       <HeroSection
         ref={heroRef}
         redirectTo={redirectTo}
+        accentWord={heroWord}
       />
 
       {/* Problems Section */}
@@ -477,6 +482,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
       <CTASection
         ref={ctaRef}
         redirectTo={redirectTo}
+        accentWord={ctaWord}
       />
     </div>
   )
