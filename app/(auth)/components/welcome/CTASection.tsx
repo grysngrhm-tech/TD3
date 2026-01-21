@@ -15,7 +15,7 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
     return (
       <section
         ref={ref}
-        className="relative min-h-screen flex flex-col items-center justify-center px-4 py-16"
+        className="relative flex flex-col items-center px-4 pt-16 pb-4"
         style={{
           background: 'linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)',
         }}
@@ -83,22 +83,6 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
 
             <LoginForm redirectTo={redirectTo} />
           </motion.div>
-
-          {/* Attribution */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="mt-6"
-          >
-            <p
-              className="text-sm"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              A Tennant Developments platform
-            </p>
-          </motion.div>
         </div>
 
         {/* Compact Footer with full descriptions */}
@@ -107,7 +91,7 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="w-full mt-auto pt-10 pb-6 border-t"
+          className="w-full mt-auto pt-6 pb-2 border-t"
           style={{ borderColor: 'var(--border-subtle)' }}
         >
           <div className="max-w-5xl mx-auto px-4">

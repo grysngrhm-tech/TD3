@@ -15,7 +15,7 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
     return (
       <section
         ref={ref}
-        className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-0 pb-20"
+        className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-4 pb-20"
         style={{ background: 'var(--bg-primary)' }}
       >
         {/* Background gradient - extends to top edge */}
@@ -112,17 +112,6 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
             </div>
             <LoginForm redirectTo={redirectTo} />
           </motion.div>
-
-          {/* Tennant attribution */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="text-sm mt-6"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            Tennant Developments
-          </motion.p>
         </div>
 
         {/* Scroll indicator */}
