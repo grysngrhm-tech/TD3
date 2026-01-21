@@ -6,14 +6,16 @@ import { LoginForm } from './LoginForm'
 
 interface HeroSectionProps {
   redirectTo?: string
+  /** Rotating accent word displayed after "Construction Finance." */
+  accentWord?: string
 }
 
 export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
-  function HeroSection({ redirectTo = '/' }, ref) {
+  function HeroSection({ redirectTo = '/', accentWord = 'Refined' }, ref) {
     return (
       <section
         ref={ref}
-        className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-0 pb-20"
+        className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-4 pb-20"
         style={{ background: 'var(--bg-primary)' }}
       >
         {/* Background gradient - extends to top edge */}
@@ -25,13 +27,12 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
           }}
         />
 
-        <div className="relative z-10 w-full max-w-xl mx-auto text-center">
-          {/* Logo with pulsing glow */}
+        {/* Logo with pulsing glow - full width container for proper centering */}
+        <div className="relative z-10 w-full text-center mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="mb-8"
           >
             <motion.div
               className="relative w-20 h-20 rounded-2xl mx-auto mb-6 flex items-center justify-center"
@@ -40,9 +41,9 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
               }}
               animate={{
                 boxShadow: [
-                  '0 8px 32px rgba(149, 6, 6, 0.3)',
-                  '0 8px 48px rgba(149, 6, 6, 0.5)',
-                  '0 8px 32px rgba(149, 6, 6, 0.3)',
+                  '0 0 32px rgba(149, 6, 6, 0.3)',
+                  '0 0 48px rgba(149, 6, 6, 0.5)',
+                  '0 0 32px rgba(149, 6, 6, 0.3)',
                 ],
               }}
               transition={{
@@ -55,27 +56,31 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
             </motion.div>
           </motion.div>
 
-          {/* Headline */}
+          {/* Headline - accentWord rotates across visits (see lib/accentWords.ts) */}
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-            className="text-4xl md:text-5xl lg:text-6xl font-semibold mb-4 tracking-tight"
+            className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-semibold mb-4 tracking-tight uppercase whitespace-normal sm:whitespace-nowrap leading-tight"
             style={{ color: 'var(--text-primary)' }}
           >
-            Construction Finance.{' '}
-            <span style={{ color: 'var(--accent)' }}>Refined.</span>
+            Construction Finance.
+            <br />
+            <span style={{ color: 'var(--accent)' }}>{accentWord}.</span>
           </motion.h1>
+        </div>
 
+        {/* Content container - constrained width for login card */}
+        <div className="relative z-10 w-full max-w-xl mx-auto text-center">
           {/* Subhead */}
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="text-lg md:text-xl mb-10 max-w-lg mx-auto"
+            className="text-base md:text-lg lg:text-xl mb-8 md:mb-10 max-w-lg mx-auto"
             style={{ color: 'var(--text-secondary)' }}
           >
-            A purpose-built platform for managing construction loans, budgets, draw requests, and funding with clarity, structure, and accountability.
+            A purpose-built system for managing construction loans, draws, and funding with precision and control.
           </motion.p>
 
           {/* Login Form Card */}
@@ -83,7 +88,7 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="card-ios p-6 md:p-8 max-w-md mx-auto"
+            className="card-ios p-4 sm:p-6 md:p-8 max-w-md mx-auto"
             style={{
               boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06)',
             }}
@@ -107,17 +112,6 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
             </div>
             <LoginForm redirectTo={redirectTo} />
           </motion.div>
-
-          {/* Tennant attribution */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="text-sm mt-6"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            Tennant Developments
-          </motion.p>
         </div>
 
         {/* Scroll indicator */}

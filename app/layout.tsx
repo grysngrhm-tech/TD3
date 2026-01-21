@@ -3,7 +3,7 @@ import { Inter, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { ToastContainer } from '@/app/components/ui/Toast'
 import { Providers } from '@/app/components/Providers'
-import { Header } from '@/app/components/ui/Header'
+import { AppShell } from '@/app/components/ui/AppShell'
 
 /**
  * TD3 Design Language System - Typography
@@ -63,18 +63,10 @@ export default function RootLayout({
     <html lang="en" className={`light ${inter.variable} ${jetbrainsMono.variable}`}>
       <body className={inter.className}>
         <Providers>
-          <div className="min-h-screen" style={{ background: 'var(--bg-primary)' }}>
-            {/* Top Navigation Bar */}
-            <Header />
-            
-            {/* Main Content - Below nav */}
-            <main style={{ paddingTop: 'var(--header-height)' }}>
-              {children}
-            </main>
-            
-            {/* Toast Notifications */}
-            <ToastContainer />
-          </div>
+          <AppShell>
+            {children}
+          </AppShell>
+          <ToastContainer />
         </Providers>
       </body>
     </html>

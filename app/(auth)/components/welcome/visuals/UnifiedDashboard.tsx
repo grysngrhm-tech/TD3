@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { useState, useEffect } from 'react'
 
 interface UnifiedDashboardProps {
   progress?: number
@@ -22,6 +23,16 @@ const allProjects = [
 ]
 
 export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashboardProps) {
+  // Detect mobile for scaled-up rendering
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   // All values derived from scroll progress - no time-based state
   // Progress can exceed 1 as user scrolls past - stats keep growing positively
 
@@ -60,8 +71,12 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
     { label: 'This Week', value: formatCurrency(weeklyTotal), colorVar: '--success', isMoney: true },
   ]
 
+  // Mobile: scale up the dashboard for readability
+  const mobileScale = isMobile ? 1.15 : 1
+  const baseScale = 0.9 + Math.min(progress, 1) * 0.1
+
   return (
-    <div className={`relative w-full h-28 md:h-32 flex items-center justify-center ${className}`}>
+    <div className={`relative w-full h-24 sm:h-28 md:h-32 flex items-center justify-center ${className}`}>
       {/* Dashboard frame - stays centered and contained */}
       <motion.div
         className="relative w-full max-w-xs overflow-hidden"
@@ -70,7 +85,7 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
           border: '1px solid var(--border-subtle)',
           borderRadius: 'var(--radius-xl)',
           boxShadow: 'var(--elevation-3)',
-          transform: `scale(${0.9 + Math.min(progress, 1) * 0.1})`,
+          transform: `scale(${baseScale * mobileScale})`,
           opacity: Math.min(1, progress * 3),
         }}
       >
@@ -89,7 +104,7 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
               borderRadius: 'var(--radius-xs)',
             }}
           >
-            <span className="text-[5px] font-bold text-white">TD3</span>
+            <span className="text-[10px] sm:text-[5px] font-bold text-white">TD3</span>
           </div>
           <div className="flex-1" />
           {/* Live indicator */}
@@ -98,7 +113,7 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
               className="w-1 h-1 rounded-full"
               style={{ background: 'var(--success)' }}
             />
-            <span className="text-[6px]" style={{ color: 'var(--text-muted)' }}>Live</span>
+            <span className="text-[10px] sm:text-[6px]" style={{ color: 'var(--text-muted)' }}>Live</span>
           </div>
         </div>
 
@@ -121,11 +136,11 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
                   borderRadius: 'var(--radius-md)',
                 }}
               >
-                <div className="text-[6px]" style={{ color: 'var(--text-muted)' }}>
+                <div className="text-[10px] sm:text-[6px]" style={{ color: 'var(--text-muted)' }}>
                   {stat.label}
                 </div>
                 <div
-                  className={`text-[10px] font-semibold ${stat.isMoney ? 'font-mono' : ''}`}
+                  className={`text-[11px] sm:text-[10px] font-semibold ${stat.isMoney ? 'font-mono' : ''}`}
                   style={{
                     color: `var(${stat.colorVar})`,
                     fontVariantNumeric: stat.isMoney ? 'tabular-nums' : undefined,
@@ -148,7 +163,7 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
           >
             {/* Table header */}
             <div
-              className="flex text-[6px] font-semibold px-1 py-0.5"
+              className="flex text-[10px] sm:text-[6px] font-semibold px-1 py-0.5"
               style={{
                 background: 'var(--bg-secondary)',
                 color: 'var(--text-secondary)',
@@ -169,7 +184,7 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
               return (
                 <div
                   key={`${row.project}-${rowWindowStart}-${i}`}
-                  className="flex text-[6px] px-1 py-0.5 items-center"
+                  className="flex text-[10px] sm:text-[6px] px-1 py-0.5 items-center"
                   style={{
                     borderTop: i > 0 ? '1px solid var(--border-subtle)' : undefined,
                     background: i % 2 === 1 ? 'var(--bg-secondary)' : 'transparent',
@@ -184,7 +199,7 @@ export function UnifiedDashboard({ progress = 0, className = '' }: UnifiedDashbo
                   </div>
                   <div className="w-1/3">
                     <span
-                      className="px-1 py-0.5 text-[5px] font-semibold inline-flex items-center"
+                      className="px-1 py-0.5 text-[10px] sm:text-[5px] font-semibold inline-flex items-center"
                       style={{
                         background: row.status === 'funded' ? 'var(--success-muted)' :
                                    row.status === 'staged' ? 'var(--info-muted)' : 'var(--accent-muted)',

@@ -6,20 +6,22 @@ import { LoginForm } from './LoginForm'
 
 interface CTASectionProps {
   redirectTo?: string
+  /** Rotating accent word displayed after "Construction finance," */
+  accentWord?: string
 }
 
 export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
-  function CTASection({ redirectTo = '/' }, ref) {
+  function CTASection({ redirectTo = '/', accentWord = 'clearly organized' }, ref) {
     return (
       <section
         ref={ref}
-        className="relative min-h-screen flex flex-col items-center justify-center px-4 py-16"
+        className="relative flex flex-col items-center px-4 pt-16 pb-4"
         style={{
           background: 'linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)',
         }}
       >
-        <div className="w-full max-w-xl mx-auto text-center">
-          {/* Headline - confident, not salesy */}
+        {/* Headline - full width container for proper centering */}
+        <div className="w-full text-center mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -27,18 +29,28 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
             <h2
-              className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-4 leading-tight"
+              className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-semibold mb-4 tracking-tight uppercase whitespace-normal sm:whitespace-nowrap leading-tight"
               style={{ color: 'var(--text-primary)' }}
             >
-              Construction finance, clearly organized.
+              Construction Finance.
+              <br />
+              <span style={{ color: 'var(--accent)' }}>{accentWord}.</span>
             </h2>
-            <p
-              className="text-base md:text-lg mb-8"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              Sign in to access loan tracking, draw management, funding workflows, and financial reporting.
-            </p>
           </motion.div>
+        </div>
+
+        {/* Content container - constrained width for login card */}
+        <div className="w-full max-w-xl mx-auto text-center">
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-100px' }}
+            transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+            className="text-base md:text-lg mb-8"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            Sign in to access loan tracking, draw management, funding workflows, and financial reporting.
+          </motion.p>
 
           {/* Login Card */}
           <motion.div
@@ -46,7 +58,7 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
             transition={{ duration: 0.6, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="card-ios p-6 md:p-8"
+            className="card-ios p-4 sm:p-6 md:p-8"
             style={{
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06)',
             }}
@@ -71,22 +83,6 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
 
             <LoginForm redirectTo={redirectTo} />
           </motion.div>
-
-          {/* Attribution */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="mt-6"
-          >
-            <p
-              className="text-sm"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              A Tennant Developments platform
-            </p>
-          </motion.div>
         </div>
 
         {/* Compact Footer with full descriptions */}
@@ -95,12 +91,12 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="w-full mt-auto pt-10 pb-6 border-t"
+          className="w-full mt-auto pt-6 pb-2 border-t"
           style={{ borderColor: 'var(--border-subtle)' }}
         >
           <div className="max-w-5xl mx-auto px-4">
             {/* Three columns with descriptions - tighter spacing */}
-            <div className="grid md:grid-cols-3 gap-6 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-6">
               {/* TD3 Column */}
               <div>
                 <div className="flex items-center gap-2 mb-2">

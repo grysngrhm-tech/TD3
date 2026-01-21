@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { useState, useEffect } from 'react'
 
 interface RepetitiveClockProps {
   progress?: number
@@ -8,6 +9,16 @@ interface RepetitiveClockProps {
 }
 
 export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveClockProps) {
+  // Detect mobile for simplified rendering
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   // All values derived from scroll progress - no time-based state
   // Progress can exceed 1 as user scrolls past, effects keep intensifying
 
@@ -39,8 +50,114 @@ export function RepetitiveClock({ progress = 0, className = '' }: RepetitiveCloc
 
   // Clock dimensions
   const clockSize = { base: 64, md: 72 } // w-16/w-18 equivalent
+  const mobileClockSize = 56 // Smaller clock for mobile
   const labelRadius = 72 // Much further out - clear separation from clock
 
+  // Mobile layout: vertical stack with clock face and timer below
+  if (isMobile) {
+    return (
+      <div className={`flex flex-col items-center gap-2 h-24 ${className}`}>
+        {/* Clock face only - no orbital labels */}
+        <div
+          className="relative rounded-full flex-shrink-0"
+          style={{
+            width: mobileClockSize,
+            height: mobileClockSize,
+            background: 'var(--bg-secondary)',
+            border: '2px solid var(--border)',
+            boxShadow: `inset 0 2px 6px rgba(0,0,0,0.08), var(--elevation-2)`,
+          }}
+        >
+          {/* 12 tick marks around the clock edge */}
+          {tickMarks.map((angle, i) => {
+            const rad = (angle - 90) * (Math.PI / 180)
+            const tickRadius = mobileClockSize / 2 - 5
+            const tickLength = i % 3 === 0 ? 4 : 2
+            const tickX = Math.cos(rad) * (tickRadius - tickLength / 2)
+            const tickY = Math.sin(rad) * (tickRadius - tickLength / 2)
+
+            return (
+              <div
+                key={angle}
+                className="absolute top-1/2 left-1/2"
+                style={{
+                  width: 1.5,
+                  height: tickLength,
+                  background: i % 3 === 0 ? 'var(--text-muted)' : 'var(--border)',
+                  transform: `translate(-50%, -50%) translate(${tickX}px, ${tickY}px) rotate(${angle}deg)`,
+                  borderRadius: 1,
+                }}
+              />
+            )
+          })}
+
+          {/* Clock hand */}
+          <div
+            className="absolute top-1/2 left-1/2 origin-bottom"
+            style={{
+              width: 2,
+              height: mobileClockSize / 2 - 8,
+              marginLeft: -1,
+              marginTop: -(mobileClockSize / 2 - 8),
+              background: 'var(--accent)',
+              borderRadius: 'var(--radius-xs)',
+              transform: `rotate(${rotation}deg)`,
+            }}
+          />
+
+          {/* Second hand */}
+          <div
+            className="absolute top-1/2 left-1/2 origin-bottom"
+            style={{
+              width: 1,
+              height: mobileClockSize / 2 - 12,
+              marginLeft: -0.5,
+              marginTop: -(mobileClockSize / 2 - 12),
+              background: 'var(--error)',
+              borderRadius: 'var(--radius-xs)',
+              transform: `rotate(${rotation * 3}deg)`,
+              opacity: 0.8,
+            }}
+          />
+
+          {/* Center dot */}
+          <div
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full"
+            style={{ background: 'var(--accent)' }}
+          />
+
+          {/* Stress indicator ring */}
+          <div
+            className="absolute rounded-full pointer-events-none"
+            style={{
+              inset: -2,
+              border: `2px solid var(--error)`,
+              opacity: 0.4 + stressIntensity * 0.4,
+              boxShadow: `0 0 ${glowIntensity * pulseAmount * 0.5}px ${glowIntensity * 0.15 * pulseAmount}px var(--error)`,
+            }}
+          />
+        </div>
+
+        {/* Timer text below */}
+        <div className="text-center">
+          <div
+            className="font-mono text-base font-bold"
+            style={{
+              color: hoursWasted > 6 ? 'var(--error)' : 'var(--warning)',
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            {displayHours}h {displayMinutes.toString().padStart(2, '0')}m
+          </div>
+          <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+            wasted weekly
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Desktop layout: clock with orbital labels + timer stats
   return (
     <div className={`relative w-full h-36 md:h-40 flex items-center justify-center gap-6 md:gap-8 ${className}`}>
       {/* Left side: Clock with well-separated labels */}

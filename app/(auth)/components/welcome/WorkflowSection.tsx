@@ -1,6 +1,6 @@
 'use client'
 
-import { forwardRef, useState, useEffect, type ComponentType } from 'react'
+import React, { forwardRef, useState, useEffect, type ComponentType } from 'react'
 import { motion } from 'framer-motion'
 import { WorkflowTimeline, type StageData } from './WorkflowTimeline'
 import { WorkflowStageDetail } from './WorkflowStageDetail'
@@ -142,11 +142,9 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
       return () => window.removeEventListener('resize', checkMobile)
     }, [])
 
-    // Header fades in quickly at the start (0-5%)
-    const headerOpacity = Math.min(1, progress * 20)
-
-    // Content area fades in after header (5-10%)
-    const contentOpacity = Math.max(0, Math.min(1, (progress - 0.05) * 20))
+    // Header is always visible so it scrolls into view naturally before pinning
+    // Content area fades in after the section pins (progress > 0)
+    const contentOpacity = Math.max(0, Math.min(1, progress * 20))  // 0-5%
 
     // Stages start after 10% progress, use remaining 90% for 6 stages
     // With doubled scroll distance (300%), each stage now gets ~15% of scroll
@@ -161,7 +159,7 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
     return (
       <section
         ref={ref}
-        className="relative min-h-screen flex flex-col items-center justify-center px-4 py-12 md:py-16"
+        className="relative min-h-screen flex flex-col items-center justify-start px-4 pt-0 pb-8"
         style={{ background: 'var(--bg-primary)' }}
       >
         {/* Content wrapper with viewport-based scaling */}
@@ -172,12 +170,9 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
             transformOrigin: 'center center',
           }}
         >
-          {/* Section Header */}
-          <motion.div
-            className="text-center mb-8 md:mb-12"
-            style={{ opacity: headerOpacity }}
-          >
-            <motion.span
+          {/* Section Header - always visible, scrolls into view naturally */}
+          <div className="text-center mb-8 md:mb-12">
+            <span
               className="inline-block text-xs font-semibold tracking-wider uppercase mb-4 px-3 py-1 rounded-full"
               style={{
                 background: 'var(--accent-muted)',
@@ -185,7 +180,7 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
               }}
             >
               The Workflow
-            </motion.span>
+            </span>
             <h2
               className="text-2xl md:text-3xl lg:text-4xl font-semibold max-w-2xl mx-auto leading-tight mb-4"
               style={{ color: 'var(--text-primary)' }}
@@ -201,7 +196,7 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
               designed for accuracy, transparency, and efficient funding
               operations.
             </p>
-          </motion.div>
+          </div>
 
           {/* Main content area */}
           <motion.div
@@ -258,35 +253,24 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
                 />
               </div>
             ) : (
-              /* Desktop: Side-by-side layout */
-              <div
-                className="flex gap-6 lg:gap-8 min-h-[500px] rounded-2xl p-6"
-                style={{
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border-subtle)',
-                  boxShadow: 'var(--elevation-2)',
-                }}
-              >
-                {/* Left column: Timeline */}
-                <div className="w-48 lg:w-56 flex-shrink-0 border-r border-[var(--border-subtle)] pr-6">
+              /* Desktop: Timeline+Content left, Animation right - mirrored layout */
+              <div className="flex gap-6 lg:gap-8">
+                {/* Left column: Timeline with inline expansion - takes ~38-40% width */}
+                <div className="w-[40%] lg:w-[38%] flex-shrink-0">
                   <WorkflowTimeline
                     stages={WORKFLOW_STAGES}
                     activeStage={activeStage}
                     stageProgress={stageProgress}
                     isMobile={false}
+                    compact={false}
+                    expandInline={true}
+                    showProgressBar={true}
                   />
                 </div>
 
-                {/* Right column: Stage detail */}
-                <div className="flex-1 min-w-0">
-                  <WorkflowStageDetail
-                    stage={WORKFLOW_STAGES[activeStage]}
-                    stageIndex={activeStage}
-                    progress={stageProgress}
-                    isActive={true}
-                    isMobile={false}
-                    AnimationComponent={STAGE_ANIMATIONS[activeStage]}
-                  />
+                {/* Right column: Animation - takes ~60-62% width, taller container */}
+                <div className="flex-1 min-w-0 min-h-[350px] lg:min-h-[420px] xl:min-h-[480px] relative">
+                  {React.createElement(STAGE_ANIMATIONS[activeStage], { progress: stageProgress })}
                 </div>
               </div>
             )}

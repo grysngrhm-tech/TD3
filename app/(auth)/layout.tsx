@@ -1,19 +1,11 @@
-import { ToastContainer } from '@/app/components/ui/Toast'
-
+/**
+ * Auth layout for login and callback pages.
+ * These pages have no header - AppShell handles this automatically.
+ */
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  return (
-    <div
-      className="min-h-screen"
-      style={{
-        background: 'var(--bg-primary)',
-      }}
-    >
-      {children}
-      <ToastContainer />
-    </div>
-  )
+  return <>{children}</>
 }

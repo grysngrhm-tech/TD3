@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 
 interface StagingStageProps {
   progress?: number
@@ -90,8 +90,22 @@ export function StagingStage({ progress = 0 }: StagingStageProps) {
   // Builder detection glow
   const builderGlowing = builderDetectProgress > 0.3
 
+  // Mobile detection for scaling
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  const mobileScale = isMobile ? 1.15 : 1
+
   return (
-    <div className="relative w-full h-full flex items-center justify-center p-2 overflow-hidden">
+    <div
+      className="relative w-full h-full flex items-center justify-center p-2 overflow-hidden"
+      style={{ transform: `scale(${mobileScale})`, transformOrigin: 'center center' }}
+    >
       {/* Status indicator at top */}
       {cardsEntryProgress > 0.5 && !showBatches && (
         <motion.div
@@ -152,7 +166,7 @@ export function StagingStage({ progress = 0 }: StagingStageProps) {
 
       {/* Individual draw cards - before batch formation */}
       {showIndividualCards && (
-        <div className="flex flex-wrap gap-2 justify-center relative z-10">
+        <div className="flex flex-wrap gap-3 md:gap-4 lg:gap-6 justify-center relative z-10">
           {draws.map((draw, i) => {
             const entryVisible = cardsEntryProgress > i * 0.25
             const entry = entryAngles[i]
@@ -163,7 +177,7 @@ export function StagingStage({ progress = 0 }: StagingStageProps) {
             return (
               <motion.div
                 key={draw.id}
-                className="w-22 md:w-26 relative"
+                className="w-[30%] min-w-[100px] relative"
                 style={{
                   opacity: entryVisible ? 1 : 0,
                   transform: entryVisible
@@ -277,10 +291,10 @@ export function StagingStage({ progress = 0 }: StagingStageProps) {
 
       {/* Batch cards - after formation */}
       {showBatches && (
-        <div className="flex gap-3 md:gap-4">
+        <div className="flex gap-4 md:gap-6 lg:gap-8">
           {/* Oak Heights Batch */}
           <motion.div
-            className="w-30 md:w-36"
+            className="w-[42%] min-w-[140px]"
             initial={{ opacity: 0, scale: 0.85, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
@@ -386,7 +400,7 @@ export function StagingStage({ progress = 0 }: StagingStageProps) {
 
           {/* Pine Valley Batch */}
           <motion.div
-            className="w-26 md:w-30"
+            className="w-[35%] min-w-[120px]"
             initial={{ opacity: 0, scale: 0.85, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25, delay: 0.1 }}

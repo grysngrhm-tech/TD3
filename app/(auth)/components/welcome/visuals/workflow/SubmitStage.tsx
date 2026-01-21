@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { useState, useEffect } from 'react'
 
 interface SubmitStageProps {
   progress?: number
@@ -72,11 +73,25 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
     return sum + num
   }, 0)
 
+  // Mobile detection for scaling
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  const mobileScale = isMobile ? 1.15 : 1
+
   return (
-    <div className="relative w-full h-full flex items-center justify-center p-2 overflow-hidden">
+    <div
+      className="relative w-full h-full flex items-center justify-center p-2 overflow-hidden"
+      style={{ transform: `scale(${mobileScale})`, transformOrigin: 'center center' }}
+    >
       {/* Draw Request Card */}
       <motion.div
-        className="absolute left-1 md:left-3 top-2 w-28 md:w-32"
+        className="absolute left-[3%] md:left-[5%] top-2 w-[35%] min-w-[120px]"
         style={{
           opacity: drawEntryProgress,
           transform: `translateX(${(1 - drawEntryProgress) * -30}px)`,
@@ -252,7 +267,7 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
 
       {/* Invoice Card */}
       <motion.div
-        className="absolute right-1 md:right-3 top-4 w-24 md:w-28"
+        className="absolute right-[3%] md:right-[5%] top-4 w-[32%] min-w-[100px]"
         style={{
           opacity: invoiceUploadProgress,
           transform: `translateY(${(1 - invoiceUploadProgress) * -20}px) scale(${0.9 + invoiceUploadProgress * 0.1})`,

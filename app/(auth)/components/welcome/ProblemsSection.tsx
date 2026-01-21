@@ -40,16 +40,16 @@ const problemsData = {
 
 export const ProblemsSection = forwardRef<HTMLElement, ProblemsSectionProps>(
   function ProblemsSection({ progress = 0, viewportScale = 1 }, ref) {
-    // Map 0-1 progress to animation stages (compressed for tighter scroll)
-    const headerOpacity = Math.min(1, progress * 5)                          // 0-20%
-    const col1Progress = Math.max(0, Math.min(1, (progress - 0.1) * 4))      // 10-35%
-    const col2Progress = Math.max(0, Math.min(1, (progress - 0.3) * 4))      // 30-55%
-    const footerOpacity = Math.max(0, Math.min(1, (progress - 0.55) * 3))    // 55-88%
+    // Header is always visible so it scrolls into view naturally before pinning
+    // Content fades in after the section pins (progress > 0)
+    const col1Progress = Math.max(0, Math.min(1, progress * 5))              // 0-20%
+    const col2Progress = Math.max(0, Math.min(1, (progress - 0.15) * 5))     // 15-35%
+    const footerOpacity = Math.max(0, Math.min(1, (progress - 0.4) * 3))     // 40-73%
 
     return (
       <section
         ref={ref}
-        className="relative min-h-screen flex flex-col items-center justify-center px-4 py-12 md:py-16"
+        className="relative min-h-screen flex flex-col items-center justify-start px-4 pt-0 pb-8"
         style={{ background: 'var(--bg-primary)' }}
       >
         {/* Warm color accent overlay - reinforces problem/challenge tone */}
@@ -67,11 +67,8 @@ export const ProblemsSection = forwardRef<HTMLElement, ProblemsSectionProps>(
             transformOrigin: 'center center',
           }}
         >
-          {/* Section Header */}
-          <motion.div
-            className="text-center mb-8 md:mb-10"
-            style={{ opacity: headerOpacity }}
-          >
+          {/* Section Header - always visible, scrolls into view naturally */}
+          <div className="text-center mb-8 md:mb-10">
             <motion.span
               className="inline-block text-xs font-semibold tracking-wider uppercase mb-4 px-3 py-1 rounded-full"
               style={{
@@ -87,7 +84,7 @@ export const ProblemsSection = forwardRef<HTMLElement, ProblemsSectionProps>(
             >
               {problemsData.header}
             </h2>
-          </motion.div>
+          </div>
 
           {/* Two Columns */}
           <div className="grid md:grid-cols-2 gap-8 md:gap-12 lg:gap-16">
@@ -105,7 +102,7 @@ export const ProblemsSection = forwardRef<HTMLElement, ProblemsSectionProps>(
                   }}
                 >
                   {/* Visual - fixed height container for title alignment */}
-                  <div className="mb-6 h-32 md:h-36 flex items-center justify-center">
+                  <div className="mb-6 h-24 sm:h-32 md:h-36 flex items-center justify-center overflow-hidden">
                     <Visual progress={progress} />
                   </div>
 

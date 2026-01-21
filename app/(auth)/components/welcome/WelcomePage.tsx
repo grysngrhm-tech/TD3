@@ -10,6 +10,7 @@ import { ProblemsSection } from './ProblemsSection'
 import { SolutionsSection } from './SolutionsSection'
 import { WorkflowSection } from './WorkflowSection'
 import { CTASection } from './CTASection'
+import { useAccentWords } from '@/app/hooks/useAccentWords'
 
 // Register GSAP plugins
 if (typeof window !== 'undefined') {
@@ -32,6 +33,9 @@ interface WelcomePageProps {
 export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
   const searchParams = useSearchParams()
   const redirectTo = propRedirectTo || searchParams.get('redirect') || '/'
+
+  // Rotating accent words for Hero and CTA headlines
+  const { heroWord, ctaWord } = useAccentWords()
 
   // Refs for sections
   const heroRef = useRef<HTMLElement>(null)
@@ -59,6 +63,9 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
   // Detect reduced motion preference
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
 
+  // Detect mobile for scroll length optimization
+  const [isMobile, setIsMobile] = useState(false)
+
   // Current section for progress indicator
   const [currentSection, setCurrentSection] = useState(0)
   const [showProgressIndicator, setShowProgressIndicator] = useState(false)
@@ -78,8 +85,14 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
     motionQuery.addEventListener('change', checkReducedMotion)
 
+    // Check for mobile width
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+
     return () => {
       motionQuery.removeEventListener('change', checkReducedMotion)
+      window.removeEventListener('resize', checkMobile)
     }
   }, [])
 
@@ -121,14 +134,23 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
     }
 
     const ctx = gsap.context(() => {
+      // Mobile-optimized scroll lengths for comfortable pacing
+      // Desktop: fuller animations with more dwell time
+      // Mobile: reduced scroll distances to prevent fatigue
+      const problemsEnd = isMobile ? '+=80%' : '+=100%'
+      const solutionsEnd = isMobile ? '+=90%' : '+=120%'
+      const workflowEnd = isMobile ? '+=250%' : '+=600%'
+
       // Problems Section - Pinned
       // ScrollTrigger handles progress 0-1 during pin phase
       // After progress=1, getBoundingClientRect takes over for extended progress
+      // Note: Reduced from 120% to 100% to compensate for the more visually active
+      // ScatteredDocs animation which makes this section feel longer than Solution
       if (problemsContainerRef.current && problemsRef.current) {
         ScrollTrigger.create({
           trigger: problemsContainerRef.current,
           start: 'top top',
-          end: '+=120%',
+          end: problemsEnd,
           pin: problemsRef.current,
           pinSpacing: true,
           scrub: 0.5,
@@ -151,7 +173,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
         ScrollTrigger.create({
           trigger: solutionsContainerRef.current,
           start: 'top top',
-          end: '+=120%',
+          end: solutionsEnd,
           pin: solutionsRef.current,
           pinSpacing: true,
           scrub: 0.5,
@@ -172,7 +194,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
         ScrollTrigger.create({
           trigger: workflowContainerRef.current,
           start: 'top top',
-          end: '+=600%',
+          end: workflowEnd,
           pin: workflowRef.current,
           pinSpacing: true,
           scrub: 0.5,
@@ -199,7 +221,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
       ctx.revert()
       window.removeEventListener('resize', handleResize)
     }
-  }, [prefersReducedMotion])
+  }, [prefersReducedMotion, isMobile])
 
   // Extended progress tracking - continues past 1 based on actual element position in viewport
   // This is the KEY fix: use getBoundingClientRect to track how much of the element
@@ -420,6 +442,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
       <HeroSection
         ref={heroRef}
         redirectTo={redirectTo}
+        accentWord={heroWord}
       />
 
       {/* Problems Section */}
@@ -477,6 +500,7 @@ export function WelcomePage({ redirectTo: propRedirectTo }: WelcomePageProps) {
       <CTASection
         ref={ctaRef}
         redirectTo={redirectTo}
+        accentWord={ctaWord}
       />
     </div>
   )

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { NavBackButton } from './NavBackButton'
 import { SmartLogo } from './SmartLogo'
@@ -11,29 +11,23 @@ import { useAuth } from '@/app/context/AuthContext'
 import { useHasPermission } from '@/app/components/auth/PermissionGate'
 import { supabase } from '@/lib/supabase'
 
-// Routes where Header should not be shown
-const AUTH_ROUTES = ['/login', '/auth/callback']
-
 /**
  * Global header component with:
  * - Material elevation shadow
  * - Glassmorphism backdrop blur
  * - Smart navigation elements
  * - User menu with auth actions
+ *
+ * Note: Visibility is controlled by AppShell - Header is only rendered on app routes.
  */
 export function Header() {
-  const pathname = usePathname()
   const { user, profile, signOut, isLoading } = useAuth()
   const canManageUsers = useHasPermission('users.manage')
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
-  // Check if on auth route (must be before any returns but after all hooks)
-  const isAuthRoute = AUTH_ROUTES.some(route => pathname?.startsWith(route))
-
   // Close menu when clicking outside
-  // NOTE: All hooks must be called before any conditional returns (Rules of Hooks)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -46,11 +40,6 @@ export function Header() {
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isMenuOpen])
-
-  // Don't render Header on auth pages (login, callback)
-  if (isAuthRoute) {
-    return null
-  }
 
   // Get user initials
   const getInitials = () => {
