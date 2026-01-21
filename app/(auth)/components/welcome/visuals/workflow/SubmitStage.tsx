@@ -111,7 +111,7 @@ export function SubmitStage({ progress = 0 }: SubmitStageProps) {
     >
       {/* Draw Request Card */}
       <motion.div
-        className="absolute left-[2%] md:left-[3%] top-2 w-[38%] min-w-[130px]"
+        className="absolute left-[2%] md:left-[3%] top-1/2 -translate-y-1/2 w-[38%] min-w-[130px]"
         style={{
           opacity: drawEntryProgress,
           transform: `translateX(${(1 - drawEntryProgress) * -30}px)`,
