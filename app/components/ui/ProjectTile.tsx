@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import type { LifecycleStage } from '@/types/database'
+import type { LifecycleStage } from '@/types/custom'
 import { 
   getStatusTint, 
   getLifecycleStyles, 

@@ -1,7 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import type { Budget, DrawRequestLine, DrawRequest } from '@/types/database'
+import type { Budget, DrawRequestLine, DrawRequest } from '@/types/custom'
 
 export type DetailPanelContent = 
   | { type: 'budget'; data: Budget; drawHistory: DrawHistoryItem[] }

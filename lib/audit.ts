@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
-import type { AuditEventInsert, AuditEvent, Json } from '@/types/database'
+import type { Json } from '@/types/database'
+import type { AuditEventInsert, AuditEvent } from '@/types/custom'
 
 type EntityType = 'project' | 'budget' | 'draw_request' | 'invoice' | 'document' | 'approval'
 type ActionType = 'created' | 'updated' | 'deleted' | 'submitted' | 'approved' | 'rejected' | 'paid'

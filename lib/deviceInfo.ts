@@ -1,4 +1,4 @@
-import type { DeviceType } from '@/types/database'
+import type { DeviceType } from '@/types/custom'
 
 export interface ParsedUserAgent {
   deviceType: DeviceType

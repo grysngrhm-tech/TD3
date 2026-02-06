@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useNavigation } from '@/app/context/NavigationContext'
-import type { Project, Budget, DrawRequest } from '@/types/database'
+import type { Project, Budget, DrawRequest } from '@/types/custom'
 
 type CategorySummary = {
   nahbCode: string

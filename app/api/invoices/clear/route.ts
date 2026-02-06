@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
+import { requirePermission } from '@/lib/api-auth'
 
 export async function DELETE(request: NextRequest) {
   try {
+    const [, authError] = await requirePermission('processor')
+    if (authError) return authError
+
     const { searchParams } = new URL(request.url)
     const drawRequestId = searchParams.get('drawRequestId')
 

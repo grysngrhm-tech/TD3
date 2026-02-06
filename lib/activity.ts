@@ -7,7 +7,7 @@ import type {
   ActivityActionType,
   ActivityEntityType,
   DeviceType,
-} from '@/types/database'
+} from '@/types/custom'
 
 /**
  * Log user activity (fire-and-forget, never throws)

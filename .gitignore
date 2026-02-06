@@ -12,6 +12,7 @@ dist/
 # Environment
 .env
 .env.local
+.env.local.txt
 .env.development.local
 .env.test.local
 .env.production.local
@@ -29,6 +30,7 @@ yarn-error.log*
 .vscode/
 *.swp
 *.swo
+.cursor/
 
 # OS
 .DS_Store
@@ -41,15 +43,33 @@ next-env.d.ts
 # Testing
 coverage/
 
-# TD3 Local-Only (sensitive files for Cursor AI)
-# Contains database schema, n8n workflows, and detailed documentation
-.td3-local/
+# MCP config (contains secrets)
+.mcp.json
 
-# Sensitive files (schema, seed data, workflows)
-supabase/001_schema.sql
-supabase/002_seed.sql
-n8n/workflows/td3-*.json
-.env.local.txt
-n8n/workflows/README.md
-types/README.md
-supabase/README.md.mcp.json
+# Claude Code
+.claude/
+tmpclaude-*
+CLAUDE.md
+
+# Backend IP — database schema, migrations, RLS policies
+supabase/
+
+# Backend IP — n8n AI workflows and documentation
+n8n/
+n8n-workflows/
+
+# Backend IP — internal documentation
+docs/
+
+# Backend IP — AI prompts
+prompts/
+
+# Backend IP — internal scripts (generate-icons.js is tracked via git add -f)
+scripts/
+!scripts/generate-icons.js
+
+# Backend IP — internal planning docs
+WORKFLOW_TIMING_PLAN.md
+
+# Printout reference files (large binaries)
+docs/printouts/

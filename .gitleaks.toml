@@ -1,0 +1,28 @@
+title = "TD3 Gitleaks Config"
+
+[allowlist]
+  description = "Global allowlist"
+  paths = [
+    '''node_modules/''',
+    '''\.next/''',
+    '''\.env\.example''',
+    '''package-lock\.json''',
+  ]
+
+# Supabase anon key is public by design (RLS enforces security)
+[[rules]]
+  id = "supabase-anon-key"
+  description = "Supabase anon key (public, safe to commit)"
+  regex = '''NEXT_PUBLIC_SUPABASE_ANON_KEY'''
+  [rules.allowlist]
+    regexTarget = "line"
+    regexes = ['''NEXT_PUBLIC_SUPABASE_ANON_KEY''']
+
+# Public URLs are not secrets
+[[rules]]
+  id = "supabase-public-url"
+  description = "Supabase public URL (not a secret)"
+  regex = '''NEXT_PUBLIC_SUPABASE_URL'''
+  [rules.allowlist]
+    regexTarget = "line"
+    regexes = ['''NEXT_PUBLIC_SUPABASE_URL''']

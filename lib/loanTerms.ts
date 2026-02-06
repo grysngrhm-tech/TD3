@@ -3,7 +3,7 @@
  * Centralizes term resolution with hierarchy: Project > Lender > Default
  */
 
-import { DEFAULT_TERM_SHEET, type Project } from '@/types/database'
+import { DEFAULT_TERM_SHEET, type Project } from '@/types/custom'
 
 /**
  * Complete loan terms structure

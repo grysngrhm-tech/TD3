@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useNavigation } from '@/app/context/NavigationContext'
-import { Project, Budget } from '@/types/database'
+import { Project, Budget } from '@/types/custom'
 
 type BudgetWithProject = Budget & { project_name?: string }
 

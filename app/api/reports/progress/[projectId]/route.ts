@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-// Use service role for reports
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { supabaseAdmin } from '@/lib/supabase-server'
+import { escapeHtml } from '@/lib/escapeHtml'
+import { requireAuth } from '@/lib/api-auth'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
   try {
+    const [, authError] = await requireAuth()
+    if (authError) return authError
+
     const projectId = params.projectId
     const { searchParams } = new URL(request.url)
     const format = searchParams.get('format') || 'json'
@@ -160,8 +159,8 @@ function generateHtmlReport(report: any): string {
   const categoryRows = report.categories.map((cat: any) => `
     <tr>
       <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">
-        <strong>${cat.nahbCategory}</strong>
-        ${cat.nahbCode ? `<br><small style="color: #64748b;">${cat.nahbCode}</small>` : ''}
+        <strong>${escapeHtml(cat.nahbCategory)}</strong>
+        ${cat.nahbCode ? `<br><small style="color: #64748b;">${escapeHtml(cat.nahbCode)}</small>` : ''}
       </td>
       <td style="padding: 8px; text-align: right; border-bottom: 1px solid #e2e8f0;">${formatCurrency(cat.original)}</td>
       <td style="padding: 8px; text-align: right; border-bottom: 1px solid #e2e8f0;">${formatCurrency(cat.current)}</td>
@@ -181,7 +180,7 @@ function generateHtmlReport(report: any): string {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Progress Budget Report - ${report.project.name}</title>
+  <title>Progress Budget Report - ${escapeHtml(report.project.name)}</title>
   <style>
     body { font-family: 'Inter', system-ui, sans-serif; max-width: 1000px; margin: 0 auto; padding: 40px 20px; color: #0f172a; }
     h1 { color: #0b406d; margin-bottom: 8px; }
@@ -200,10 +199,10 @@ function generateHtmlReport(report: any): string {
 <body>
   <button class="print-button" onclick="window.print()">Print Report</button>
   
-  <h1>${report.project.name}</h1>
+  <h1>${escapeHtml(report.project.name)}</h1>
   <p class="meta">
-    ${report.project.address || ''}<br>
-    ${report.project.builderName ? `Builder: ${report.project.builderName} • ` : ''}
+    ${escapeHtml(report.project.address) || ''}<br>
+    ${report.project.builderName ? `Builder: ${escapeHtml(report.project.builderName)} • ` : ''}
     Generated: ${new Date(report.generatedAt).toLocaleDateString()}
   </p>
 
@@ -269,7 +268,7 @@ function generateHtmlReport(report: any): string {
           <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">#${d.drawNumber}</td>
           <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${new Date(d.date).toLocaleDateString()}</td>
           <td style="padding: 8px; text-align: right; border-bottom: 1px solid #e2e8f0;">${formatCurrency(d.amount)}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${d.status}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${escapeHtml(d.status)}</td>
         </tr>
       `).join('')}
     </tbody>

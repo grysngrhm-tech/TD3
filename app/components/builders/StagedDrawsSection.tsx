@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
 import { useHasPermission } from '@/app/components/auth/PermissionGate'
-import type { Builder, DrawRequest, Project } from '@/types/database'
+import type { Builder, DrawRequest, Project } from '@/types/custom'
 
 type StagedDraw = DrawRequest & {
   project?: Project | null

@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getAllActivity, getAllActivityCount } from '@/lib/activity'
 import { ActivityFeed } from './ActivityFeed'
-import type { UserActivityWithUser, ActivityActionType, ActivityEntityType } from '@/types/database'
-import { ACTION_TYPE_LABELS, ENTITY_TYPE_LABELS } from '@/types/database'
+import type { UserActivityWithUser, ActivityActionType, ActivityEntityType } from '@/types/custom'
+import { ACTION_TYPE_LABELS, ENTITY_TYPE_LABELS } from '@/types/custom'
 
 const PAGE_SIZE = 30
 

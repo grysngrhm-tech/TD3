@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Budget, NahbCategory, NahbSubcategory } from '@/types/database'
+import { Budget, NahbCategory, NahbSubcategory } from '@/types/custom'
 import { toast } from '@/app/components/ui/Toast'
 
 type BudgetEditorProps = {

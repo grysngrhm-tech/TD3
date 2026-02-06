@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { ValidationResult, DrawRequest, DrawRequestLine, Budget, Invoice } from '@/types/database'
+import type { ValidationResult, DrawRequest, DrawRequestLine, Budget, Invoice } from '@/types/custom'
 
 /**
  * Validates a draw request for budget overages, missing documents,

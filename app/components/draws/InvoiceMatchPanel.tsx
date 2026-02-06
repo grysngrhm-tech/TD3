@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { Invoice, Budget, MatchCandidate, InvoiceMatchDecision, Json } from '@/types/database'
+import type { Json } from '@/types/database'
+import type { Invoice, Budget, MatchCandidate, InvoiceMatchDecision } from '@/types/custom'
 import { supabase } from '@/lib/supabase'
 import { recordMatchCorrection } from '@/lib/invoiceLearning'
 

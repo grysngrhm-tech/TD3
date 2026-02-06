@@ -8,8 +8,8 @@ import { validateDrawRequest } from '@/lib/validations'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigation } from '@/app/context/NavigationContext'
 import { InvoiceMatchPanel } from '@/app/components/draws/InvoiceMatchPanel'
-import type { DrawRequestWithDetails, ValidationResult, Budget, Invoice, Builder, Project, NahbCategory, NahbSubcategory, DrawRequest, DrawRequestLine } from '@/types/database'
-import { DRAW_STATUS_LABELS, DRAW_FLAG_LABELS, DrawStatus, DrawLineFlag } from '@/types/database'
+import type { DrawRequestWithDetails, ValidationResult, Budget, Invoice, Builder, Project, NahbCategory, NahbSubcategory, DrawRequest, DrawRequestLine } from '@/types/custom'
+import { DRAW_STATUS_LABELS, DRAW_FLAG_LABELS, DrawStatus, DrawLineFlag } from '@/types/custom'
 
 type LineWithBudget = {
   id: string

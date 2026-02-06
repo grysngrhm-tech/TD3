@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef } from 'react'
-import type { Builder, DrawRequest, Project, WireBatch } from '@/types/database'
+import type { Builder, DrawRequest, Project, WireBatch } from '@/types/custom'
 
 type DrawWithProject = DrawRequest & {
   project?: Project | null

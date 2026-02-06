@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/app/context/AuthContext'
 import { getUserActivity, getUserActivityCount } from '@/lib/activity'
 import { ActivityFeed } from './ActivityFeed'
-import type { UserActivity } from '@/types/database'
+import type { UserActivity } from '@/types/custom'
 
 const PAGE_SIZE = 20
 

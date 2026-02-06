@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import * as Tabs from '@radix-ui/react-tabs'
-import type { Project, Budget, DrawRequest, DrawRequestLine, LifecycleStage, Builder } from '@/types/database'
+import type { Project, Budget, DrawRequest, DrawRequestLine, LifecycleStage, Builder } from '@/types/custom'
 import { OriginationTab } from './OriginationTab'
 import { LoanStatusTab } from './LoanStatusTab'
 import { PerformanceTab } from './PerformanceTab'

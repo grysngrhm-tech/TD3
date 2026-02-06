@@ -1,7 +1,7 @@
 'use client'
 
 import { ActivityItem } from './ActivityItem'
-import type { UserActivity, UserActivityWithUser } from '@/types/database'
+import type { UserActivity, UserActivityWithUser } from '@/types/custom'
 
 interface ActivityFeedProps {
   activities: UserActivity[] | UserActivityWithUser[]

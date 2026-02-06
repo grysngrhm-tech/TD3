@@ -1,6 +1,6 @@
 'use client'
 
-import type { Project, Budget, DrawRequest, LifecycleStage } from '@/types/database'
+import type { Project, Budget, DrawRequest, LifecycleStage } from '@/types/custom'
 
 type PerformanceTabProps = {
   project: Project & { lifecycle_stage: LifecycleStage }

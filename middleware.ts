@@ -40,8 +40,15 @@ export async function middleware(request: NextRequest) {
   const publicRoutes = ['/login', '/auth/callback']
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
 
-  // API routes handle their own auth via service role key
+  // API routes that handle their own auth via verifyWebhookSecret
+  const webhookRoutes = [
+    '/api/webhooks/',
+    '/api/invoices/process-callback',
+    '/api/invoices/disambiguate-callback',
+    '/api/invoices/reconcile-processing',
+  ]
   const isApiRoute = pathname.startsWith('/api/')
+  const isWebhookRoute = webhookRoutes.some(route => pathname.startsWith(route))
 
   // Static assets and Next.js internals
   const isStaticOrInternal =
@@ -49,8 +56,21 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/favicon') ||
     pathname.includes('.')
 
-  // Allow public routes, API routes, and static assets
-  if (isPublicRoute || isApiRoute || isStaticOrInternal) {
+  // Allow public routes, webhook routes, and static assets
+  if (isPublicRoute || isWebhookRoute || isStaticOrInternal) {
+    return supabaseResponse
+  }
+
+  // Protect non-webhook API routes: require valid session
+  if (isApiRoute && !user) {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401 }
+    )
+  }
+
+  // Authenticated API routes pass through (individual routes check permissions)
+  if (isApiRoute) {
     return supabaseResponse
   }
 

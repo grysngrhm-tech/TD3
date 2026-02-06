@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { logStatusChange } from '@/lib/audit'
-import type { ValidationResult } from '@/types/database'
+import type { ValidationResult } from '@/types/custom'
 
 interface ApprovalActionsProps {
   drawId: string

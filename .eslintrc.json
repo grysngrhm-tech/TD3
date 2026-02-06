@@ -1,0 +1,21 @@
+{
+  "extends": "next/core-web-vitals",
+  "overrides": [
+    {
+      "files": ["app/api/**/*.ts"],
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "CallExpression[callee.name='createClient']",
+            "message": "Do not call createClient() directly in API routes. Import { supabaseAdmin } from '@/lib/supabase-server' instead."
+          },
+          {
+            "selector": "CallExpression[callee.name='createSupabaseBrowserClient']",
+            "message": "Do not use browser client in API routes. Import { supabaseAdmin } from '@/lib/supabase-server' instead."
+          }
+        ]
+      }
+    }
+  ]
+}

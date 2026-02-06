@@ -3,7 +3,7 @@
  * Identifies unusual patterns in budget and draw data
  */
 
-import type { Budget, DrawRequestLine, DrawRequest, Project } from '@/types/database'
+import type { Budget, DrawRequestLine, DrawRequest, Project } from '@/types/custom'
 
 // Anomaly types that can be detected
 export type AnomalyType = 

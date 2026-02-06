@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { Project, Budget, DrawRequest, DrawRequestLine, LifecycleStage } from '@/types/database'
+import type { Project, Budget, DrawRequest, DrawRequestLine, LifecycleStage } from '@/types/custom'
 import { ReportToggle, type ReportType } from '@/app/components/ui/ReportToggle'
 import { ViewModeSelector, type ViewMode } from '@/app/components/ui/ViewModeSelector'
 import { ReportDetailPanel, type DetailPanelContent } from '@/app/components/ui/ReportDetailPanel'

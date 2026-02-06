@@ -1,163 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
-/**
- * Get the authenticated user from the request cookies
- */
-async function getAuthenticatedUser() {
-  const cookieStore = await cookies()
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll() {
-          // Not needed for read-only operations
-        },
-      },
-    }
-  )
-
-  const { data: { user } } = await supabase.auth.getUser()
-  return user
-}
-
-/**
- * Check if a user has a specific permission
- */
-async function checkPermission(userId: string, permission: string): Promise<boolean> {
-  const { data, error } = await supabaseAdmin.rpc('has_permission', {
-    check_user_id: userId,
-    required_permission: permission,
-  })
-
-  if (error) {
-    console.error('Error checking permission:', error)
-    return false
-  }
-
-  return data === true
-}
-
-/**
- * Update budget spent amounts when a draw is funded
- * This ensures progress budget reports accurately reflect spending
- */
-async function updateBudgetSpendForDraw(drawId: string, actor: string) {
-  try {
-    console.log(`[Budget Spend] Starting update for draw ${drawId}`)
-    
-    // Fetch all draw lines with their budgets
-    const { data: lines, error: linesError } = await supabaseAdmin
-      .from('draw_request_lines')
-      .select('id, budget_id, amount_requested, amount_approved')
-      .eq('draw_request_id', drawId)
-
-    if (linesError) {
-      console.error('[Budget Spend] Error fetching draw lines:', linesError)
-      return
-    }
-
-    console.log(`[Budget Spend] Found ${lines?.length || 0} draw lines for draw ${drawId}`)
-
-    let updatedCount = 0
-    let skippedCount = 0
-    
-    for (const line of (lines || [])) {
-      const amountToRecord = (line.amount_approved ?? line.amount_requested) || 0
-
-      if (!line.budget_id || amountToRecord <= 0) {
-        console.log(`[Budget Spend] Skipping line ${line.id} - no budget_id or zero amount`)
-        skippedCount++
-        continue
-      }
-
-      // Idempotency: don't double-count if this draw line was already recorded.
-      const { data: existingAudit } = await supabaseAdmin
-        .from('audit_events')
-        .select('id')
-        .eq('entity_type', 'budget')
-        .eq('entity_id', line.budget_id)
-        .eq('action', 'spend_recorded')
-        .contains('new_data', { draw_line_id: line.id })
-        .maybeSingle()
-
-      if (existingAudit) {
-        console.log(`[Budget Spend] Skipping line ${line.id} - already recorded`)
-        skippedCount++
-        continue
-      }
-
-      // Get current budget values
-      const { data: budget, error: budgetError } = await supabaseAdmin
-        .from('budgets')
-        .select('id, spent_amount, current_amount')
-        .eq('id', line.budget_id)
-        .single()
-
-      if (budgetError || !budget) {
-        console.error(`Error fetching budget ${line.budget_id}:`, budgetError)
-        continue
-      }
-
-      // Calculate new values
-      const currentSpent = budget.spent_amount || 0
-      const currentRemaining = budget.current_amount - currentSpent
-      const newSpent = currentSpent + amountToRecord
-      const newRemaining = budget.current_amount - newSpent
-
-      // Update budget: remaining_amount is a generated column in the schema, so don't write it.
-      const { error: updateError } = await supabaseAdmin
-        .from('budgets')
-        .update({
-          spent_amount: newSpent
-        })
-        .eq('id', line.budget_id)
-
-      if (updateError) {
-        console.error(`[Budget Spend] Error updating budget ${line.budget_id}:`, updateError)
-        continue
-      }
-
-      console.log(`[Budget Spend] Updated budget ${line.budget_id}: spent ${currentSpent} → ${newSpent}, remaining ${currentRemaining} → ${newRemaining}`)
-      updatedCount++
-
-      // Log audit event for budget update
-      await supabaseAdmin.from('audit_events').insert({
-        entity_type: 'budget',
-        entity_id: line.budget_id,
-        action: 'spend_recorded',
-        actor,
-        old_data: { 
-          spent_amount: currentSpent,
-          remaining_amount: currentRemaining
-        },
-        new_data: { 
-          spent_amount: newSpent,
-          remaining_amount: newRemaining,
-          draw_request_id: drawId,
-          draw_line_id: line.id,
-          amount: amountToRecord
-        }
-      })
-    }
-    
-    console.log(`[Budget Spend] Completed for draw ${drawId}: ${updatedCount} budgets updated, ${skippedCount} lines skipped (no budget match)`)
-  } catch (error) {
-    console.error('[Budget Spend] Fatal error updating budget spend:', error)
-  }
-}
+import { requirePermission, supabaseAdmin } from '@/lib/api-auth'
+import { updateBudgetSpendForDraw } from '@/lib/budgetSpend'
 
 /**
  * POST - Create wire batch
@@ -197,18 +40,8 @@ export async function POST(request: NextRequest) {
     const { action, builder_id, draw_ids } = body
 
     // Verify user has processor permission
-    const user = await getAuthenticatedUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-    }
-
-    const hasProcessorPermission = await checkPermission(user.id, 'processor')
-    if (!hasProcessorPermission) {
-      return NextResponse.json(
-        { error: 'Permission denied: processor permission required' },
-        { status: 403 }
-      )
-    }
+    const [user, authError] = await requirePermission('processor')
+    if (authError) return authError
 
     // Validate required fields
     if (!builder_id) {
@@ -333,7 +166,9 @@ async function handleSubmitForWire(builder_id: string, draw_ids: string[], actor
 
   // Send notification to bookkeeper (optional - fire and forget)
   try {
-    await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/wire-batches/${batch.id}/notify`, {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+    await fetch(`${baseUrl}/api/wire-batches/${batch.id}/notify`, {
       method: 'POST'
     }).catch(() => {})
   } catch (e) {

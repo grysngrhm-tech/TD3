@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useNavigation } from '@/app/context/NavigationContext'
-import type { Project } from '@/types/database'
+import type { Project } from '@/types/custom'
 
 export default function ReportsPage() {
   const { setCurrentPageTitle } = useNavigation()

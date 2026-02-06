@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { LoanPageTabs } from '@/app/components/projects/LoanPageTabs'
 import { useNavigation } from '@/app/context/NavigationContext'
-import type { Project, Budget, DrawRequest, DrawRequestLine, LifecycleStage, Builder, Lender } from '@/types/database'
+import type { Project, Budget, DrawRequest, DrawRequestLine, LifecycleStage, Builder, Lender } from '@/types/custom'
 
 type ProjectWithLifecycle = Project & {
   lifecycle_stage: LifecycleStage

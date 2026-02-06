@@ -8,7 +8,7 @@ import { BuilderLoanGrid } from '@/app/components/builders/BuilderLoanGrid'
 import { BuilderTimeline, type ProjectWithDraws, type DrawWithProject } from '@/app/components/builders/BuilderTimeline'
 import { useNavigation } from '@/app/context/NavigationContext'
 import { calculateLoanIncome, calculateIRR } from '@/lib/calculations'
-import type { Builder, LifecycleStage, DrawRequest, Project, Lender } from '@/types/database'
+import type { Builder, LifecycleStage, DrawRequest, Project, Lender } from '@/types/custom'
 
 // Extended project type with lender relation
 type ProjectWithLender = Project & {

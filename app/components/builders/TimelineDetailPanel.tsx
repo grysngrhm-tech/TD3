@@ -3,7 +3,7 @@
 import { useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import type { DrawRequest, Project } from '@/types/database'
+import type { DrawRequest, Project } from '@/types/custom'
 
 type TimelineDetailPanelProps = {
   draw: DrawRequest | null

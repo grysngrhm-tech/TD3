@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { Builder, Project, DrawRequest, Lender } from '@/types/database'
+import type { Builder, Project, DrawRequest, Lender } from '@/types/custom'
 import { LenderTimelineSection } from './LenderTimelineSection'
 import { TimelineSpreadsheetView } from './TimelineSpreadsheetView'
 import { TimelineDetailPanel } from './TimelineDetailPanel'
