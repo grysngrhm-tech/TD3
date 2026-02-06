@@ -3,8 +3,6 @@ import { supabaseAdmin } from '@/lib/supabase-server'
 import { validateDrawRequest, canApprove } from '@/lib/validations'
 import { verifyWebhookSecret } from '@/lib/api-auth'
 
-const N8N_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'https://n8n.srv1208741.hstgr.cloud/webhook'
-
 export async function POST(request: NextRequest) {
   try {
     const [, authError] = verifyWebhookSecret(request)
@@ -149,6 +147,9 @@ async function handleDrawProcessing(body: {
   invoiceCount: number
 }) {
   try {
+    const N8N_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL
+    if (!N8N_WEBHOOK_URL) throw new Error('NEXT_PUBLIC_N8N_WEBHOOK_URL environment variable is required')
+
     const { drawRequestId, projectId, drawNumber, categories, drawAmounts, budgets, invoiceCount } = body
 
     // Send to N8N for AI processing (invoice matching, flag generation)

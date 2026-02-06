@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { requirePermission } from '@/lib/api-auth'
 
-const N8N_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'https://n8n.srv1208741.hstgr.cloud/webhook'
-
 // POST - Send notification to bookkeeper about wire batch
 export async function POST(
   request: NextRequest,
@@ -12,6 +10,9 @@ export async function POST(
   try {
     const [, authError] = await requirePermission('processor')
     if (authError) return authError
+
+    const N8N_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL
+    if (!N8N_WEBHOOK_URL) throw new Error('NEXT_PUBLIC_N8N_WEBHOOK_URL environment variable is required')
 
     const batchId = params.id
 

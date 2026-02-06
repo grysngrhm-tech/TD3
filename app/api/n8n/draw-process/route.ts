@@ -1,26 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 
-const N8N_BASE_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'https://n8n.srv1208741.hstgr.cloud/webhook'
-const DRAW_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_DRAW_WEBHOOK || `${N8N_BASE_URL}/td3-draw-process`
-
 /**
  * Proxy n8n draw processing webhook calls to avoid CORS issues.
  * Client calls this API route, which then calls n8n server-to-server.
  */
 export async function POST(request: NextRequest) {
   try {
+    const N8N_BASE_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL
+    if (!N8N_BASE_URL) throw new Error('NEXT_PUBLIC_N8N_WEBHOOK_URL environment variable is required')
+    const DRAW_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_DRAW_WEBHOOK || `${N8N_BASE_URL}/td3-draw-process`
+
     const [, authError] = await requireAuth()
     if (authError) return authError
 
     const payload = await request.json()
-
-    if (!DRAW_WEBHOOK_URL) {
-      return NextResponse.json(
-        { error: 'Draw webhook URL not configured' },
-        { status: 500 }
-      )
-    }
 
     const response = await fetch(DRAW_WEBHOOK_URL, {
       method: 'POST',

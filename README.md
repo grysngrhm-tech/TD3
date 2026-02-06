@@ -2,15 +2,11 @@
 
 **Draw Management Built for How We Actually Work**
 
-🔗 **Live Application:** [td3.tennantdevelopments.com](https://td3.tennantdevelopments.com)
+[td3.tennantdevelopments.com](https://td3.tennantdevelopments.com)
 
 TD3 is an internal system that brings order to construction loan servicing. It replaces scattered spreadsheets, buried emails, and manual reconciliation with a single place where every loan, budget, draw, and approval is visible, trackable, and auditable.
 
 This isn't about adopting more software. It's about reducing the mental overhead of keeping everything straight—so we can focus on decisions instead of data entry.
-
----
-
-**Quick Navigation:** [Why TD3](#why-td3) | [The Problem](#the-problem) | [The Solution](#the-solution) | [How It Works](#how-it-works) | [Capabilities](#capabilities) | [Architecture](#system-architecture) | [Security](#security-and-compliance) | [Roadmap](#roadmap) | [Documentation](#documentation)
 
 ---
 
@@ -113,7 +109,7 @@ Real-time insight without manual compilation.
 - **Smart Filtering** — 3-way toggle (Builder/Subdivision/Lender) with cascading filters and URL-based deep linking
 - **Stage-Specific Metrics** — Dynamic stats showing relevant KPIs per lifecycle stage (pipeline value, utilization, IRR)
 - **Builder Timeline** — Interactive Gantt and spreadsheet views grouped by lender
-- **Risk Indicators** — LTV color coding (≤65% green, 66-74% yellow, ≥75% red) and maturity warnings
+- **Risk Indicators** — Color-coded LTV warnings (green, yellow, red) and maturity alerts
 
 ### Loan Lifecycle
 
@@ -121,11 +117,19 @@ Complete tracking from origination through payoff.
 
 ```mermaid
 stateDiagram-v2
+    classDef pending fill:#f59e0b,color:#000,stroke:#d97706
+    classDef active fill:#10b981,color:#000,stroke:#059669
+    classDef historic fill:#6366f1,color:#fff,stroke:#4f46e5
+
     [*] --> Pending: New Loan Created
     Pending --> Active: Documents Executed
     Active --> Active: Draws Funded
     Active --> Historic: Loan Paid Off
     Historic --> [*]
+
+    Pending:::pending
+    Active:::active
+    Historic:::historic
 ```
 
 - **Loan Origination** — Create loans with inline editing, default term sheets, and auto-generated project codes
@@ -138,7 +142,7 @@ stateDiagram-v2
 AI-powered standardization across your entire portfolio.
 
 - **Smart Import** — Upload Excel/CSV with intelligent column detection, row boundary recognition, and formatting preservation
-- **NAHB Categorization** — AI maps line items to 16 categories and 118 subcategories with confidence scoring
+- **NAHB Categorization** — AI maps line items to 16 categories and 118 subcategories with accuracy ratings
 - **Inline Editing** — Cascading Category → Subcategory dropdowns with real-time calculations
 - **Budget Protection** — Funded draws preserve data; smart merge handles reimports; $0 placeholders supported
 - **Dynamic Expansion** — Create new budget lines directly from draw review when categories don't match
@@ -149,12 +153,18 @@ Multi-stage funding process with complete tracking.
 
 ```mermaid
 flowchart LR
-    Upload[Upload Draw] --> AI[AI Match]
-    AI --> Review{Flags?}
-    Review -->|Resolve| Stage[Stage]
-    Review -->|Clean| Stage
-    Stage --> Wire[Wire Batch]
-    Wire --> Funded[Funded]
+    classDef upload fill:#3b82f6,color:#fff,stroke:#2563eb
+    classDef ai fill:#8b5cf6,color:#fff,stroke:#7c3aed
+    classDef review fill:#f59e0b,color:#000,stroke:#d97706
+    classDef stage fill:#06b6d4,color:#fff,stroke:#0891b2
+    classDef fund fill:#10b981,color:#fff,stroke:#059669
+
+    A["Upload Draw"]:::upload --> B["AI Matching"]:::ai
+    B --> C{"Flags?"}:::review
+    C -->|Resolve| D["Stage for Funding"]:::stage
+    C -->|Clean| D
+    D --> E["Wire Batch"]:::fund
+    E --> F["Funded"]:::fund
 ```
 
 - **Intelligent Matching** — Fuzzy matching of draw categories to budgets with manual override dropdowns
@@ -167,10 +177,10 @@ flowchart LR
 
 Accurate calculations matching your existing formulas.
 
-- **Compound Interest Amortization** — Draw-by-draw interest with monthly compounding and automatic fee clock start
+- **Compound Interest Amortization** — Draw-by-draw interest calculation with automatic fee tracking
 - **Interactive Payoff Calculator** — Real-time statements with what-if scenarios and per diem rates
 - **Title Company Reports** — Professional payoff letters with credits management and good-through dates
-- **Fee Escalation Tracking** — Hierarchical term resolution (Project > Lender > Default)
+- **Fee Escalation Tracking** — Flexible fee schedules by project or lender
 - **Three Report Types** — Budget (Sankey flow, utilization), Amortization (balance growth, timeline), Payoff (projection, what-if)
 - **Anomaly Detection** — Automated flagging of spending spikes and budget variances
 
@@ -192,29 +202,33 @@ Users interact with a clean web interface, AI handles tedious processing, and ev
 
 ```mermaid
 flowchart TB
-    subgraph ui [User Interface]
-        Dashboard[Dashboards]
-        Upload[Upload Forms]
-        Reports[Reports]
+    classDef ui fill:#3b82f6,color:#fff,stroke:#2563eb
+    classDef ai fill:#8b5cf6,color:#fff,stroke:#7c3aed
+    classDef db fill:#10b981,color:#fff,stroke:#059669
+
+    subgraph ui ["Web Application"]
+        Dashboard["Dashboards & Filtering"]
+        Upload["Import & Upload"]
+        Reports["Reports & Analytics"]
     end
-    
-    subgraph ai [AI Processing Layer]
-        Categorize[Budget Categorization]
-        Extract[Invoice Extraction]
-        Match[Category Matching]
-        Validate[Validation & Flags]
+
+    subgraph ai ["AI Processing"]
+        Categorize["Budget Categorization"]
+        Extract["Invoice Extraction"]
+        Match["Draw Matching"]
+        Validate["Validation & Flags"]
     end
-    
-    subgraph db [Central Database]
-        Projects[(Projects)]
-        Budgets[(Budgets)]
-        Draws[(Draws)]
-        Audit[(Audit Trail)]
+
+    subgraph db ["Secure Database"]
+        Projects[("Projects & Loans")]
+        Budgets[("Budgets & Draws")]
+        Wire[("Wire Batches")]
+        Audit[("Audit Trail")]
     end
-    
-    ui --> ai
-    ai --> db
-    db --> ui
+
+    ui:::ui --> ai:::ai
+    ai:::ai --> db:::db
+    db:::db --> ui:::ui
 ```
 
 **Why this structure matters:**
@@ -235,84 +249,22 @@ flowchart TB
 
 ---
 
-## Roadmap
-
-TD3 is fully functional for daily operations with authentication and a polished welcome experience.
-
-**Recently Completed:**
-- ✅ User authentication with OTP codes, allowlist, and stackable permissions (RLS-enforced)
-- ✅ Apple-style welcome page with GSAP scroll-driven animations
-- ✅ Account settings page with preferences and activity tracking
-
-**Upcoming Enhancements:**
-- Historical data migration from legacy Excel systems
-- DocuSign API integration for loan origination
-- Microsoft Adaptive Cards for workflow notifications
-- Builder and lender portal access
-- RAG-powered portfolio chatbot
-- Mobile inspection app for field photos
-
-See the full [Development Roadmap](docs/ROADMAP.md) for detailed timeline, cost estimates, and milestones.
-
----
-
-## Development
-
-### Branch Structure
-
-```
-main (production)     → Protected, deploys to td3.tennantdevelopments.com
-  └── develop (staging) → Preview deployments for testing
-       └── feature/*    → Local development branches
-```
-
-### Development Workflow
-
-1. **Start from develop**: `git checkout develop && git pull`
-2. **Create feature branch**: `git checkout -b feature/my-feature`
-3. **Make changes and test locally**: `npm run dev`
-4. **Push to staging**: `git push origin develop` (or PR to develop)
-5. **Test on Vercel preview**: Check auto-generated preview URL
-6. **Promote to production**: Create PR from `develop` → `main`
-
-### Local Development
-
-```bash
-npm install          # Install dependencies
-npm run dev          # Start dev server at localhost:3000
-npm run build        # Test production build
-npm run lint         # Run ESLint
-```
-
-### Environment Setup
-
-Copy `.env.example` to `.env.local` and configure:
-- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anon key
-- `NEXT_PUBLIC_N8N_BUDGET_WEBHOOK` - n8n budget import webhook
-- `NEXT_PUBLIC_N8N_DRAW_WEBHOOK` - n8n draw processing webhook
-
----
-
 ## Documentation
 
 | Document | Description |
 |----------|-------------|
-| [Development Roadmap](docs/ROADMAP.md) | Launch timeline, milestones, cost estimates, and team input requirements |
-| [Technical Architecture](docs/ARCHITECTURE.md) | System design, data flows, and component responsibilities |
-| [Authentication Guide](docs/AUTH.md) | OTP-based auth, allowlist, permissions, and RLS policies |
-| [Design Language](docs/DESIGN_LANGUAGE.md) | UI/UX standards, color palette, and component patterns |
-| [Welcome Page Plan](docs/WELCOME_PAGE_PLAN.md) | Implementation plan for the Apple-style landing page |
+| [Technical Architecture](docs/ARCHITECTURE.md) | System design, platform capabilities, and security model |
+| [Development Roadmap](docs/ROADMAP.md) | Upcoming features and timeline |
+| [Design Language](docs/DESIGN_LANGUAGE.md) | UI/UX standards, color system, and component patterns |
 
 ---
 
-## Contact
+## About
 
-**Grayson Graham**  
-GRYSNGRHM
+**Tennant Developments** — Real estate development and construction finance, based in Central Oregon.
 
-For questions, demos, or feedback, reach out directly.
+For questions, demos, or feedback, contact **Grayson Graham**.
 
 ---
 
-*© 2024-2026 Grayson Graham / GRYSNGRHM. All rights reserved.*
+*© 2024-2026 Tennant Developments. Proprietary software — all rights reserved.*
