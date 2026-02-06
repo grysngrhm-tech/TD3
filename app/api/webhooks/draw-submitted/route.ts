@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/supabase-server'
 import { validateDrawRequest, canApprove } from '@/lib/validations'
-
-// Use service role for webhooks
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { verifyWebhookSecret } from '@/lib/api-auth'
 
 const N8N_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'https://n8n.srv1208741.hstgr.cloud/webhook'
 
 export async function POST(request: NextRequest) {
   try {
+    const [, authError] = verifyWebhookSecret(request)
+    if (authError) return authError
+
     const body = await request.json()
     
     // Handle new draw upload processing (from /draws/new page)

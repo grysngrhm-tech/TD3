@@ -1,9 +1,9 @@
 # TD3 Development Roadmap
 
-**Version:** 1.3
-**Last Updated:** January 20, 2026
+**Version:** 1.4
+**Last Updated:** February 5, 2026
 **Target Launch:** Q1 2026
-**Status:** Authentication & Welcome Page Complete - Ready for Data Migration
+**Status:** Core Platform Complete - Ready for Data Migration
 
 ---
 
@@ -43,8 +43,11 @@ TD3 is **substantially complete** for core functionality:
 | Financial Calculations | ✅ Complete | Amortization, payoff, IRR |
 | Wire Batch Funding | ✅ Complete | Builder grouping, audit trail |
 | Invoice AI Matching | ✅ Complete | Deterministic scoring, narrow AI, learning |
-| User Authentication | ✅ Complete | Passwordless auth, allowlist, stackable permissions, RLS |
+| User Authentication | ✅ Complete | OTP code auth, allowlist, stackable permissions, RLS |
 | Welcome Page & Login | ✅ Complete | Apple-style landing page with scroll-driven animations |
+| User Preferences | ✅ Complete | Theme, font size, reduced motion, default dashboard (`lib/preferences.ts`) |
+| Activity Tracking | ✅ Complete | Login events, entity mutations, device metadata (`lib/activity.ts`) |
+| Account Settings | ✅ Complete | Profile, preferences, activity tabs at `/account` |
 | DocuSign Integration | ❌ Not Started | Placeholder in origination |
 | External Portals | ❌ Not Started | Builder/lender access |
 
@@ -238,7 +241,7 @@ Step 4: Document any discrepancies
 
 TD3 now uses **passwordless authentication** with stackable permissions:
 
-1. **Supabase Auth** - Magic link (passwordless) login
+1. **Supabase Auth** - OTP code (passwordless) login
 2. **Allowlist-Based Access** - Only pre-approved emails can sign in
 3. **Stackable Permissions** - Four independent permissions, any combination
 4. **Row Level Security (RLS)** - Database-level access control
@@ -1102,6 +1105,10 @@ Development time estimates assume **AI-assisted development using Cursor** (Clau
 | `lib/calculations.ts` | Compound interest amortization, payoff breakdown |
 | `lib/loanTerms.ts` | Fee escalation formula, term resolution |
 | `lib/validations.ts` | Draw request validation and flag generation |
+| `lib/invoiceMatching.ts` | Deterministic invoice-to-draw-line matching |
+| `lib/invoiceLearning.ts` | Match correction learning and training data |
+| `lib/activity.ts` | User activity logging (fire-and-forget) |
+| `lib/preferences.ts` | User preferences load/save |
 | `lib/supabase.ts` | Supabase clients, auth types, permission constants |
 | `supabase/001_schema.sql` | Core database schema |
 | `supabase/004_auth.sql` | Authentication tables, RLS policies, helper functions |
@@ -1109,6 +1116,8 @@ Development time estimates assume **AI-assisted development using Cursor** (Clau
 | `app/context/AuthContext.tsx` | Global auth state (user, profile, permissions) |
 | `app/components/auth/` | Auth UI components (PermissionGate, FirstLoginModal) |
 | `app/admin/users/page.tsx` | User & permission management UI |
+| `app/account/page.tsx` | Account settings (profile, preferences, activity tabs) |
+| `app/api/wire-batches/` | Wire batch API routes (create, update, report, notify) |
 | `docs/ARCHITECTURE.md` | Current system architecture (includes auth details) |
 | `types/database.ts` | TypeScript types and constants |
 | `n8n/workflows/` | AI workflow definitions |
@@ -1119,6 +1128,7 @@ Development time estimates assume **AI-assisted development using Cursor** (Clau
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.4 | 2026-02-05 | Grayson Graham | Added user preferences, activity tracking, and account settings to current state; updated key files reference; fixed auth description to OTP codes |
 | 1.3 | 2026-01-20 | Grayson Graham | Added Welcome Page & Login Experience section as COMPLETE; Apple-style landing page with GSAP scroll-driven animations |
 | 1.2 | 2026-01-18 | Grayson Graham | Marked Authentication System as COMPLETE; Updated status and documentation references |
 | 1.1 | 2026-01-08 | Grayson Graham | Reordered adoption phase (Invoice AI before Migration); Updated migration approach to use existing TD3 systems; Reduced dev hours for AI-assisted development; Added Mobile Inspection App |

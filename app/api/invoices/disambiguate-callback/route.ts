@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
+import { verifyWebhookSecret } from '@/lib/api-auth'
+import { reconcileNoInvoiceFlags } from '@/lib/invoiceFlags'
 import type { Json } from '@/types/database'
 
 /**
@@ -40,14 +42,9 @@ interface DisambiguationCallbackPayload {
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify webhook secret
-    const expectedSecret = process.env.N8N_CALLBACK_SECRET
-    if (expectedSecret) {
-      const provided = request.headers.get('x-td3-webhook-secret')
-      if (!provided || provided !== expectedSecret) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-    }
+    // Verify webhook secret (fail-closed: rejects if env var is unset)
+    const [, authError] = verifyWebhookSecret(request)
+    if (authError) return authError
 
     const body: DisambiguationCallbackPayload = await request.json()
     const { invoiceId, n8nExecutionId, success, error, disambiguation } = body
@@ -222,56 +219,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * Reconcile NO_INVOICE flags across all draw lines
- */
-async function reconcileNoInvoiceFlags(drawRequestId: string) {
-  const parseLineFlags = (flagsStr: string | null): string[] => {
-    if (!flagsStr) return []
-    try {
-      const parsed = JSON.parse(flagsStr)
-      return Array.isArray(parsed) ? parsed : []
-    } catch {
-      return flagsStr.split(',').map(s => s.trim()).filter(Boolean)
-    }
-  }
-
-  const { data: lines } = await supabaseAdmin
-    .from('draw_request_lines')
-    .select('id, amount_requested, invoice_file_id, matched_invoice_amount, flags')
-    .eq('draw_request_id', drawRequestId)
-
-  if (!lines) return
-
-  const { data: invoices } = await supabaseAdmin
-    .from('invoices')
-    .select('id')
-    .eq('draw_request_id', drawRequestId)
-
-  const hasAnyInvoices = (invoices?.length || 0) > 0
-  if (!hasAnyInvoices) return
-
-  for (const line of lines) {
-    const hasInvoice = !!line.invoice_file_id || !!line.matched_invoice_amount
-    const needsInvoice = (line.amount_requested || 0) > 0 && !hasInvoice
-
-    const currentFlags = parseLineFlags(line.flags ?? null)
-    const flagSet = new Set(currentFlags)
-    const hadNoInvoice = flagSet.has('NO_INVOICE')
-
-    if (needsInvoice && !hadNoInvoice) {
-      flagSet.add('NO_INVOICE')
-    } else if (!needsInvoice && hadNoInvoice) {
-      flagSet.delete('NO_INVOICE')
-    } else {
-      continue
-    }
-
-    await supabaseAdmin
-      .from('draw_request_lines')
-      .update({
-        flags: flagSet.size > 0 ? JSON.stringify([...flagSet]) : null,
-      })
-      .eq('id', line.id)
-  }
-}

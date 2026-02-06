@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { parseUserAgent } from '@/lib/deviceInfo'
+import { requireAuth } from '@/lib/api-auth'
 
 /**
  * Login Activity API
@@ -81,6 +82,9 @@ function getClientIP(request: NextRequest): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const [authUser, authError] = await requireAuth()
+    if (authError) return authError
+
     const body: LoginActivityRequest = await request.json()
     const { userId, userAgent } = body
 
@@ -88,6 +92,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'userId is required' },
         { status: 400 }
+      )
+    }
+
+    // Ensure the authenticated user can only log their own activity
+    if (userId !== authUser.id) {
+      return NextResponse.json(
+        { error: 'Cannot log activity for a different user' },
+        { status: 403 }
       )
     }
 

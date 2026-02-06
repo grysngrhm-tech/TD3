@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { validateDrawRequest, canApprove, getValidationSummary } from '@/lib/validations'
+import { requireAuth } from '@/lib/api-auth'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { drawId: string } }
 ) {
   try {
+    const [, authError] = await requireAuth()
+    if (authError) return authError
+
     const drawId = params.drawId
 
     if (!drawId) {

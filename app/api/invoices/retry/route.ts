@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { triggerInvoiceProcess, InvoiceProcessPayload } from '@/lib/n8n'
+import { requireAuth } from '@/lib/api-auth'
 
 /**
  * POST /api/invoices/retry
@@ -10,6 +11,9 @@ import { triggerInvoiceProcess, InvoiceProcessPayload } from '@/lib/n8n'
  */
 export async function POST(request: NextRequest) {
   try {
+    const [, authError] = await requireAuth()
+    if (authError) return authError
+
     const body = await request.json()
     const { invoiceId, drawRequestId } = body
 

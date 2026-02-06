@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
+import { verifyWebhookSecret } from '@/lib/api-auth'
 
 type FlagsObj = Record<string, any>
 
@@ -27,13 +28,9 @@ function parseFlags(flags: string | null): FlagsObj {
  * }
  */
 export async function POST(request: NextRequest) {
-  const expectedSecret = process.env.N8N_CALLBACK_SECRET
-  if (expectedSecret) {
-    const provided = request.headers.get('x-td3-webhook-secret')
-    if (!provided || provided !== expectedSecret) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-  }
+  // Verify webhook secret (fail-closed: rejects if env var is unset)
+  const [, authError] = verifyWebhookSecret(request)
+  if (authError) return authError
 
   const body = await request.json().catch(() => ({} as any))
   const drawRequestId = typeof body.drawRequestId === 'string' ? body.drawRequestId : null

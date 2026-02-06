@@ -66,28 +66,38 @@ TD3's brand is anchored in a **Dark Red/Maroon** accent that conveys:
 
 #### Primary Accent Scale (Dark Red)
 
-Based on `#950606` with accessibility-optimized variants:
+Based on `#950606` with accessibility-optimized variants.
 
+**Note:** The CSS default (`:root`) is dark mode; light mode is applied via the `.light` class. The accent-500 value (`#950606`) is consistent across both modes.
+
+| Token | Light Mode (`.light`) | Dark Mode (`:root`) | Usage |
+|-------|------------|-----------|-------|
+| `--accent-50` | `#FEF2F2` | `#1A0808` | Subtle backgrounds, glows |
+| `--accent-100` | `#FEE2E2` | `#2D1010` | Hover backgrounds |
+| `--accent-200` | `#FECACA` | `#451515` | Active backgrounds |
+| `--accent-300` | `#FCA5A5` | `#5C1B1B` | Borders, dividers |
+| `--accent-400` | `#F87171` | `#7A2020` | Secondary elements |
+| `--accent-500` | `#950606` | `#950606` | **Primary accent** |
+| `--accent-600` | `#840505` | `#B00808` | Hover state |
+| `--accent-700` | `#740505` | `#C41919` | Text on dark backgrounds |
+| `--accent-800` | `#530303` | `#D83232` | High contrast text |
+| `--accent-900` | `#320202` | `#E85050` | Maximum contrast |
+
+**Additional accent utilities** (defined in CSS):
 | Token | Light Mode | Dark Mode | Usage |
 |-------|------------|-----------|-------|
-| `--accent-50` | `#FEF2F2` | `#2D1212` | Subtle backgrounds, glows |
-| `--accent-100` | `#FEE2E2` | `#3F1717` | Hover backgrounds |
-| `--accent-200` | `#FECACA` | `#5C1F1F` | Active backgrounds |
-| `--accent-300` | `#FCA5A5` | `#7A2828` | Borders, dividers |
-| `--accent-400` | `#F87171` | `#991B1B` | Secondary elements |
-| `--accent-500` | `#950606` | `#DC2626` | **Primary accent** |
-| `--accent-600` | `#840505` | `#EF4444` | Hover state |
-| `--accent-700` | `#740505` | `#F87171` | Text on dark backgrounds |
-| `--accent-800` | `#530303` | `#FCA5A5` | High contrast text |
-| `--accent-900` | `#320202` | `#FEE2E2` | Maximum contrast |
+| `--accent` | `var(--accent-500)` | `var(--accent-500)` | Shorthand alias |
+| `--accent-hover` | `var(--accent-600)` | `var(--accent-600)` | Hover state alias |
+| `--accent-glow` | `rgba(149, 6, 6, 0.2)` | `rgba(149, 6, 6, 0.35)` | Glow effects |
+| `--accent-muted` | `rgba(149, 6, 6, 0.1)` | `rgba(149, 6, 6, 0.20)` | Muted backgrounds |
 
-**Accessibility Note:** The accent color `#950606` achieves **9.1:1 contrast ratio** on white (AAA). For dark mode, we use `#DC2626` which achieves **4.5:1** on dark backgrounds.
+**Accessibility Note:** The accent color `#950606` achieves **9.1:1 contrast ratio** on white (AAA). In dark mode, the same `#950606` is used as the primary accent with lighter tints for higher scales.
 
 ### 2.2 Neutral Palette
 
 Carefully calibrated for eye comfort in extended use:
 
-#### Light Mode
+#### Light Mode (`.light` class)
 
 | Token | Value | Usage |
 |-------|-------|-------|
@@ -95,55 +105,73 @@ Carefully calibrated for eye comfort in extended use:
 | `--bg-secondary` | `#F9FAFB` | Sidebars, headers |
 | `--bg-tertiary` | `#F3F4F6` | Nested containers |
 | `--bg-card` | `#FFFFFF` | Cards, elevated surfaces |
+| `--bg-card-transparent` | `rgba(255, 255, 255, 0.85)` | Translucent card surfaces |
 | `--bg-hover` | `#E5E7EB` | Interactive hover states |
+| `--bg-active` | `#D1D5DB` | Active/pressed states |
 | `--border` | `#D1D5DB` | Prominent borders |
 | `--border-subtle` | `#E5E7EB` | Subtle separators |
+| `--border-accent` | `var(--accent-500)` | Accent-colored borders |
 | `--text-primary` | `#111827` | Primary content |
 | `--text-secondary` | `#374151` | Secondary content |
 | `--text-muted` | `#6B7280` | Hints, placeholders |
 | `--text-disabled` | `#9CA3AF` | Disabled states |
+| `--text-inverse` | `#FFFFFF` | Text on accent backgrounds |
 
-#### Dark Mode
+#### Dark Mode (`:root` default)
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| `--bg-primary` | `#0A0A0B` | Page background |
-| `--bg-secondary` | `#141416` | Sidebars, headers |
-| `--bg-tertiary` | `#1C1C1F` | Nested containers |
-| `--bg-card` | `#1C1C1F` | Cards, elevated surfaces |
-| `--bg-hover` | `#2A2A2E` | Interactive hover states |
+| `--bg-primary` | `#151518` | Page background |
+| `--bg-secondary` | `#1C1C20` | Sidebars, headers |
+| `--bg-tertiary` | `#232328` | Nested containers |
+| `--bg-card` | `#1E1E23` | Cards, elevated surfaces |
+| `--bg-card-transparent` | `rgba(30, 30, 35, 0.85)` | Translucent card surfaces |
+| `--bg-hover` | `#2D2D33` | Interactive hover states |
+| `--bg-active` | `#3A3A40` | Active/pressed states |
 | `--border` | `#3F3F46` | Prominent borders |
 | `--border-subtle` | `#27272A` | Subtle separators |
+| `--border-accent` | `var(--accent-400)` | Accent-colored borders |
 | `--text-primary` | `#FAFAFA` | Primary content |
 | `--text-secondary` | `#A1A1AA` | Secondary content |
 | `--text-muted` | `#71717A` | Hints, placeholders |
 | `--text-disabled` | `#52525B` | Disabled states |
+| `--text-inverse` | `#151518` | Text on accent backgrounds |
 
 ### 2.3 Semantic Colors
 
-Context-aware colors that adapt to light/dark modes:
+Context-aware colors that adapt to light/dark modes. Each semantic color has four variants: base, hover, muted (backgrounds), and glow (focus effects).
 
-| Purpose | Light Mode | Dark Mode | Usage |
+| Purpose | Light Mode (`.light`) | Dark Mode (`:root`) | Usage |
 |---------|------------|-----------|-------|
-| Success | `#059669` | `#10B981` | Approvals, completions |
-| Success Background | `rgba(5, 150, 105, 0.1)` | `rgba(16, 185, 129, 0.15)` | Success badges |
-| Warning | `#D97706` | `#F59E0B` | Pending, attention |
-| Warning Background | `rgba(217, 119, 6, 0.1)` | `rgba(245, 158, 11, 0.15)` | Warning badges |
-| Error | `#DC2626` | `#EF4444` | Errors, rejections |
-| Error Background | `rgba(220, 38, 38, 0.1)` | `rgba(239, 68, 68, 0.15)` | Error badges |
-| Info | `#2563EB` | `#3B82F6` | Informational states |
-| Info Background | `rgba(37, 99, 235, 0.1)` | `rgba(59, 130, 246, 0.15)` | Info badges |
+| Success | `#059669` | `#059669` | Approvals, completions |
+| Success Hover | `#047857` | `#10B981` | Hover state |
+| Success Muted | `rgba(5, 150, 105, 0.1)` | `rgba(5, 150, 105, 0.15)` | Success badges/backgrounds |
+| Success Glow | `rgba(5, 150, 105, 0.2)` | `rgba(5, 150, 105, 0.25)` | Focus ring glow |
+| Warning | `#D97706` | `#D97706` | Pending, attention |
+| Warning Hover | `#B45309` | `#F59E0B` | Hover state |
+| Warning Muted | `rgba(217, 119, 6, 0.1)` | `rgba(217, 119, 6, 0.15)` | Warning badges/backgrounds |
+| Warning Glow | `rgba(217, 119, 6, 0.2)` | `rgba(217, 119, 6, 0.25)` | Focus ring glow |
+| Error | `#DC2626` | `#DC2626` | Errors, rejections |
+| Error Hover | `#B91C1C` | `#EF4444` | Hover state |
+| Error Muted | `rgba(220, 38, 38, 0.1)` | `rgba(220, 38, 38, 0.15)` | Error badges/backgrounds |
+| Error Glow | `rgba(220, 38, 38, 0.2)` | `rgba(220, 38, 38, 0.25)` | Focus ring glow |
+| Info | `#2563EB` | `#2563EB` | Informational states |
+| Info Hover | `#1D4ED8` | `#3B82F6` | Hover state |
+| Info Muted | `rgba(37, 99, 235, 0.1)` | `rgba(37, 99, 235, 0.15)` | Info badges/backgrounds |
+| Info Glow | `rgba(37, 99, 235, 0.2)` | `rgba(37, 99, 235, 0.25)` | Focus ring glow |
 
 ### 2.4 Complementary Accent Colors
 
 For data visualization and special emphasis:
 
-| Color | Value | Usage |
-|-------|-------|-------|
-| **Teal** | `#069595` | Complementary accent, charts |
-| **Gold** | `#EFBF04` | Premium highlights, high-value |
-| **Ivory** | `#FFFEF0` | Soft contrast backgrounds (light mode) |
-| **Deep Blue** | `#1E3A5F` | Secondary charts, depth |
+| Color | Value | CSS Token | Usage |
+|-------|-------|-----------|-------|
+| **Teal** | `#0D9488` | `--teal` | Complementary accent, charts |
+| **Gold** | `#D97706` | `--gold` | Premium highlights, high-value |
+| **Purple** | `#7C3AED` | `--purple` | Wire/processing status, charts |
+| **Deep Blue** | `#2563EB` | `--deep-blue` | Secondary charts, depth |
+
+Each complementary color also has a `-muted` variant (e.g., `--teal-muted`) for background tints.
 
 ### 2.5 Status-Specific Palettes (Polymorphic)
 
@@ -307,14 +335,18 @@ Material Design-inspired depth system:
 
 ### 5.3 Glow Effects
 
-For accent interactions:
+Glow effects are constructed using the semantic `--*-glow` tokens rather than standalone custom properties. Each semantic color provides a glow variant:
 
 ```css
---glow-accent: 0 0 20px rgba(149, 6, 6, 0.25);      /* Light mode */
---glow-accent: 0 0 20px rgba(220, 38, 38, 0.35);   /* Dark mode */
+/* Accent glow - used in button hover, card interactive hover */
+--accent-glow: rgba(149, 6, 6, 0.2);     /* Light mode */
+--accent-glow: rgba(149, 6, 6, 0.35);    /* Dark mode */
 
---glow-success: 0 0 15px rgba(16, 185, 129, 0.3);
---glow-error: 0 0 15px rgba(239, 68, 68, 0.3);
+/* Semantic glow tokens */
+--success-glow: rgba(5, 150, 105, 0.2);  /* Light */ / rgba(5, 150, 105, 0.25);  /* Dark */
+--error-glow: rgba(220, 38, 38, 0.2);    /* Light */ / rgba(220, 38, 38, 0.25);  /* Dark */
+--warning-glow: rgba(217, 119, 6, 0.2);  /* Light */ / rgba(217, 119, 6, 0.25);  /* Dark */
+--info-glow: rgba(37, 99, 235, 0.2);     /* Light */ / rgba(37, 99, 235, 0.25);  /* Dark */
 ```
 
 ### 5.4 Surface Treatments
@@ -947,10 +979,31 @@ Minimum touch target size: **44x44px**
 
 ### 10.1 CSS Variables Setup
 
-Add to `app/globals.css`:
+Defined in `app/globals.css`. The default (`:root`) is **dark mode**; light mode is applied via the `.light` class:
 
 ```css
 :root {
+  /* Colors - Dark Mode (Default) */
+  --accent-50: #1A0808;
+  --accent-100: #2D1010;
+  --accent-200: #451515;
+  --accent-300: #5C1B1B;
+  --accent-400: #7A2020;
+  --accent-500: #950606;
+  --accent-600: #B00808;
+  --accent-700: #C41919;
+  --accent-800: #D83232;
+  --accent-900: #E85050;
+
+  --accent: var(--accent-500);
+  --accent-hover: var(--accent-600);
+  --accent-glow: rgba(149, 6, 6, 0.35);
+  --accent-muted: rgba(149, 6, 6, 0.20);
+
+  /* ... additional tokens ... */
+}
+
+.light {
   /* Colors - Light Mode */
   --accent-50: #FEF2F2;
   --accent-100: #FEE2E2;
@@ -962,27 +1015,12 @@ Add to `app/globals.css`:
   --accent-700: #740505;
   --accent-800: #530303;
   --accent-900: #320202;
-  
-  --accent-glow: rgba(149, 6, 6, 0.2);
-  
-  /* ... additional tokens ... */
-}
 
-.dark {
-  /* Colors - Dark Mode */
-  --accent-50: #2D1212;
-  --accent-100: #3F1717;
-  --accent-200: #5C1F1F;
-  --accent-300: #7A2828;
-  --accent-400: #991B1B;
-  --accent-500: #DC2626;
-  --accent-600: #EF4444;
-  --accent-700: #F87171;
-  --accent-800: #FCA5A5;
-  --accent-900: #FEE2E2;
-  
-  --accent-glow: rgba(220, 38, 38, 0.3);
-  
+  --accent: var(--accent-500);
+  --accent-hover: var(--accent-600);
+  --accent-glow: rgba(149, 6, 6, 0.2);
+  --accent-muted: rgba(149, 6, 6, 0.1);
+
   /* ... additional tokens ... */
 }
 ```
@@ -1065,9 +1103,10 @@ styles/
 
 | Color | Hex | Usage |
 |-------|-----|-------|
-| ![#069595](https://via.placeholder.com/20/069595/069595) | `#069595` | Teal (complementary) |
-| ![#EFBF04](https://via.placeholder.com/20/EFBF04/EFBF04) | `#EFBF04` | Gold (premium) |
-| ![#1E3A5F](https://via.placeholder.com/20/1E3A5F/1E3A5F) | `#1E3A5F` | Deep Blue (depth) |
+| ![#0D9488](https://via.placeholder.com/20/0D9488/0D9488) | `#0D9488` | Teal (complementary) |
+| ![#D97706](https://via.placeholder.com/20/D97706/D97706) | `#D97706` | Gold (premium) |
+| ![#7C3AED](https://via.placeholder.com/20/7C3AED/7C3AED) | `#7C3AED` | Purple (wire/processing) |
+| ![#2563EB](https://via.placeholder.com/20/2563EB/2563EB) | `#2563EB` | Deep Blue (depth) |
 
 ---
 
@@ -1121,5 +1160,5 @@ See the [Development Roadmap](ROADMAP.md) for detailed timelines on features tha
 
 ---
 
-*TD3 Design Language v1.1 — Last updated: January 2026*
+*TD3 Design Language v1.2 — Last updated: February 2026*
 

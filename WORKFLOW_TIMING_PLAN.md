@@ -1,5 +1,16 @@
 # Workflow Section Timing & Pacing Enhancement Plan
 
+> **Status: IMPLEMENTED (January-February 2026)**
+>
+> The enhancements described in this plan have been implemented and further expanded. Key changes from the original plan:
+> - Scroll distance was increased beyond the planned 300% to **600% on desktop** and **250% on mobile** for optimal pacing (see `WelcomePage.tsx`)
+> - All 6 workflow stage animations were enhanced with richer content and dwell phases (see `app/(auth)/components/welcome/` stage files and visuals)
+> - Per-section scroll distances are now responsive: Problems (80%/100%), Solutions (90%/120%), Workflow (250%/600%) for mobile/desktop
+> - GSAP ScrollTrigger with pinned sections, extended progress tracking, and Intersection Observer mobile fallback are all active
+> - Additional components were added beyond the original plan: `WorkflowTimeline.tsx`, `WorkflowStageDetail.tsx`
+>
+> This document is retained as a historical reference for the design rationale behind the animation timing decisions.
+
 ## Executive Summary
 
 The workflow section currently runs too quickly for users to appreciate the animations. This plan doubles the scroll distance and restructures timing to include proper "dwell" phases where each stage is fully visible and showcased before transitioning.

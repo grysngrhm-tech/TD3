@@ -112,7 +112,7 @@ Future: Separate staging Supabase project for isolated testing.
 - Store projects, budgets, draw requests, invoices
 - Maintain audit trail of all changes
 - Provide real-time subscriptions for UI updates
-- **Authenticate users** via passwordless magic links
+- **Authenticate users** via passwordless 8-digit OTP codes
 - **Authorize access** via stackable permissions and RLS policies
 
 ### 4. OpenAI (AI Processing)
@@ -172,11 +172,11 @@ TD3 tracks loans through three stages:
 
 ## Authentication & Authorization
 
-TD3 implements a comprehensive authentication and authorization system using Supabase Auth with passwordless magic links, an email allowlist for access control, stackable permissions for fine-grained authorization, and Row Level Security (RLS) for database-level enforcement.
+TD3 implements a comprehensive authentication and authorization system using Supabase Auth with passwordless OTP code verification, an email allowlist for access control, stackable permissions for fine-grained authorization, and Row Level Security (RLS) for database-level enforcement.
 
 ### Design Principles
 
-1. **Passwordless Authentication** - Magic links eliminate password management and phishing risks
+1. **Passwordless Authentication** - OTP codes eliminate password management and phishing risks
 2. **Allowlist-Based Access** - Only pre-approved emails can sign in (no self-registration)
 3. **Stackable Permissions** - Users can have any combination of permissions
 4. **Database-Level Enforcement** - RLS policies enforce permissions at the database level
@@ -190,8 +190,8 @@ TD3 implements a comprehensive authentication and authorization system using Sup
 └─────────────────────────────────────────────────────────────────────────────┘
 
   User visits      Middleware        Login Page       Supabase Auth      Callback
-  protected   ──►  redirects    ──►  checks      ──►  sends magic   ──►  exchanges
-  route            to /login         allowlist        link               code
+  protected   ──►  redirects    ──►  checks      ──►  sends OTP     ──►  verifies
+  route            to /login         allowlist        code               code
 
                                          │
                                          ▼
@@ -203,7 +203,7 @@ TD3 implements a comprehensive authentication and authorization system using Sup
                         ┌───────────────┴───────────────┐
                         ▼                               ▼
                    ✅ Allowed                      ❌ Not Allowed
-                   Send magic link                 Show error
+                   Send OTP code                   Show error
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              AUTHORIZATION FLOW                               │
@@ -476,8 +476,8 @@ if (!user) {
 
 1. **Email Input** - User enters email address
 2. **Allowlist Check** - Calls `is_allowlisted()` RPC function
-3. **Magic Link** - If allowed, Supabase sends magic link email
-4. **Callback** - `/auth/callback` exchanges code for session
+3. **OTP Code** - If allowed, Supabase sends 8-digit OTP code via email
+4. **Verification** - User enters OTP code on login page, session created
 5. **Redirect** - Redirects to original destination (or home)
 
 ### Admin User Management (app/admin/users/page.tsx)
@@ -525,7 +525,7 @@ Run `supabase/004_auth.sql` in Supabase SQL Editor. This creates all auth tables
 
 #### 2. Configure Supabase Auth URLs
 
-**This is critical for magic links to work!**
+**This is critical for OTP codes to work!**
 
 Go to: **Supabase Dashboard → Authentication → URL Configuration**
 
@@ -559,8 +559,8 @@ ON CONFLICT (email) DO NOTHING;
 
 1. Navigate to your deployed app
 2. Enter admin email at login
-3. Check email for magic link
-4. Click link to complete sign in
+3. Check email for 8-digit OTP code
+4. Enter code on login page to complete sign in
 5. Fill out profile form (name, phone)
 
 #### 6. Grant Admin All Permissions
@@ -590,7 +590,7 @@ ON CONFLICT (user_id, permission_code) DO NOTHING;
 1. Admin navigates to `/admin/users`
 2. Clicks "Invite User"
 3. Enters email and selects initial permissions
-4. User receives magic link when they try to sign in
+4. User receives OTP code via email when they try to sign in
 
 #### Grant Permission
 
@@ -628,13 +628,13 @@ UPDATE profiles SET is_active = false WHERE email = 'user@example.com';
 |-------|-------|----------|
 | "Email not authorized" | Email not in allowlist | Add to allowlist via Admin UI or SQL |
 | "Email link is invalid or has expired" | Site URL mismatch | Check Supabase URL Configuration matches your Vercel URL exactly |
-| Magic link redirects to wrong URL | Site URL has spaces | Remove leading/trailing spaces from Site URL in Supabase |
+| OTP code delivery fails | Site URL has spaces | Remove leading/trailing spaces from Site URL in Supabase |
 | Blank screen after login | No permissions granted | Grant permissions via SQL after first login |
 | Loading spinner stuck | RLS blocking data access | Check user has `processor` permission |
 | User can't fund draws | Missing `fund_draws` | Grant the specific permission |
 | Data not loading | Using wrong Supabase client | Ensure `lib/supabase.ts` exports browser client |
 
-#### Magic Link / OTP Errors
+#### OTP Code Errors
 
 **"otp_expired" or "Email link is invalid"**
 
@@ -644,8 +644,8 @@ This occurs when:
    - Site URL must be EXACTLY your custom domain (e.g., `https://td3.tennantdevelopments.com`)
    - No spaces before or after the URL
 
-2. **Clicking old magic links**: Each new magic link invalidates previous ones
-   - Solution: Always use the NEWEST email, click immediately
+2. **Using old OTP codes**: Each new OTP code invalidates previous ones
+   - Solution: Always use the NEWEST code from the most recent email
 
 3. **Preview vs Production URL**: Testing on a Vercel preview URL but Site URL is set to production
    - Either test on production, or temporarily change Site URL to match preview
