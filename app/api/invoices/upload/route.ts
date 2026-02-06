@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { triggerInvoiceProcess, InvoiceProcessPayload } from '@/lib/n8n'
+import { requireAuth } from '@/lib/api-auth'
 
 export async function POST(request: NextRequest) {
   try {
+    const [, authError] = await requireAuth()
+    if (authError) return authError
+
     const formData = await request.formData()
     
     const projectId = formData.get('projectId') as string
