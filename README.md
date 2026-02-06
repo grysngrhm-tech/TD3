@@ -6,7 +6,7 @@
 
 TD3 is an internal system that brings order to construction loan servicing. It replaces scattered spreadsheets, buried emails, and manual reconciliation with a single place where every loan, budget, draw, and approval is visible, trackable, and auditable.
 
-This isn't about adopting more software. It's about reducing the mental overhead of keeping everything straight—so we can focus on decisions instead of data entry.
+This isn't about adopting more software. It's about reducing the mental overhead of keeping everything straight---so we can focus on decisions instead of data entry.
 
 ---
 
@@ -24,31 +24,26 @@ This isn't about adopting more software. It's about reducing the mental overhead
 
 ## The Problem
 
-Construction lending operations create two persistent challenges that compound as the portfolio grows.
+Construction lending runs on a lot of moving pieces---budgets, draw requests, approvals, invoices, wire details---and standard office tools spread that information across many places.
 
-### Everything Lives in Too Many Places
+### Fragmented Information
 
-Right now, understanding the state of a single loan requires checking multiple sources: the budget or draw spreadsheet that someone emailed last month, approval threads buried in inboxes, handwritten sticky notes from phone calls, and whatever information someone is keeping track of in their head happens to be.
+When loan data lives in spreadsheets, email threads, and personal notes, routine tasks take longer than they need to:
 
-This fragmentation creates real problems:
+- **Version ambiguity.** Multiple copies of a budget spreadsheet make it unclear which is current.
+- **Scattered context.** Approvals and exceptions discussed over email are difficult to reconstruct months later.
+- **Manual reporting.** Compiling a portfolio status means pulling data from several sources and reconciling by hand.
+- **Audit overhead.** Demonstrating the history of a loan means assembling records from many places.
 
-- **No single source of truth.** Budget data exists in different Excel files on different machines, each slightly different. Which one is current? Who knows.
-- **Decisions disappear into email.** Approvals, exceptions, and important context get trapped in individual inboxes. When questions arise later, reconstructing what happened means hunting through threads.
-- **Reporting takes hours.** Compiling a simple portfolio status means pulling data from multiple places, re-keying numbers, and hoping nothing got missed.
-- **Audits are painful.** When we need to show our work, piecing together the timeline of a loan means detective work, not documentation.
+### Repetitive Manual Work
 
-A small team can hold all this in their heads, until they can't. The system doesn't scale down gracefully, and it definitely doesn't scale up.
+A significant share of operational hours goes to tasks that are mechanical rather than analytical:
 
-### Too Much Time on Repetitive Work
+- **Budget categorization.** Every new project means classifying line items individually, with natural variation across loans.
+- **Invoice matching.** Each draw request means comparing invoices to budget categories, checking amounts, and flagging mismatches one at a time.
+- **Data re-entry.** Moving numbers between systems takes time that could go toward analysis and decision-making.
 
-Even with good intentions and smart people, manual processes eat time that should go elsewhere:
-
-- **Budget categorization is tedious.** Every new project means manually classifying line items, often inconsistently across loans.
-- **Invoice matching is slow.** Each draw request requires manually matching invoices to budget categories, one by one, checking amounts, flagging mismatches.
-- **Data entry crowds out judgment.** Hours spent re-keying numbers is hours not spent on analysis, risk assessment, or builder relationships.
-- **Inconsistency undermines reporting.** When every loan is categorized slightly differently, portfolio-level insights become unreliable.
-
-The work gets done, but it takes longer than it should, and it's harder to trust.
+TD3 automates these processes so the team can operate more efficiently and more profitably with the same workload.
 
 ---
 
@@ -58,11 +53,11 @@ TD3 addresses both problems directly: **one place for everything** and **automat
 
 ### A Single Source of Truth
 
-Every loan, builder, budget, draw request, invoice, and approval lives in one system. Not spreadsheets with version numbers in the filename—a real database that stays current.
+Every loan, builder, budget, draw request, invoice, and approval lives in one system. Not spreadsheets with version numbers in the filename---a real database that stays current.
 
 This means:
 
-- **The current state is always obvious.** Open the dashboard and see exactly where things stand—across the portfolio or for any individual loan.
+- **The current state is always obvious.** Open the dashboard and see exactly where things stand---across the portfolio or for any individual loan.
 - **History is preserved automatically.** Every change, every approval, every upload is timestamped and attributed. The audit trail writes itself.
 - **Reporting is instant.** No more compiling. The data is already structured. Generate reports in seconds, not hours.
 - **Anyone can pick up where someone else left off.** Context isn't trapped in someone's head or inbox. It's in the system.
@@ -74,10 +69,10 @@ When the current state is obvious, less mental energy goes to "wait, where is th
 TD3 uses AI to handle the tedious, repetitive tasks that currently eat hours:
 
 - **Automatic budget standardization.** Upload a builder's budget spreadsheet, and AI classifies each line item to industry-standard NAHB cost codes. Consistent categorization across every project, every time.
-- **Smart invoice matching.** Upload invoices with a draw request, and AI extracts vendor names, amounts, and descriptions—then matches them to the right budget lines automatically.
+- **Smart invoice matching.** Upload invoices with a draw request, and AI extracts vendor names, amounts, and descriptions---then matches them to the right budget lines automatically.
 - **Built-in validation.** The system flags over-budget requests, duplicate invoices, and missing documentation before you even see them. Problems surface early, not after funding.
 
-The key insight: AI handles the pattern matching and data extraction. Humans review the results and make decisions. Tasks that took hours complete in seconds—with better consistency.
+The key insight: AI handles the pattern matching and data extraction. Humans review the results and make decisions. Tasks that took hours complete in seconds---with better consistency.
 
 ---
 
@@ -85,167 +80,59 @@ The key insight: AI handles the pattern matching and data extraction. Humans rev
 
 The day-to-day workflow is straightforward:
 
-1. **Import** — Upload a builder's budget spreadsheet. TD3 detects categories and amounts, you confirm the mapping, and AI standardizes everything to NAHB cost codes.
+1. **Import** --- Upload a builder's budget spreadsheet. TD3 detects categories and amounts, you confirm the mapping, and AI standardizes everything to NAHB cost codes.
 
-2. **Submit** — When a draw comes in, upload the request. AI matches draw amounts to existing budget lines automatically.
+2. **Submit** --- When a draw comes in, upload the request. AI matches draw amounts to existing budget lines automatically.
 
-3. **Review** — See the full picture: amounts, budget status, flags, invoices. Resolve any issues directly in the interface.
+3. **Review** --- See the full picture: amounts, budget status, flags, invoices. Resolve any issues directly in the interface.
 
-4. **Stage** — Approved draws move to staging. See all staged draws grouped by builder, ready for funding.
+4. **Stage** --- Approved draws move to staging. See all staged draws grouped by builder, ready for funding.
 
-5. **Fund** — Select a funding date, add wire reference if needed, and mark draws as funded with one click. The system handles the rest.
+5. **Fund** --- Select a funding date, add wire reference if needed, and mark draws as funded with one click. The system handles the rest.
 
-6. **Track** — Dashboards show real-time status across the portfolio. Budget utilization, draw history, amortization schedules—all visible without compiling anything.
-
----
-
-## Capabilities
-
-### Portfolio Visibility
-
-Real-time insight without manual compilation.
-
-- **Dual Dashboards** — Portfolio Dashboard for high-level overview; Draw Dashboard for daily funding operations
-- **Smart Filtering** — 3-way toggle (Builder/Subdivision/Lender) with cascading filters and URL-based deep linking
-- **Stage-Specific Metrics** — Dynamic stats showing relevant KPIs per lifecycle stage (pipeline value, utilization, IRR)
-- **Builder Timeline** — Interactive Gantt and spreadsheet views grouped by lender
-- **Risk Indicators** — Color-coded LTV warnings (green, yellow, red) and maturity alerts
-
-### Loan Lifecycle
-
-Complete tracking from origination through payoff.
-
-```mermaid
-stateDiagram-v2
-    classDef pending fill:#f59e0b,color:#000,stroke:#d97706
-    classDef active fill:#10b981,color:#000,stroke:#059669
-    classDef historic fill:#6366f1,color:#fff,stroke:#4f46e5
-
-    [*] --> Pending: New Loan Created
-    Pending --> Active: Documents Executed
-    Active --> Active: Draws Funded
-    Active --> Historic: Loan Paid Off
-    Historic --> [*]
-
-    Pending:::pending
-    Active:::active
-    Historic:::historic
-```
-
-- **Loan Origination** — Create loans with inline editing, default term sheets, and auto-generated project codes
-- **Builder Management** — Dedicated builder pages with company info, banking details, contact links, and portfolio views
-- **Multi-Lender Support** — Track loans across lenders (TD2, TenBrook, Tennant) with proper separation
-- **Lifecycle Transitions** — Checkbox-driven state changes with validation gates
-
-### Budget Intelligence
-
-AI-powered standardization across your entire portfolio.
-
-- **Smart Import** — Upload Excel/CSV with intelligent column detection, row boundary recognition, and formatting preservation
-- **NAHB Categorization** — AI maps line items to 16 categories and 118 subcategories with accuracy ratings
-- **Inline Editing** — Cascading Category → Subcategory dropdowns with real-time calculations
-- **Budget Protection** — Funded draws preserve data; smart merge handles reimports; $0 placeholders supported
-- **Dynamic Expansion** — Create new budget lines directly from draw review when categories don't match
-
-### Draw Workflow
-
-Multi-stage funding process with complete tracking.
+6. **Track** --- Dashboards show real-time status across the portfolio. Budget utilization, draw history, amortization schedules---all visible without compiling anything.
 
 ```mermaid
 flowchart LR
-    classDef upload fill:#3b82f6,color:#fff,stroke:#2563eb
-    classDef ai fill:#8b5cf6,color:#fff,stroke:#7c3aed
-    classDef review fill:#f59e0b,color:#000,stroke:#d97706
-    classDef stage fill:#06b6d4,color:#fff,stroke:#0891b2
-    classDef fund fill:#10b981,color:#fff,stroke:#059669
+    classDef step fill:#950606,color:#fff,stroke:#6b0404,stroke-width:2px
 
-    A["Upload Draw"]:::upload --> B["AI Matching"]:::ai
-    B --> C{"Flags?"}:::review
-    C -->|Resolve| D["Stage for Funding"]:::stage
-    C -->|Clean| D
-    D --> E["Wire Batch"]:::fund
-    E --> F["Funded"]:::fund
+    A["1. Import"]:::step
+    B["2. Submit"]:::step
+    C["3. Review"]:::step
+    D["4. Stage"]:::step
+    E["5. Fund"]:::step
+    F["6. Track"]:::step
+
+    A --> B --> C --> D --> E --> F
+    F -.->|"Next draw cycle"| B
 ```
-
-- **Intelligent Matching** — Fuzzy matching of draw categories to budgets with manual override dropdowns
-- **Wire Batch System** — Group draws by builder for single wire transfers with funding reports
-- **Invoice Processing** — Drag-drop upload, AI extraction, thumbnail gallery, split-view PDF preview
-- **Automated Validation** — Flag over-budget requests, duplicate invoices, missing docs, low-confidence matches
-- **Unstage Capability** — Reverse staging decisions before funding when needed
-
-### Financial Precision
-
-Accurate calculations matching your existing formulas.
-
-- **Compound Interest Amortization** — Draw-by-draw interest calculation with automatic fee tracking
-- **Interactive Payoff Calculator** — Real-time statements with what-if scenarios and per diem rates
-- **Title Company Reports** — Professional payoff letters with credits management and good-through dates
-- **Fee Escalation Tracking** — Flexible fee schedules by project or lender
-- **Three Report Types** — Budget (Sankey flow, utilization), Amortization (balance growth, timeline), Payoff (projection, what-if)
-- **Anomaly Detection** — Automated flagging of spending spikes and budget variances
-
-### Compliance Built-In
-
-Audit-ready from day one.
-
-- **Complete Audit Trail** — Every action logged with timestamps and user attribution
-- **Immutable Records** — Historical data cannot be altered, only appended
-- **Wire References** — Funding dates and reference numbers tracked per batch
-- **Document Storage** — Categorized document upload with duplicate detection
-- **Approval Tracking** — Full history of who approved what and when
 
 ---
 
-## System Architecture
+## What TD3 Covers
 
-Users interact with a clean web interface, AI handles tedious processing, and everything lands in a structured database.
-
-```mermaid
-flowchart TB
-    classDef ui fill:#3b82f6,color:#fff,stroke:#2563eb
-    classDef ai fill:#8b5cf6,color:#fff,stroke:#7c3aed
-    classDef db fill:#10b981,color:#fff,stroke:#059669
-
-    subgraph ui ["Web Application"]
-        Dashboard["Dashboards & Filtering"]
-        Upload["Import & Upload"]
-        Reports["Reports & Analytics"]
-    end
-
-    subgraph ai ["AI Processing"]
-        Categorize["Budget Categorization"]
-        Extract["Invoice Extraction"]
-        Match["Draw Matching"]
-        Validate["Validation & Flags"]
-    end
-
-    subgraph db ["Secure Database"]
-        Projects[("Projects & Loans")]
-        Budgets[("Budgets & Draws")]
-        Wire[("Wire Batches")]
-        Audit[("Audit Trail")]
-    end
-
-    ui:::ui --> ai:::ai
-    ai:::ai --> db:::db
-    db:::db --> ui:::ui
-```
-
-**Why this structure matters:**
-- User actions flow through a consistent interface—no direct database access, no spreadsheet chaos
-- AI processing is isolated and auditable—you can see what it did and correct it if needed
-- The database preserves everything—history, relationships, audit trail—automatically
+| Area | What It Does | Details |
+|------|-------------|---------|
+| Portfolio Visibility | Dual dashboards, smart filtering, risk indicators, builder timelines | [Architecture: System Overview](docs/ARCHITECTURE.md#system-architecture) |
+| Loan Lifecycle | Origination through payoff with stage-specific views and metrics | [Architecture: Loan Lifecycle](docs/ARCHITECTURE.md#loan-lifecycle-management) |
+| Budget Intelligence | AI categorization to NAHB codes, inline editing, import protection | [Architecture: Budget Intelligence](docs/ARCHITECTURE.md#budget-intelligence) |
+| Draw Processing | Multi-stage workflow with fuzzy matching and automated validation | [Architecture: Draw Workflow](docs/ARCHITECTURE.md#draw-processing-workflow) |
+| Wire Batches | Consolidated builder payments with funding reports and audit trail | [Architecture: Wire Batches](docs/ARCHITECTURE.md#wire-batch-funding) |
+| Invoice Matching | AI extraction, deterministic scoring, and a learning feedback loop | [Architecture: Invoice Matching](docs/ARCHITECTURE.md#invoice-matching) |
+| Financial Calculations | Compound interest, fee escalation, IRR, payoff projections | [Architecture: AI Integration](docs/ARCHITECTURE.md#ai-integration) |
+| Compliance & Audit | Immutable records, timestamped actions, document verification | [Architecture: Security Model](docs/ARCHITECTURE.md#security-model) |
 
 ---
 
-## Security and Compliance
+## Security & Compliance
 
-- **Complete Audit Trail** — Every action logged with timestamps and user attribution
-- **Role-Based Access** — Configurable permissions and approval workflows
-- **Data Integrity** — Immutable audit records prevent tampering
-- **Enterprise Database** — PostgreSQL with row-level security capabilities
-- **Document Verification** — Duplicate detection prevents accidental double-processing
-- **Compliant Infrastructure** — Built on SOC 2 certified hosting
+TD3 uses passwordless authentication with a pre-authorized access list, so only approved team members can sign in---no passwords to manage or compromise. Four stackable permissions control exactly what each user can do, enforced at the database level through row-level security. Every action is recorded in an immutable audit trail with timestamps and user attribution. For the full security model, see [Architecture: Security Model](docs/ARCHITECTURE.md#security-model).
+
+---
+
+## What's Next
+
+The platform is live and operational. Upcoming work focuses on reducing manual handoffs that still happen outside TD3---electronic signature integration for loan documents, interactive notification cards for approvals and funding requests, and dedicated portals so builders and lenders can access their own data directly. See the [Development Roadmap](docs/ROADMAP.md) for the full timeline and feature details.
 
 ---
 
@@ -261,10 +148,10 @@ flowchart TB
 
 ## About
 
-**Tennant Developments** — Real estate development and construction finance, based in Central Oregon.
+**Tennant Developments** --- Real estate development and construction finance, based in Central Oregon.
 
 For questions, demos, or feedback, contact **Grayson Graham**.
 
 ---
 
-*© 2024-2026 Tennant Developments. Proprietary software — all rights reserved.*
+*© 2024-2026 Tennant Developments. Proprietary software --- all rights reserved.*
