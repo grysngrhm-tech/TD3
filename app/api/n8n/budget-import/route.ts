@@ -1,26 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 
-const N8N_BASE_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'https://n8n.srv1208741.hstgr.cloud/webhook'
-const BUDGET_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_BUDGET_WEBHOOK || `${N8N_BASE_URL}/budget-import`
-
 /**
  * Proxy n8n budget import webhook calls to avoid CORS issues.
  * Client calls this API route, which then calls n8n server-to-server.
  */
 export async function POST(request: NextRequest) {
   try {
+    const N8N_BASE_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL
+    if (!N8N_BASE_URL) throw new Error('NEXT_PUBLIC_N8N_WEBHOOK_URL environment variable is required')
+    const BUDGET_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_BUDGET_WEBHOOK || `${N8N_BASE_URL}/budget-import`
+
     const [, authError] = await requireAuth()
     if (authError) return authError
 
     const payload = await request.json()
-
-    if (!BUDGET_WEBHOOK_URL) {
-      return NextResponse.json(
-        { error: 'Budget webhook URL not configured' },
-        { status: 500 }
-      )
-    }
 
     console.log('[API] Budget import: sending', payload.lineItems?.length || 0, 'categories to n8n')
 

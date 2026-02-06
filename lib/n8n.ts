@@ -22,8 +22,11 @@
  */
 
 // Base URL should be the n8n "webhook" base, e.g. https://<host>/webhook
-// Prefer env var, but default to the repo's documented self-hosted instance.
-const N8N_BASE_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'https://n8n.srv1208741.hstgr.cloud/webhook'
+function getN8nBaseUrl(): string {
+  const url = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL
+  if (!url) throw new Error('NEXT_PUBLIC_N8N_WEBHOOK_URL environment variable is required')
+  return url
+}
 
 export type BudgetImportPayload = {
   projectCode: string
@@ -118,7 +121,7 @@ type InvoiceProcessPayloadWithSecret = InvoiceProcessPayload & {
 
 export async function triggerBudgetImport(payload: BudgetImportPayload): Promise<{ success: boolean; message: string; projectId?: string }> {
   try {
-    const response = await fetch(`${N8N_BASE_URL}/td3-budget-import`, {
+    const response = await fetch(`${getN8nBaseUrl()}/td3-budget-import`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -142,7 +145,7 @@ export async function triggerBudgetImport(payload: BudgetImportPayload): Promise
 
 export async function triggerDrawImport(payload: DrawImportPayload): Promise<{ success: boolean; message: string; drawId?: string }> {
   try {
-    const response = await fetch(`${N8N_BASE_URL}/td3-draw-import`, {
+    const response = await fetch(`${getN8nBaseUrl()}/td3-draw-import`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -172,7 +175,7 @@ export async function triggerInvoiceProcess(payload: InvoiceProcessPayload): Pro
       webhookSecret: process.env.N8N_CALLBACK_SECRET || undefined,
     }
 
-    const response = await fetch(`${N8N_BASE_URL}/td3-invoice-process`, {
+    const response = await fetch(`${getN8nBaseUrl()}/td3-invoice-process`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -248,7 +251,7 @@ export async function triggerInvoiceDisambiguation(
   payload: InvoiceDisambiguatePayload
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const response = await fetch(`${N8N_BASE_URL}/td3-invoice-disambiguate`, {
+    const response = await fetch(`${getN8nBaseUrl()}/td3-invoice-disambiguate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

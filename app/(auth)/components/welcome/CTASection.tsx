@@ -147,22 +147,17 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
               {/* Learn More Column */}
               <div>
                 <h4 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                  Documentation
+                  Learn More
                 </h4>
                 <p className="text-xs leading-relaxed mb-2" style={{ color: 'var(--text-muted)' }}>
-                  Learn more about TD3's workflow, structure, and technical foundations.
+                  Explore how TD3 streamlines construction loan management — from budget import to draw funding.
                 </p>
                 <a
-                  href="https://github.com/grysngrhm-tech/TD3#readme"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="https://td3.tennantdevelopments.com"
                   className="inline-flex items-center gap-1 text-xs font-medium hover:underline"
                   style={{ color: 'var(--accent)' }}
                 >
-                  View on GitHub
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
+                  td3.tennantdevelopments.com
                 </a>
               </div>
             </div>
