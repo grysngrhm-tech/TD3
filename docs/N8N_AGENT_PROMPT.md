@@ -1,3 +1,5 @@
+> **Note:** This document is a historical reference from the initial n8n setup. The n8n instance URL and webhook paths are current, but some implementation details may have evolved. See `n8n/workflows/README.md` and `CLAUDE.md` for the latest architecture.
+
 # n8n Workflow Building Task
 
 ## Overview
@@ -133,8 +135,8 @@ return outputItems;
 # .env.local (and Vercel)
 NEXT_PUBLIC_SUPABASE_URL=https://uewqcbmaiuofdfvqmbmq.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-NEXT_PUBLIC_N8N_BUDGET_WEBHOOK=https://grysngrhm.app.n8n.cloud/webhook/budget-import
-NEXT_PUBLIC_N8N_DRAW_WEBHOOK=https://grysngrhm.app.n8n.cloud/webhook/draw-import
+NEXT_PUBLIC_N8N_BUDGET_WEBHOOK=https://n8n.srv1208741.hstgr.cloud/webhook/budget-import
+NEXT_PUBLIC_N8N_DRAW_WEBHOOK=https://n8n.srv1208741.hstgr.cloud/webhook/draw-import
 ```
 
 ---
@@ -678,8 +680,8 @@ It matches invoice line items to budget categories using:
 ### Webhook Setup
 
 After building, the webapp will call these URLs:
-- Budget: `https://grysngrhm.app.n8n.cloud/webhook/budget-import`
-- Draw: `https://grysngrhm.app.n8n.cloud/webhook/draw-import`
+- Budget: `https://n8n.srv1208741.hstgr.cloud/webhook/budget-import`
+- Draw: `https://n8n.srv1208741.hstgr.cloud/webhook/draw-import`
 
 Set these paths in the Webhook trigger nodes.
 
@@ -878,12 +880,12 @@ Use this exact taxonomy in the classification prompt. Each category includes an 
 Test with curl commands from `n8n/workflows/README.md`:
 ```bash
 # Budget
-curl -X POST https://grysngrhm.app.n8n.cloud/webhook/budget-import \
+curl -X POST https://n8n.srv1208741.hstgr.cloud/webhook/budget-import \
   -H "Content-Type: application/json" \
   -d '{"type":"budget","projectId":"test-id","columns":{...}}'
 
 # Draw (with invoices)
-curl -X POST https://grysngrhm.app.n8n.cloud/webhook/draw-import \
+curl -X POST https://n8n.srv1208741.hstgr.cloud/webhook/draw-import \
   -H "Content-Type: application/json" \
   -d '{
     "type":"draw",

@@ -1,12 +1,14 @@
 # TD3 Project Context
 
 ## Overview
-TD3 is a construction loan management system built for Tennant Development. It replaces scattered spreadsheets with a unified platform for tracking loans, budgets, draws, and wire transfers throughout the construction lending lifecycle.
+TD3 is a construction loan management system built for Tennant Developments. It replaces scattered spreadsheets with a unified platform for tracking loans, budgets, draws, and wire transfers throughout the construction lending lifecycle.
 
 ## Tech Stack
 - **Frontend**: Next.js 14 (App Router), React 18, Tailwind CSS, Framer Motion
+- **Animations**: GSAP 3.14 + ScrollTrigger (scroll-driven welcome page animations)
 - **Database**: Supabase (PostgreSQL) - Project ID: uewqcbmaiuofdfvqmbmq
 - **Auth**: Supabase Auth (OTP code verification) + RLS
+- **Server Auth**: @supabase/ssr (cookie-based session management in middleware & API routes)
 - **Email**: Resend (SMTP for auth emails via Supabase)
 - **AI Workflows**: n8n (self-hosted at https://n8n.srv1208741.hstgr.cloud)
 - **Charts**: Nivo (Sankey, Bar, Line, Pie)
@@ -16,7 +18,7 @@ TD3 is a construction loan management system built for Tennant Development. It r
 
 ## Key Directories
 - `app/` - Next.js App Router pages and components
-  - `app/(auth)/` - Auth route group (login page with centered layout)
+  - `app/(auth)/` - Auth route group (login page, welcome page with GSAP scroll animations)
   - `app/account/` - Account settings page (profile, preferences, activity tabs)
   - `app/admin/` - Admin pages (user management)
   - `app/auth/callback/` - Auth callback page for PKCE code exchange (legacy support)
@@ -45,18 +47,24 @@ TD3 is a construction loan management system built for Tennant Development. It r
   - `invoiceLearning.ts` - Match correction learning and training data
   - `n8n.ts` - n8n webhook integration and payload types
   - `activity.ts` - User activity logging (fire-and-forget pattern)
+  - `api-auth.ts` - Shared auth helpers (requireAuth, requirePermission, verifyWebhookSecret)
   - `preferences.ts` - User preferences load/save
   - `deviceInfo.ts` - User agent parsing for device/browser/OS
+  - `escapeHtml.ts` - HTML escaping utility for XSS prevention
+  - `supabase-server.ts` - Server-side Supabase admin client
 - `types/` - TypeScript type definitions (`database.ts`)
 - `supabase/` - Database migrations and schema
   - `001_schema.sql` - Core tables (projects, budgets, draws, etc.)
   - `002_seed.sql` - NAHB categories and reference data
+  - `003_invoice_matching.sql` - Invoice matching tables (invoices, match decisions, training data)
   - `004_auth.sql` - Authentication tables, RLS policies, and helper functions
   - `005_user_preferences.sql` - User preferences JSONB column on profiles
   - `006_user_activity.sql` - User activity tracking table with RLS
 - `n8n/workflows/` - n8n workflow documentation
 - `n8n-workflows/` - n8n workflow JSON exports
 - `docs/` - Documentation (ARCHITECTURE.md, AUTH.md, DESIGN_LANGUAGE.md, ROADMAP.md)
+- `.mcp.json` - Project-level MCP config (Supabase, n8n, shadcn servers)
+- `WORKFLOW_TIMING_PLAN.md` - Scroll animation timing/pacing enhancement plan
 
 ## Database Schema (Key Tables)
 
@@ -236,7 +244,7 @@ In Supabase Dashboard → Authentication → URL Configuration:
 
 In Supabase Dashboard → Authentication → Providers → Email:
 - Enable Email provider: ON
-- Confirm email: OFF (magic links handle verification)
+- Confirm email: OFF (OTP codes handle verification)
 
 **Step 3b: Configure Custom SMTP (Resend)**
 
@@ -353,7 +361,12 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIs...  # For server-side operations
 
 # n8n Integration
 NEXT_PUBLIC_N8N_WEBHOOK_URL=https://n8n.srv1208741.hstgr.cloud/webhook
+NEXT_PUBLIC_N8N_BUDGET_WEBHOOK=https://n8n.srv1208741.hstgr.cloud/webhook/budget-import  # Budget import webhook
+NEXT_PUBLIC_N8N_DRAW_WEBHOOK=https://n8n.srv1208741.hstgr.cloud/webhook/td3-draw-process  # Draw processing webhook
 N8N_CALLBACK_SECRET=your-shared-secret  # Must match n8n's TD3_WEBHOOK_SECRET
+
+# AI
+OPENAI_API_KEY=your-openai-api-key  # Used by n8n for AI extraction and invoice AI selection
 
 # Optional
 NEXT_PUBLIC_APP_URL=https://td3.tennantdevelopments.com  # For callback URLs
