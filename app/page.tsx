@@ -13,7 +13,7 @@ import { useNavigation } from '@/app/context/NavigationContext'
 import { useAuth } from '@/app/context/AuthContext'
 import { PermissionGate } from '@/app/components/auth/PermissionGate'
 import { calculateLoanIncome, calculateIRR } from '@/lib/calculations'
-import type { LifecycleStage, Builder, Lender, DrawRequest, Project } from '@/types/database'
+import type { LifecycleStage, Builder, Lender, DrawRequest, Project } from '@/types/custom'
 
 type ProjectWithBudget = {
   id: string

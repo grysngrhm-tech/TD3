@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import type { LifecycleStage } from '@/types/database'
+import type { LifecycleStage } from '@/types/custom'
 
 type StageSelectorProps = {
   value: LifecycleStage

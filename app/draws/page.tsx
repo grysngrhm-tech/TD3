@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useNavigation } from '@/app/context/NavigationContext'
-import { DrawRequest } from '@/types/database'
+import { DrawRequest } from '@/types/custom'
 
 type DrawWithProject = DrawRequest & { project_name?: string }
 

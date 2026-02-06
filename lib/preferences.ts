@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
-import type { UserPreferences } from '@/types/database'
-import { DEFAULT_PREFERENCES } from '@/types/database'
+import type { UserPreferences } from '@/types/custom'
+import { DEFAULT_PREFERENCES } from '@/types/custom'
 
 /**
  * Load preferences from database (with defaults for missing keys)

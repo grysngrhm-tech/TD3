@@ -5,8 +5,8 @@ import { useAuth } from '@/app/context/AuthContext'
 import { useTheme } from '@/app/hooks/useTheme'
 import { loadPreferences, savePreferences, setLocalPreferences } from '@/lib/preferences'
 import { toast } from '@/app/components/ui/Toast'
-import type { UserPreferences, Theme, FontSize, DefaultDashboard } from '@/types/database'
-import { DEFAULT_PREFERENCES } from '@/types/database'
+import type { UserPreferences, Theme, FontSize, DefaultDashboard } from '@/types/custom'
+import { DEFAULT_PREFERENCES } from '@/types/custom'
 
 const THEME_OPTIONS: { value: Theme; label: string; icon: React.ReactNode }[] = [
   {

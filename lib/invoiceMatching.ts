@@ -16,12 +16,12 @@ import type {
   VendorCategoryAssociation,
   MATCHING_THRESHOLDS,
   MATCHING_WEIGHTS,
-} from '@/types/database'
+} from '@/types/custom'
 import { supabase as defaultSupabase } from '@/lib/supabase'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 // Re-export thresholds and weights for external use
-export { MATCHING_THRESHOLDS, MATCHING_WEIGHTS } from '@/types/database'
+export { MATCHING_THRESHOLDS, MATCHING_WEIGHTS } from '@/types/custom'
 
 // ============================================
 // STRING MATCHING UTILITIES

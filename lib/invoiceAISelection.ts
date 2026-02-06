@@ -14,7 +14,7 @@ import type {
   MatchCandidate,
   AISelectionRequest,
   AISelectionResponse,
-} from '@/types/database'
+} from '@/types/custom'
 
 // Initialize OpenAI client
 const openai = new OpenAI({

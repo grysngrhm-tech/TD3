@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logAuditEvent } from '@/lib/audit'
-import { DOCUMENT_TYPES, DocumentType, Document } from '@/types/database'
+import { DOCUMENT_TYPES, DocumentType, Document } from '@/types/custom'
 import { toast } from '@/app/components/ui/Toast'
 
 type DocumentUploadSectionProps = {

@@ -14,7 +14,7 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { normalizeVendorName } from './invoiceMatching'
-import type { ExtractedInvoiceData } from '@/types/database'
+import type { ExtractedInvoiceData } from '@/types/custom'
 
 // Lazy-initialize Supabase admin client to avoid runtime errors when imported from client components
 let _supabaseAdmin: SupabaseClient | null = null

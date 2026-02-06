@@ -2,7 +2,7 @@
  * Financial calculations for loan income and IRR
  */
 
-import type { DrawRequest, Project } from '@/types/database'
+import type { DrawRequest, Project } from '@/types/custom'
 import { 
   calculateFeeRateAtMonth, 
   getMonthNumber, 

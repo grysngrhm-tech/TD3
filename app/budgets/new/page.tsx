@@ -8,7 +8,7 @@ import { useNavigation } from '@/app/context/NavigationContext'
 import { useAuth } from '@/app/context/AuthContext'
 import { useHasPermission } from '@/app/components/auth/PermissionGate'
 import { toast } from '@/app/components/ui/Toast'
-import { Project, BudgetInsert } from '@/types/database'
+import { Project, BudgetInsert } from '@/types/custom'
 
 type BudgetLine = {
   category: string

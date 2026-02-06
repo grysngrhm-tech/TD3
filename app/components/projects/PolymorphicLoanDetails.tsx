@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { Project, Budget, DrawRequest } from '@/types/database'
+import type { Project, Budget, DrawRequest } from '@/types/custom'
 import type { ReportType } from '@/app/components/ui/ReportToggle'
 import type { Anomaly } from '@/lib/anomalyDetection'
 import {

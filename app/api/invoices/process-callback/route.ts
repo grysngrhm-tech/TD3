@@ -14,7 +14,7 @@ import type {
   Budget,
   DrawRequestLine,
   Json,
-} from '@/types/database'
+} from '@/types/custom'
 
 /**
  * Invoice Process Callback API

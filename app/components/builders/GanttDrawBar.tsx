@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { DrawRequest, Project } from '@/types/database'
+import type { DrawRequest, Project } from '@/types/custom'
 
 type GanttDrawBarProps = {
   draw: DrawRequest

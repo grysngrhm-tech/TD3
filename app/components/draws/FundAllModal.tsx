@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { Builder, DrawRequest, Project } from '@/types/database'
+import type { Builder, DrawRequest, Project } from '@/types/custom'
 import { useHasPermission } from '@/app/components/auth/PermissionGate'
 
 type DrawWithProject = DrawRequest & {

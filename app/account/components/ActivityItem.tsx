@@ -2,8 +2,8 @@
 
 import Link from 'next/link'
 import { formatRelativeTime, getActionColor } from '@/lib/activity'
-import type { UserActivity, UserActivityWithUser } from '@/types/database'
-import { ACTION_TYPE_LABELS, ENTITY_TYPE_LABELS } from '@/types/database'
+import type { UserActivity, UserActivityWithUser } from '@/types/custom'
+import { ACTION_TYPE_LABELS, ENTITY_TYPE_LABELS } from '@/types/custom'
 
 // Icons for different action types
 const ActionIcons: Record<string, React.ReactNode> = {

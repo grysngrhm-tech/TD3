@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { AuditEvent } from '@/types/database'
+import type { AuditEvent } from '@/types/custom'
 import { getAuditHistory, formatAuditAction, formatEntityType } from '@/lib/audit'
 
 interface AuditTimelineProps {

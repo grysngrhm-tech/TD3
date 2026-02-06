@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import type { LifecycleStage } from '@/types/database'
+import type { LifecycleStage } from '@/types/custom'
 
 type ProjectStats = {
   id: string

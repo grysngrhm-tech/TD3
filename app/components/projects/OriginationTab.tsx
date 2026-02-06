@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Project, Budget, LifecycleStage, Builder, Lender } from '@/types/database'
+import type { Project, Budget, LifecycleStage, Builder, Lender } from '@/types/custom'
 import { ImportPreview, type BudgetImportResult } from '@/app/components/import/ImportPreview'
 import { DocumentUploadSection } from './DocumentUploadSection'
 import { BudgetEditor } from './BudgetEditor'

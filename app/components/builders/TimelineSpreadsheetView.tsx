@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import type { Project, DrawRequest, Lender } from '@/types/database'
+import type { Project, DrawRequest, Lender } from '@/types/custom'
 import type { ProjectWithDraws, DrawWithProject } from './BuilderTimeline'
 
 type LenderGroup = {

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { Project, DrawRequest, Lender } from '@/types/database'
+import type { Project, DrawRequest, Lender } from '@/types/custom'
 import { TimelineProjectRow } from './TimelineProjectRow'
 import { GanttDrawBar } from './GanttDrawBar'
 import type { ProjectWithDraws, DrawWithProject } from './BuilderTimeline'

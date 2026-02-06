@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/app/components/ui/Toast'
-import type { Builder, BuilderInsert } from '@/types/database'
+import type { Builder, BuilderInsert } from '@/types/custom'
 
 type FormData = {
   company_name: string

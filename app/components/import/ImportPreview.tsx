@@ -17,7 +17,7 @@ import {
 } from '@/lib/spreadsheet'
 import type { SpreadsheetData, ColumnMapping, WorkbookInfo, Invoice, RowRange, RowRangeWithAnalysis, RowAnalysis } from '@/lib/spreadsheet'
 import { supabase } from '@/lib/supabase'
-import type { Budget, DrawRequest, DrawRequestLine } from '@/types/database'
+import type { Budget, DrawRequest, DrawRequestLine } from '@/types/custom'
 
 type Builder = {
   id: string

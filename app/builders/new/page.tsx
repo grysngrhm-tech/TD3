@@ -7,7 +7,7 @@ import { useNavigation } from '@/app/context/NavigationContext'
 import { useAuth } from '@/app/context/AuthContext'
 import { useHasPermission } from '@/app/components/auth/PermissionGate'
 import { toast } from '@/app/components/ui/Toast'
-import type { Builder } from '@/types/database'
+import type { Builder } from '@/types/custom'
 
 export default function NewBuilderPage() {
   const router = useRouter()

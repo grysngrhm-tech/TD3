@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ProjectTile } from '@/app/components/ui/ProjectTile'
 import { StageSelector } from '@/app/components/ui/StageSelector'
 import { StageStatsBar } from '@/app/components/ui/StageStatsBar'
-import type { LifecycleStage, Builder } from '@/types/database'
+import type { LifecycleStage, Builder } from '@/types/custom'
 
 type ProjectWithBudget = {
   id: string

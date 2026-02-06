@@ -1,6 +1,6 @@
 'use client'
 
-import type { ValidationResult } from '@/types/database'
+import type { ValidationResult } from '@/types/custom'
 
 interface ValidationAlertsProps {
   validation: ValidationResult
