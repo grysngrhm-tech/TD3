@@ -958,6 +958,7 @@ body {
    Always dark regardless of user theme preference.
    ============================================================================= */
 .welcome-dark {
+  /* Welcome-specific tokens */
   --welcome-bg: #0a0a0a;
   --welcome-surface: rgba(255, 255, 255, 0.05);
   --welcome-surface-hover: rgba(255, 255, 255, 0.08);
@@ -968,6 +969,35 @@ body {
   --welcome-text-secondary: rgba(255, 255, 255, 0.7);
   --welcome-text-muted: rgba(255, 255, 255, 0.4);
   --welcome-accent: #950606;
+
+  /* Override standard app theme variables to force dark mode.
+     The <html> starts with class "light", so nested components like
+     LoginForm would otherwise render with white backgrounds. */
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #1C1C20;
+  --bg-tertiary: #232328;
+  --bg-card: #1E1E23;
+  --bg-card-transparent: rgba(30, 30, 35, 0.85);
+  --bg-hover: #2D2D33;
+  --bg-active: #3A3A40;
+  --border: #3F3F46;
+  --border-subtle: #27272A;
+  --border-secondary: #27272A;
+  --text-primary: #FAFAFA;
+  --text-secondary: #A1A1AA;
+  --text-muted: #71717A;
+  --text-disabled: #52525B;
+  --text-inverse: #151518;
+  --accent: #950606;
+  --accent-hover: #B00808;
+  --accent-glow: rgba(149, 6, 6, 0.35);
+  --accent-muted: rgba(149, 6, 6, 0.20);
+  --error: #DC2626;
+  --error-hover: #EF4444;
+  --error-muted: rgba(220, 38, 38, 0.15);
+  --elevation-1: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --elevation-2: 0 4px 8px rgba(0, 0, 0, 0.4);
+  --elevation-3: 0 8px 16px rgba(0, 0, 0, 0.4);
 }
 
 /* Glass card interactions — scoped to welcome-dark */
