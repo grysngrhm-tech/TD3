@@ -951,3 +951,50 @@ body {
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
 }
+
+/* =============================================================================
+   WELCOME PAGE - DARK PREMIUM THEME
+   Scoped to .welcome-dark so it doesn't affect the rest of the app.
+   Always dark regardless of user theme preference.
+   ============================================================================= */
+.welcome-dark {
+  --welcome-bg: #0a0a0a;
+  --welcome-surface: rgba(255, 255, 255, 0.05);
+  --welcome-surface-hover: rgba(255, 255, 255, 0.08);
+  --welcome-border: rgba(149, 6, 6, 0.2);
+  --welcome-border-hover: rgba(149, 6, 6, 0.4);
+  --welcome-glow: 0 0 30px rgba(149, 6, 6, 0.3);
+  --welcome-text: #ffffff;
+  --welcome-text-secondary: rgba(255, 255, 255, 0.7);
+  --welcome-text-muted: rgba(255, 255, 255, 0.4);
+  --welcome-accent: #950606;
+}
+
+/* Glass card interactions — scoped to welcome-dark */
+.welcome-dark .glass-card-hover {
+  cursor: default;
+}
+
+.welcome-dark .glass-card-hover:hover {
+  background: var(--welcome-surface-hover);
+  border-color: rgba(149, 6, 6, 0.3);
+  transform: scale(1.02);
+}
+
+.welcome-dark .glass-card-glow {
+  box-shadow: var(--welcome-glow);
+}
+
+.welcome-dark .glass-card-glow:hover {
+  box-shadow: 0 0 40px rgba(149, 6, 6, 0.4);
+}
+
+/* Logo pulse glow animation */
+.welcome-dark .logo-pulse {
+  animation: logoPulse 3s ease-in-out infinite;
+}
+
+@keyframes logoPulse {
+  0%, 100% { box-shadow: 0 0 32px rgba(149, 6, 6, 0.3); }
+  50% { box-shadow: 0 0 48px rgba(149, 6, 6, 0.5); }
+}
