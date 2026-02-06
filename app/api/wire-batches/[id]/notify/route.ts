@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { supabaseAdmin } from '@/lib/supabase-server'
+import { requirePermission } from '@/lib/api-auth'
 
 const N8N_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'https://n8n.srv1208741.hstgr.cloud/webhook'
 
@@ -14,6 +10,9 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    const [, authError] = await requirePermission('processor')
+    if (authError) return authError
+
     const batchId = params.id
 
     // Fetch wire batch with all related data

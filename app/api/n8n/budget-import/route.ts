@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/api-auth'
 
 const N8N_BASE_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'https://n8n.srv1208741.hstgr.cloud/webhook'
 const BUDGET_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_BUDGET_WEBHOOK || `${N8N_BASE_URL}/budget-import`
@@ -9,6 +10,9 @@ const BUDGET_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_BUDGET_WEBHOOK || `${N8N_
  */
 export async function POST(request: NextRequest) {
   try {
+    const [, authError] = await requireAuth()
+    if (authError) return authError
+
     const payload = await request.json()
 
     if (!BUDGET_WEBHOOK_URL) {

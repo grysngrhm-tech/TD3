@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-// Use service role for webhooks
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { supabaseAdmin } from '@/lib/supabase-server'
+import { verifyWebhookSecret } from '@/lib/api-auth'
 
 export async function POST(request: NextRequest) {
   try {
+    const [, authError] = verifyWebhookSecret(request)
+    if (authError) return authError
+
     const contentType = request.headers.get('content-type') || ''
     
     // Handle multipart form data (file upload from n8n)

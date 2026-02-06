@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/api-auth'
 
 const N8N_BASE_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'https://n8n.srv1208741.hstgr.cloud/webhook'
 const DRAW_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_DRAW_WEBHOOK || `${N8N_BASE_URL}/td3-draw-process`
@@ -9,6 +10,9 @@ const DRAW_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_DRAW_WEBHOOK || `${N8N_BASE
  */
 export async function POST(request: NextRequest) {
   try {
+    const [, authError] = await requireAuth()
+    if (authError) return authError
+
     const payload = await request.json()
 
     if (!DRAW_WEBHOOK_URL) {
