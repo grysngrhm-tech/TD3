@@ -22,6 +22,7 @@ import {
   getUrgencyColor,
   generateFeeSchedule,
 } from '@/lib/loanTerms'
+import { formatCurrencyWhole as formatCurrency, formatCurrency as formatCurrencyPrecise, formatRate, formatDate } from '@/lib/formatters'
 
 type DrawLineWithDate = {
   amount: number
@@ -45,41 +46,6 @@ type PolymorphicLoanDetailsProps = {
   onWhatIfDateChange?: (date: string) => void
   customFeeStartDate?: string | null
   onCustomFeeStartDateChange?: (date: string | null) => void
-}
-
-const formatCurrency = (amount: number | null) => {
-  if (amount === null || amount === undefined) return '—'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
-
-const formatCurrencyPrecise = (amount: number | null) => {
-  if (amount === null || amount === undefined) return '—'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount)
-}
-
-const formatRate = (rate: number | null) => {
-  if (rate === null || rate === undefined) return '—'
-  return `${(rate * 100).toFixed(2)}%`
-}
-
-const formatDate = (date: Date | string | null) => {
-  if (!date) return '—'
-  const d = typeof date === 'string' ? new Date(date) : date
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
 }
 
 /**
@@ -299,17 +265,16 @@ export function PolymorphicLoanDetails({
         {/* Expand/Collapse Chevron */}
         <div className="flex items-center gap-2 pl-4">
           {hasAlerts && !isExpanded && (
-            <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: 'var(--warning)' }} />
+            <div className="w-2 h-2 rounded-full animate-pulse bg-warning" />
           )}
           <motion.div
             animate={{ rotate: isExpanded ? 180 : 0 }}
             transition={{ duration: 0.2 }}
-            className="p-2 rounded-lg"
-            style={{ background: 'var(--bg-hover)' }}
+            className="p-2 rounded-lg bg-background-hover"
           >
             <svg 
-              className="w-5 h-5" 
-              style={{ color: 'var(--text-muted)' }} 
+              className="w-5 h-5 text-text-muted" 
+               
               fill="none" 
               viewBox="0 0 24 24" 
               stroke="currentColor"
@@ -330,7 +295,7 @@ export function PolymorphicLoanDetails({
             transition={{ duration: 0.3, ease: 'easeInOut' }}
             className="overflow-hidden"
           >
-            <div className="pt-4 mt-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="pt-4 mt-4 border-t border-border-subtle">
               <AnimatePresence mode="wait">
                 {activeReport === 'budget' && (
                   <motion.div
@@ -461,35 +426,35 @@ function ExpandedBudgetView({ stats, anomalies }: { stats: any; anomalies: Anoma
       {(criticalAnomalies.length > 0 || warningAnomalies.length > 0) && (
         <div className="space-y-2">
           {criticalAnomalies.map((anomaly, i) => (
-            <div key={`critical-${i}`} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'var(--error-muted)' }}>
-              <div className="w-2 h-2 rounded-full" style={{ background: 'var(--error)' }} />
-              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{anomaly.message}</span>
+            <div key={`critical-${i}`} className="flex items-center gap-3 p-3 rounded-lg bg-error-muted">
+              <div className="w-2 h-2 rounded-full bg-error" />
+              <span className="text-sm text-text-primary">{anomaly.message}</span>
             </div>
           ))}
           {warningAnomalies.slice(0, 3).map((anomaly, i) => (
-            <div key={`warning-${i}`} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'var(--warning-muted)' }}>
-              <div className="w-2 h-2 rounded-full" style={{ background: 'var(--warning)' }} />
-              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{anomaly.message}</span>
+            <div key={`warning-${i}`} className="flex items-center gap-3 p-3 rounded-lg bg-warning-muted">
+              <div className="w-2 h-2 rounded-full bg-warning" />
+              <span className="text-sm text-text-primary">{anomaly.message}</span>
             </div>
           ))}
         </div>
       )}
       
       {/* Budget Velocity Indicator */}
-      <div className="p-4 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
+      <div className="p-4 rounded-lg bg-background-secondary">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Budget Utilization</span>
+          <span className="text-sm font-medium text-text-primary">Budget Utilization</span>
           <span className="text-sm" style={{ color: stats.percentComplete > 100 ? 'var(--error)' : 'var(--text-muted)' }}>
             {stats.percentComplete.toFixed(1)}%
           </span>
         </div>
-        <div className="relative h-3 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
-          <motion.div 
+        <div className="relative h-3 rounded-full overflow-hidden bg-background-hover">
+          <motion.div
             className="absolute inset-y-0 left-0 rounded-full"
-            style={{ 
-              background: stats.percentComplete > 100 
-                ? 'var(--error)' 
-                : stats.percentComplete > 80 
+            style={{
+              background: stats.percentComplete > 100
+                ? 'var(--error)'
+                : stats.percentComplete > 80
                   ? 'var(--warning)' 
                   : 'var(--accent)'
             }}
@@ -498,7 +463,7 @@ function ExpandedBudgetView({ stats, anomalies }: { stats: any; anomalies: Anoma
             transition={{ duration: 0.5 }}
           />
         </div>
-        <div className="flex justify-between mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+        <div className="flex justify-between mt-2 text-xs text-text-muted">
           <span>{formatCurrency(stats.totalSpent)} spent</span>
           <span>{formatCurrency(stats.remaining)} remaining</span>
         </div>
@@ -506,11 +471,11 @@ function ExpandedBudgetView({ stats, anomalies }: { stats: any; anomalies: Anoma
       
       {/* Over Budget Items */}
       {stats.overBudgetCount > 0 && (
-        <div className="p-3 rounded-lg flex items-center gap-3" style={{ background: 'var(--error-muted)' }}>
-          <svg className="w-5 h-5" style={{ color: 'var(--error)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="p-3 rounded-lg flex items-center gap-3 bg-error-muted">
+          <svg className="w-5 h-5 text-error"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
-          <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
+          <span className="text-sm text-text-primary">
             {stats.overBudgetCount} line item{stats.overBudgetCount !== 1 ? 's' : ''} over budget
           </span>
         </div>
@@ -571,16 +536,16 @@ function ExpandedAmortizationView({ stats, project }: { stats: any; project: Pro
       </div>
       
       {/* Days Outstanding Bar */}
-      <div className="p-4 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
+      <div className="p-4 rounded-lg bg-background-secondary">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Days Outstanding</div>
-            <div className="text-2xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>{stats.totalDays}</div>
+            <div className="text-sm font-medium text-text-primary">Days Outstanding</div>
+            <div className="text-2xl font-bold mt-1 text-text-primary">{stats.totalDays}</div>
           </div>
           <div className="text-right">
-            <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Loan Month</div>
-            <div className="text-lg font-semibold" style={{ color: 'var(--accent)' }}>#{stats.monthNumber}</div>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Fee: {formatRate(stats.currentFeeRate)}</div>
+            <div className="text-sm text-text-muted">Loan Month</div>
+            <div className="text-lg font-semibold text-accent">#{stats.monthNumber}</div>
+            <div className="text-xs text-text-muted">Fee: {formatRate(stats.currentFeeRate)}</div>
           </div>
         </div>
       </div>
@@ -631,19 +596,19 @@ function ExpandedPayoffView({
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Fee Clock Start</span>
+              <span className="text-sm font-medium text-text-primary">Fee Clock Start</span>
               {isAutoFeeStartDate && (
-                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--success-muted)', color: 'var(--success)' }}>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-success-muted text-success">
                   Auto
                 </span>
               )}
               {customFeeStartDate && (
-                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--warning-muted)', color: 'var(--warning)' }}>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-warning-muted text-warning">
                   Custom
                 </span>
               )}
             </div>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-xs mt-1 text-text-muted">
               Fee clock starts when first draw is funded
             </p>
           </div>
@@ -658,8 +623,7 @@ function ExpandedPayoffView({
             {customFeeStartDate && (
               <button
                 onClick={() => onCustomFeeStartDateChange?.(null)}
-                className="text-xs px-2 py-1 rounded"
-                style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}
+                className="text-xs px-2 py-1 rounded bg-background-secondary text-text-muted"
               >
                 Reset
               </button>
@@ -669,14 +633,14 @@ function ExpandedPayoffView({
       </div>
       
       {/* Fee Escalation Tracker */}
-      <div className="p-4 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
+      <div className="p-4 rounded-lg bg-background-secondary">
         <div className="flex justify-between text-sm mb-2">
-          <span style={{ color: 'var(--text-muted)' }}>Month {stats.monthNumber} of loan</span>
-          <span style={{ color: 'var(--text-primary)' }}>
+          <span className="text-text-muted">Month {stats.monthNumber} of loan</span>
+          <span className="text-text-primary">
             {stats.daysUntilFeeIncrease !== null ? `${stats.daysUntilFeeIncrease} days until fee increase` : 'N/A'}
           </span>
         </div>
-        <div className="relative h-3 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
+        <div className="relative h-3 rounded-full overflow-hidden bg-background-hover">
           <motion.div
             className="absolute inset-y-0 left-0 rounded-full"
             style={{ 
@@ -690,9 +654,9 @@ function ExpandedPayoffView({
           />
           <div className="absolute top-0 bottom-0 w-0.5" style={{ left: `${(12 / 18) * 100}%`, background: 'var(--error)' }} />
         </div>
-        <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+        <div className="flex justify-between text-xs mt-1 text-text-muted">
           <span>Month 1</span>
-          <span style={{ color: 'var(--error)' }}>Month 13</span>
+          <span className="text-error">Month 13</span>
           <span>Month 18</span>
         </div>
         
@@ -711,7 +675,7 @@ function ExpandedPayoffView({
                 border: entry.month === stats.monthNumber ? '1px solid var(--accent)' : '1px solid transparent',
               }}
             >
-              <div style={{ color: 'var(--text-muted)' }}>M{entry.month}</div>
+              <div className="text-text-muted">M{entry.month}</div>
               <div style={{ 
                 color: entry.isExtensionMonth 
                   ? 'var(--error)' 
@@ -728,13 +692,13 @@ function ExpandedPayoffView({
       </div>
       
       {/* Projection Slider */}
-      <div className="p-4 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
+      <div className="p-4 rounded-lg bg-background-secondary">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+          <span className="text-sm font-medium text-text-primary">
             Payoff in {projectionDays} days
           </span>
           {stats.projectedPayoff && (
-            <span className="text-sm font-semibold" style={{ color: 'var(--accent)' }}>
+            <span className="text-sm font-semibold text-accent">
               {formatCurrency(stats.projectedPayoff.totalPayoff)}
             </span>
           )}
@@ -748,38 +712,37 @@ function ExpandedPayoffView({
           className="w-full"
           style={{ accentColor: 'var(--accent)' }}
         />
-        <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+        <div className="flex justify-between text-xs mt-1 text-text-muted">
           <span>1 day</span>
           <span>90 days</span>
           <span>180 days</span>
         </div>
         {stats.projectedPayoff && interestImpact > 0 && (
-          <div className="mt-2 text-xs" style={{ color: 'var(--warning)' }}>
+          <div className="mt-2 text-xs text-warning">
             +{formatCurrencyPrecise(interestImpact)} additional interest
           </div>
         )}
       </div>
       
       {/* What-If Calculator */}
-      <div className="p-4 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
+      <div className="p-4 rounded-lg bg-background-secondary">
         <div className="flex items-center gap-4">
           <div className="flex-1">
-            <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
+            <label className="block text-sm mb-1 text-text-muted">
               What-if payoff date
             </label>
             <input
               type="date"
               value={whatIfDate}
               onChange={(e) => onWhatIfDateChange?.(e.target.value)}
-              className="input w-full text-sm"
-              style={{ background: 'var(--bg-card)' }}
+              className="input w-full text-sm bg-background-card"
               min={new Date().toISOString().split('T')[0]}
             />
           </div>
           {stats.whatIfPayoff && (
             <div className="text-right">
-              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Payoff Amount</div>
-              <div className="text-lg font-semibold" style={{ color: 'var(--success)' }}>
+              <div className="text-xs text-text-muted">Payoff Amount</div>
+              <div className="text-lg font-semibold text-success">
                 {formatCurrency(stats.whatIfPayoff.totalPayoff)}
               </div>
               <div className="text-xs" style={{ 
@@ -836,12 +799,12 @@ function StatCell({
 }) {
   return (
     <div>
-      <div className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
+      <div className="text-xs font-medium uppercase tracking-wider mb-1 text-text-muted">
         {label}
       </div>
       <div className="flex items-baseline gap-1">
         <span className="text-xl font-bold" style={{ color }}>{value}</span>
-        {subtitle && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{subtitle}</span>}
+        {subtitle && <span className="text-xs text-text-muted">{subtitle}</span>}
       </div>
       {badge && (
         <span className="inline-block text-xs px-1.5 py-0.5 rounded-full mt-1" style={{ background: `${color}20`, color }}>
@@ -866,15 +829,15 @@ function MetricCard({
   icon: React.ReactNode
 }) {
   return (
-    <div className="p-4 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
+    <div className="p-4 rounded-lg bg-background-hover">
       <div className="flex items-start justify-between">
         <div>
-          <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+          <div className="text-xs font-medium uppercase tracking-wider text-text-muted">
             {label}
           </div>
           <div className="text-xl font-bold mt-1" style={{ color }}>{value}</div>
           {subtitle && (
-            <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{subtitle}</div>
+            <div className="text-xs mt-0.5 text-text-muted">{subtitle}</div>
           )}
         </div>
         <div className="p-2 rounded-lg" style={{ background: `${color}15`, color }}>
@@ -895,7 +858,7 @@ function InsightBadge({ type, message }: { type: 'success' | 'warning' | 'error'
   return (
     <div className="flex items-center gap-2 p-2 rounded-lg" style={{ background: colors[type].bg }}>
       <div className="w-2 h-2 rounded-full" style={{ background: colors[type].text }} />
-      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{message}</span>
+      <span className="text-sm text-text-primary">{message}</span>
     </div>
   )
 }

@@ -206,61 +206,31 @@ export function formatRelativeTime(timestamp: string): string {
 }
 
 /**
+ * Unified action type configuration for icon and color.
+ */
+const ACTION_CONFIG: Record<string, { icon: string; color: string }> = {
+  login:     { icon: 'log-in',       color: 'var(--info)' },
+  created:   { icon: 'plus-circle',  color: 'var(--success)' },
+  updated:   { icon: 'edit',         color: 'var(--accent)' },
+  deleted:   { icon: 'trash-2',      color: 'var(--error)' },
+  funded:    { icon: 'dollar-sign',  color: 'var(--success)' },
+  approved:  { icon: 'check-circle', color: 'var(--success)' },
+  rejected:  { icon: 'x-circle',    color: 'var(--error)' },
+  staged:    { icon: 'layers',       color: 'var(--info)' },
+  submitted: { icon: 'send',         color: 'var(--warning)' },
+  exported:  { icon: 'download',     color: 'var(--text-muted)' },
+}
+
+/**
  * Get icon name based on action type
  */
 export function getActionIcon(actionType: ActivityActionType): string {
-  switch (actionType) {
-    case 'login':
-      return 'log-in'
-    case 'created':
-      return 'plus-circle'
-    case 'updated':
-      return 'edit'
-    case 'deleted':
-      return 'trash-2'
-    case 'funded':
-      return 'dollar-sign'
-    case 'approved':
-      return 'check-circle'
-    case 'rejected':
-      return 'x-circle'
-    case 'staged':
-      return 'layers'
-    case 'submitted':
-      return 'send'
-    case 'exported':
-      return 'download'
-    default:
-      return 'activity'
-  }
+  return ACTION_CONFIG[actionType]?.icon || 'activity'
 }
 
 /**
  * Get color class based on action type
  */
 export function getActionColor(actionType: ActivityActionType): string {
-  switch (actionType) {
-    case 'login':
-      return 'var(--info)'
-    case 'created':
-      return 'var(--success)'
-    case 'updated':
-      return 'var(--accent)'
-    case 'deleted':
-      return 'var(--error)'
-    case 'funded':
-      return 'var(--success)'
-    case 'approved':
-      return 'var(--success)'
-    case 'rejected':
-      return 'var(--error)'
-    case 'staged':
-      return 'var(--info)'
-    case 'submitted':
-      return 'var(--warning)'
-    case 'exported':
-      return 'var(--text-muted)'
-    default:
-      return 'var(--text-muted)'
-  }
+  return ACTION_CONFIG[actionType]?.color || 'var(--text-muted)'
 }

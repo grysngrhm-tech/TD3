@@ -12,6 +12,7 @@ import { AmortizationTable } from '@/app/components/projects/AmortizationTable'
 import { PayoffReport } from '@/app/components/projects/PayoffReport'
 import { PolymorphicLoanDetails } from '@/app/components/projects/PolymorphicLoanDetails'
 import { detectAnomalies, type Anomaly } from '@/lib/anomalyDetection'
+import { formatCurrencyWhole as formatCurrency, formatDate } from '@/lib/formatters'
 
 type DrawLineWithBudget = DrawRequestLine & {
   budget?: Budget | null
@@ -47,25 +48,6 @@ export function LoanStatusTab({
   const [projectionDays, setProjectionDays] = useState(30)
   const [whatIfDate, setWhatIfDate] = useState<string>('')
   const [customFeeStartDate, setCustomFeeStartDate] = useState<string | null>(null)
-
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null || amount === undefined) return '—'
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
-
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return '—'
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
-  }
 
   // Calculate loan metrics
   const loanAmount = project.loan_amount || 0
@@ -144,19 +126,19 @@ export function LoanStatusTab({
       <div className="card-ios">
         <div className="grid grid-cols-3 gap-6 mb-6">
           <div className="text-center">
-            <div className="text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Max Loan</div>
-            <div className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            <div className="text-sm mb-1 text-text-muted">Max Loan</div>
+            <div className="text-3xl font-bold text-text-primary">
               {formatCurrency(loanAmount)}
             </div>
           </div>
           <div className="text-center">
-            <div className="text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Drawn</div>
-            <div className="text-3xl font-bold" style={{ color: 'var(--accent)' }}>
+            <div className="text-sm mb-1 text-text-muted">Drawn</div>
+            <div className="text-3xl font-bold text-accent">
               {formatCurrency(totalDrawn)}
             </div>
           </div>
           <div className="text-center">
-            <div className="text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Remaining</div>
+            <div className="text-sm mb-1 text-text-muted">Remaining</div>
             <div className="text-3xl font-bold" style={{ color: remaining < 0 ? 'var(--error)' : 'var(--success)' }}>
               {formatCurrency(remaining)}
             </div>
@@ -164,16 +146,15 @@ export function LoanStatusTab({
         </div>
 
         {/* Progress Bar */}
-        <div className="relative h-4 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
-          <motion.div 
-            className="absolute inset-y-0 left-0 rounded-full"
-            style={{ background: 'var(--accent)' }}
+        <div className="relative h-4 rounded-full overflow-hidden bg-background-hover">
+          <motion.div
+            className="absolute inset-y-0 left-0 rounded-full bg-accent"
             initial={{ width: 0 }}
             animate={{ width: `${Math.min(percentDrawn, 100)}%` }}
             transition={{ duration: 0.8, ease: 'easeOut' }}
           />
         </div>
-        <div className="flex justify-between mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+        <div className="flex justify-between mt-2 text-sm text-text-muted">
           <span>{percentDrawn.toFixed(1)}% drawn</span>
           <span>{draws.length} draw{draws.length !== 1 ? 's' : ''}</span>
         </div>
@@ -181,8 +162,8 @@ export function LoanStatusTab({
 
       {/* Draws Section - Full Width */}
       <div className="card-ios p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-subtle)' }}>
-          <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Draws</h3>
+        <div className="px-4 py-3 border-b border-border-subtle flex justify-between items-center">
+          <h3 className="font-semibold text-text-primary">Draws</h3>
           {isActive && (
             <button
               onClick={() => router.push(`/draws/new?project=${project.id}`)}
@@ -199,14 +180,13 @@ export function LoanStatusTab({
         {draws.length === 0 ? (
           <div className="text-center py-12">
             <div 
-              className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center"
-              style={{ background: 'var(--bg-hover)' }}
+              className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center bg-background-hover"
             >
-              <svg className="w-6 h-6" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-6 h-6 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
-            <p className="mb-3" style={{ color: 'var(--text-muted)' }}>No draws yet</p>
+            <p className="mb-3 text-text-muted">No draws yet</p>
             {isActive && (
               <button
                 onClick={() => router.push(`/draws/new?project=${project.id}`)}
@@ -217,7 +197,7 @@ export function LoanStatusTab({
             )}
           </div>
         ) : (
-          <div className="divide-y max-h-[300px] overflow-y-auto" style={{ borderColor: 'var(--border-subtle)' }}>
+          <div className="divide-y divide-border-subtle max-h-[300px] overflow-y-auto">
             {draws.map((draw) => (
               <div 
                 key={draw.id} 
@@ -226,23 +206,22 @@ export function LoanStatusTab({
               >
                 <div className="flex items-center gap-4">
                   <div 
-                    className="w-10 h-10 rounded-full flex items-center justify-center font-semibold"
-                    style={{ background: 'var(--bg-card)', color: 'var(--accent)' }}
+                    className="w-10 h-10 rounded-full flex items-center justify-center font-semibold bg-background-card text-accent"
                   >
                     #{draw.draw_number}
                   </div>
                   <div>
-                    <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                    <div className="font-medium text-text-primary">
                       Draw #{draw.draw_number}
                     </div>
-                    <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    <div className="text-sm text-text-muted">
                       {formatDate(draw.request_date)}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    <div className="font-semibold text-text-primary">
                       {formatCurrency(draw.total_amount)}
                     </div>
                   </div>
@@ -259,15 +238,15 @@ export function LoanStatusTab({
       {/* Alerts Section */}
       {alerts.length > 0 && (
         <div className="card-ios p-0 overflow-hidden">
-          <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <svg className="w-5 h-5" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="px-4 py-3 border-b border-border-subtle">
+            <h3 className="font-semibold flex items-center gap-2 text-text-primary">
+              <svg className="w-5 h-5 text-warning"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               Alerts ({alerts.length})
             </h3>
           </div>
-          <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+          <div className="divide-y divide-border-subtle">
             {alerts.map((alert, index) => (
               <div key={index} className="px-4 py-3 flex items-center gap-3">
                 <div 
@@ -278,7 +257,7 @@ export function LoanStatusTab({
                       : 'var(--accent)' 
                   }}
                 />
-                <span style={{ color: 'var(--text-secondary)' }}>{alert.message}</span>
+                <span className="text-text-secondary">{alert.message}</span>
               </div>
             ))}
           </div>

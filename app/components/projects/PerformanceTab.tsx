@@ -1,6 +1,7 @@
 'use client'
 
 import type { Project, Budget, DrawRequest, LifecycleStage } from '@/types/custom'
+import { formatCurrencyWhole as formatCurrency, formatDate } from '@/lib/formatters'
 
 type PerformanceTabProps = {
   project: Project & { lifecycle_stage: LifecycleStage }
@@ -9,25 +10,6 @@ type PerformanceTabProps = {
 }
 
 export function PerformanceTab({ project, budgets, draws }: PerformanceTabProps) {
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null || amount === undefined) return '—'
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
-
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return '—'
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
-  }
-
   // Calculate loan metrics
   const loanAmount = project.loan_amount || 0
   const totalDrawn = budgets.reduce((sum, b) => sum + (b.spent_amount || 0), 0)
@@ -78,11 +60,11 @@ export function PerformanceTab({ project, budgets, draws }: PerformanceTabProps)
           }}
         >
           {isRejected ? (
-            <svg className="w-8 h-8" style={{ color: 'var(--error)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-8 h-8 text-error"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           ) : (
-            <svg className="w-8 h-8" style={{ color: 'var(--success)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-8 h-8 text-success"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           )}
@@ -94,10 +76,10 @@ export function PerformanceTab({ project, budgets, draws }: PerformanceTabProps)
           {isRejected ? 'Loan Rejected' : 'Loan Paid Off'}
         </h2>
         {isRejected && project.rejection_reason && (
-          <p style={{ color: 'var(--text-secondary)' }}>{project.rejection_reason}</p>
+          <p className="text-text-secondary">{project.rejection_reason}</p>
         )}
         {isPaidOff && (
-          <p style={{ color: 'var(--text-muted)' }}>
+          <p className="text-text-muted">
             Closed on {formatDate(project.payoff_date)}
           </p>
         )}
@@ -108,28 +90,28 @@ export function PerformanceTab({ project, budgets, draws }: PerformanceTabProps)
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {/* Payoff Amount */}
           <div className="card-ios text-center">
-            <div className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>Payoff Amount</div>
-            <div className="text-2xl font-bold" style={{ color: 'var(--success)' }}>
+            <div className="text-sm mb-2 text-text-muted">Payoff Amount</div>
+            <div className="text-2xl font-bold text-success">
               {formatCurrency(payoffAmount)}
             </div>
           </div>
 
           {/* Interest Earned */}
           <div className="card-ios text-center">
-            <div className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>Interest Earned</div>
-            <div className="text-2xl font-bold" style={{ color: 'var(--accent)' }}>
+            <div className="text-sm mb-2 text-text-muted">Interest Earned</div>
+            <div className="text-2xl font-bold text-accent">
               {interestEarned !== null ? formatCurrency(interestEarned) : '—'}
             </div>
           </div>
 
           {/* Loan Duration */}
           <div className="card-ios text-center">
-            <div className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>Duration</div>
-            <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            <div className="text-sm mb-2 text-text-muted">Duration</div>
+            <div className="text-2xl font-bold text-text-primary">
               {loanDuration !== null ? `${loanDuration} days` : '—'}
             </div>
             {loanDuration && (
-              <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              <div className="text-sm text-text-muted">
                 {(loanDuration / 30).toFixed(1)} months
               </div>
             )}
@@ -137,8 +119,8 @@ export function PerformanceTab({ project, budgets, draws }: PerformanceTabProps)
 
           {/* IRR */}
           <div className="card-ios text-center">
-            <div className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>Annual Return</div>
-            <div className="text-2xl font-bold" style={{ color: 'var(--accent)' }}>
+            <div className="text-sm mb-2 text-text-muted">Annual Return</div>
+            <div className="text-2xl font-bold text-accent">
               {irrApprox !== null ? `${irrApprox.toFixed(1)}%` : '—'}
             </div>
           </div>
@@ -147,41 +129,41 @@ export function PerformanceTab({ project, budgets, draws }: PerformanceTabProps)
 
       {/* Loan Summary */}
       <div className="card-ios">
-        <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Loan Summary</h3>
+        <h3 className="font-semibold mb-4 text-text-primary">Loan Summary</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
           <div>
-            <div style={{ color: 'var(--text-muted)' }}>Original Loan Amount</div>
-            <div className="font-medium text-lg" style={{ color: 'var(--text-primary)' }}>
+            <div className="text-text-muted">Original Loan Amount</div>
+            <div className="font-medium text-lg text-text-primary">
               {formatCurrency(loanAmount)}
             </div>
           </div>
           <div>
-            <div style={{ color: 'var(--text-muted)' }}>Total Funded</div>
-            <div className="font-medium text-lg" style={{ color: 'var(--accent)' }}>
+            <div className="text-text-muted">Total Funded</div>
+            <div className="font-medium text-lg text-accent">
               {formatCurrency(totalDrawn)}
             </div>
           </div>
           <div>
-            <div style={{ color: 'var(--text-muted)' }}>Total Draws</div>
-            <div className="font-medium text-lg" style={{ color: 'var(--text-primary)' }}>
+            <div className="text-text-muted">Total Draws</div>
+            <div className="font-medium text-lg text-text-primary">
               {draws.length}
             </div>
           </div>
           <div>
-            <div style={{ color: 'var(--text-muted)' }}>Start Date</div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+            <div className="text-text-muted">Start Date</div>
+            <div className="font-medium text-text-primary">
               {formatDate(project.loan_start_date)}
             </div>
           </div>
           <div>
-            <div style={{ color: 'var(--text-muted)' }}>End Date</div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+            <div className="text-text-muted">End Date</div>
+            <div className="font-medium text-text-primary">
               {formatDate(project.payoff_date)}
             </div>
           </div>
           <div>
-            <div style={{ color: 'var(--text-muted)' }}>Interest Rate</div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+            <div className="text-text-muted">Interest Rate</div>
+            <div className="font-medium text-text-primary">
               {project.interest_rate_annual 
                 ? `${(project.interest_rate_annual * 100).toFixed(2)}%` 
                 : '—'}
@@ -193,12 +175,12 @@ export function PerformanceTab({ project, budgets, draws }: PerformanceTabProps)
       {/* Draw History Summary */}
       {draws.length > 0 && (
         <div className="card-ios p-0 overflow-hidden">
-          <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Draw History</h3>
+          <div className="px-4 py-3 border-b border-border-subtle">
+            <h3 className="font-semibold text-text-primary">Draw History</h3>
           </div>
           <div className="max-h-64 overflow-y-auto">
             <table className="w-full">
-              <thead className="sticky top-0" style={{ background: 'var(--bg-secondary)' }}>
+              <thead className="sticky top-0 bg-background-secondary">
                 <tr>
                   <th className="table-header">Draw #</th>
                   <th className="table-header">Date</th>
@@ -210,7 +192,7 @@ export function PerformanceTab({ project, budgets, draws }: PerformanceTabProps)
                 {draws.map((draw) => (
                   <tr key={draw.id} className="table-row">
                     <td className="table-cell font-medium">#{draw.draw_number}</td>
-                    <td className="table-cell" style={{ color: 'var(--text-muted)' }}>
+                    <td className="table-cell text-text-muted">
                       {formatDate(draw.request_date)}
                     </td>
                     <td className="table-cell text-right font-medium">
@@ -237,29 +219,29 @@ export function PerformanceTab({ project, budgets, draws }: PerformanceTabProps)
 
       {/* Project Info */}
       <div className="card-ios">
-        <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Project Info</h3>
+        <h3 className="font-semibold mb-4 text-text-primary">Project Info</h3>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <div style={{ color: 'var(--text-muted)' }}>Builder</div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+            <div className="text-text-muted">Builder</div>
+            <div className="font-medium text-text-primary">
               {project.builder_name || '—'}
             </div>
           </div>
           <div>
-            <div style={{ color: 'var(--text-muted)' }}>Borrower</div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+            <div className="text-text-muted">Borrower</div>
+            <div className="font-medium text-text-primary">
               {project.borrower_name || '—'}
             </div>
           </div>
           <div>
-            <div style={{ color: 'var(--text-muted)' }}>Address</div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+            <div className="text-text-muted">Address</div>
+            <div className="font-medium text-text-primary">
               {project.address || '—'}
             </div>
           </div>
           <div>
-            <div style={{ color: 'var(--text-muted)' }}>Subdivision</div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+            <div className="text-text-muted">Subdivision</div>
+            <div className="font-medium text-text-primary">
               {project.subdivision_name || '—'}
             </div>
           </div>

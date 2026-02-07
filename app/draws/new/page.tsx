@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { Project, Builder } from '@/types/custom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -10,7 +11,9 @@ import { ImportPreview } from '@/app/components/import/ImportPreview'
 import { useNavigation } from '@/app/context/NavigationContext'
 import { useAuth } from '@/app/context/AuthContext'
 import { useHasPermission } from '@/app/components/auth/PermissionGate'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 import { toast } from '@/app/components/ui/Toast'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 
 type ProjectWithBuilder = Project & {
   builder?: Builder | null
@@ -92,7 +95,7 @@ function NewDrawPageContent() {
       setProjects([])
       setSelectedProject('')
     }
-  }, [selectedBuilder])
+  }, [selectedBuilder, loadProjectsForBuilder])
 
   // Pre-select project from URL param (after projects load)
   useEffect(() => {
@@ -108,7 +111,7 @@ function NewDrawPageContent() {
     if (selectedProject) {
       loadProjectData()
     }
-  }, [selectedProject])
+  }, [selectedProject, loadProjectData])
 
   async function loadBuilders() {
     setLoading(true)
@@ -149,7 +152,7 @@ function NewDrawPageContent() {
     }
   }
 
-  async function loadProjectsForBuilder(builderId: string) {
+  const loadProjectsForBuilder = useCallback(async (builderId: string) => {
     const { data } = await supabase
       .from('projects')
       .select('*, builder:builders(*)')
@@ -157,14 +160,14 @@ function NewDrawPageContent() {
       .eq('lifecycle_stage', 'active')
       .order('project_code')
     setProjects((data as ProjectWithBuilder[]) || [])
-    
+
     // Only reset project selection if not preselected
     if (!preselectedProjectId) {
       setSelectedProject('')
     }
-  }
+  }, [preselectedProjectId])
 
-  async function loadProjectData() {
+  const loadProjectData = useCallback(async () => {
     // Get project with builder
     const project = projects.find(p => p.id === selectedProject)
     setSelectedProjectData(project || null)
@@ -179,7 +182,7 @@ function NewDrawPageContent() {
       .single()
 
     setNextDrawNumber((lastDraw?.draw_number || 0) + 1)
-  }
+  }, [projects, selectedProject])
 
   // Budget file handling
   const handleBudgetDrop = useCallback((e: React.DragEvent) => {
@@ -261,15 +264,6 @@ function NewDrawPageContent() {
     return invoice.type.startsWith('image/')
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
-
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -300,7 +294,7 @@ function NewDrawPageContent() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}></div>
+        <LoadingSpinner />
       </div>
     )
   }
@@ -308,10 +302,10 @@ function NewDrawPageContent() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+        <h1 className="text-2xl font-bold text-text-primary">
           New Draw Request
         </h1>
-        <p style={{ color: 'var(--text-muted)' }} className="mt-1">
+        <p className="mt-1 text-text-muted">
           Upload invoices and budget spreadsheet with draw amounts
         </p>
       </div>
@@ -319,7 +313,7 @@ function NewDrawPageContent() {
       <div className="space-y-6">
         {/* Builder & Project Selection */}
         <div className="card p-6">
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+          <label className="block text-sm font-medium mb-2 text-text-secondary">
             Builder *
           </label>
           <select
@@ -339,11 +333,11 @@ function NewDrawPageContent() {
           {/* Active Loans List - appears when builder selected */}
           {selectedBuilder && (
             <div className="mt-4">
-              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+              <label className="block text-sm font-medium mb-2 text-text-secondary">
                 Select Active Loan
               </label>
               {projects.length === 0 ? (
-                <p className="text-sm py-3" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-sm py-3 text-text-muted">
                   No active loans for this builder
                 </p>
               ) : (
@@ -365,17 +359,17 @@ function NewDrawPageContent() {
                     >
                       <div className="flex justify-between items-center">
                         <div>
-                          <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                          <p className="font-medium text-text-primary">
                             {p.project_code || p.name}
                           </p>
                           {p.address && (
-                            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                            <p className="text-sm text-text-muted">
                               {p.address}
                             </p>
                           )}
                         </div>
                         <div className="text-right">
-                          <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                          <p className="font-medium text-text-primary">
                             {formatCurrency(p.loan_amount || 0)}
                           </p>
                         </div>
@@ -392,20 +386,20 @@ function NewDrawPageContent() {
             <div className="mt-4 p-4 rounded-lg" style={{ background: 'var(--bg-secondary)', borderLeft: '3px solid var(--accent)' }}>
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Project</span>
-                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  <span className="text-text-muted">Project</span>
+                  <p className="font-medium text-text-primary">
                     {selectedProjectData.project_code || selectedProjectData.name}
                   </p>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Loan Amount</span>
-                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  <span className="text-text-muted">Loan Amount</span>
+                  <p className="font-medium text-text-primary">
                     {formatCurrency(selectedProjectData.loan_amount || 0)}
                   </p>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Draw #</span>
-                  <p className="font-medium text-lg" style={{ color: 'var(--accent)' }}>
+                  <span className="text-text-muted">Draw #</span>
+                  <p className="font-medium text-lg text-accent">
                     #{nextDrawNumber}
                   </p>
                 </div>
@@ -417,10 +411,10 @@ function NewDrawPageContent() {
         {/* Invoice Upload - Now first after project selection */}
         {selectedProject && (
           <div className="card p-6">
-            <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+            <h2 className="text-lg font-semibold mb-2 text-text-primary">
               Invoice Files
             </h2>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-sm mb-4 text-text-muted">
               Upload invoice PDFs or images to be matched with draw line items
             </p>
 
@@ -437,20 +431,20 @@ function NewDrawPageContent() {
                 multiple
               />
               <div className="flex flex-col items-center py-6">
-                <svg className="w-10 h-10 mb-2" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-10 h-10 mb-2 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                 </svg>
-                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                <p className="font-medium text-text-primary">
                   Drop invoice files here or click to browse
                 </p>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-sm text-text-muted">
                   PDF, JPG, PNG up to 20MB each
                 </p>
               </div>
             </label>
 
             {invoiceError && (
-              <p className="mt-2 text-sm" style={{ color: 'var(--error)' }}>{invoiceError}</p>
+              <p className="mt-2 text-sm text-error">{invoiceError}</p>
             )}
 
             {/* Invoice Thumbnails Grid */}
@@ -464,22 +458,23 @@ function NewDrawPageContent() {
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.8 }}
-                        className="relative group aspect-square rounded-lg overflow-hidden cursor-pointer border-2 border-transparent hover:border-[var(--accent)] transition-all"
-                        style={{ background: 'var(--bg-secondary)' }}
+                        className="relative group aspect-square rounded-lg overflow-hidden cursor-pointer border-2 border-transparent hover:border-[var(--accent)] transition-all bg-background-secondary"
                         onClick={() => setPreviewIndex(index)}
                       >
                         {isImageFile(invoice) ? (
-                          <img 
-                            src={invoice.preview} 
+                          <Image
+                            src={invoice.preview}
                             alt={invoice.name}
-                            className="w-full h-full object-cover"
+                            fill
+                            className="object-cover"
+                            unoptimized
                           />
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center p-2">
-                            <svg className="w-8 h-8 mb-1" style={{ color: 'var(--error)' }} fill="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-8 h-8 mb-1 text-error"  fill="currentColor" viewBox="0 0 24 24">
                               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM9 15v-2h2v2H9zm0 2h2v2H9v-2zm4-2h2v2h-2v-2zm0 2h2v2h-2v-2z"/>
                             </svg>
-                            <span className="text-xs text-center truncate w-full" style={{ color: 'var(--text-muted)' }}>
+                            <span className="text-xs text-center truncate w-full text-text-muted">
                               PDF
                             </span>
                           </div>
@@ -502,7 +497,7 @@ function NewDrawPageContent() {
                     ))}
                   </AnimatePresence>
                 </div>
-                <p className="text-sm text-center mt-3" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-sm text-center mt-3 text-text-muted">
                   {invoiceFiles.length} invoice{invoiceFiles.length !== 1 ? 's' : ''} ready • Click to preview
                 </p>
               </div>
@@ -513,10 +508,10 @@ function NewDrawPageContent() {
         {/* Budget Spreadsheet Upload - Direct file selection */}
         {selectedProject && (
           <div className="card p-6">
-            <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+            <h2 className="text-lg font-semibold mb-2 text-text-primary">
               Budget Spreadsheet
             </h2>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-sm mb-4 text-text-muted">
               Upload your budget spreadsheet with draw amounts to continue
             </p>
             
@@ -532,13 +527,13 @@ function NewDrawPageContent() {
                 className="hidden"
               />
               <div className="flex flex-col items-center py-8">
-                <svg className="w-12 h-12 mb-3" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-12 h-12 mb-3 text-accent"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                <p className="font-medium text-text-primary">
                   Drop budget file here or click to browse
                 </p>
-                <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-sm mt-1 text-text-muted">
                   Excel or CSV with draw amounts
                 </p>
               </div>
@@ -597,11 +592,15 @@ function NewDrawPageContent() {
               onClick={(e) => e.stopPropagation()}
             >
               {isImageFile(invoiceFiles[previewIndex]) ? (
-                <img 
-                  src={invoiceFiles[previewIndex].preview} 
-                  alt={invoiceFiles[previewIndex].name}
-                  className="max-w-full max-h-[80vh] rounded-lg object-contain"
-                />
+                <div className="relative max-w-full max-h-[80vh]" style={{ width: '800px', height: '80vh' }}>
+                  <Image
+                    src={invoiceFiles[previewIndex].preview}
+                    alt={invoiceFiles[previewIndex].name}
+                    fill
+                    className="rounded-lg object-contain"
+                    unoptimized
+                  />
+                </div>
               ) : (
                 <iframe 
                   src={invoiceFiles[previewIndex].preview}
@@ -655,7 +654,7 @@ export default function NewDrawPage() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}></div>
+        <LoadingSpinner />
       </div>
     }>
       <NewDrawPageContent />

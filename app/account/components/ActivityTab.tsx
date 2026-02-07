@@ -40,7 +40,7 @@ export function ActivityTab() {
 
   useEffect(() => {
     loadActivities(0)
-  }, [user])
+  }, [loadActivities])
 
   const handleLoadMore = () => {
     setIsLoadingMore(true)
@@ -52,11 +52,11 @@ export function ActivityTab() {
   return (
     <div className="card-ios">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+        <h2 className="text-lg font-semibold text-text-primary">
           Your Activity
         </h2>
         {totalCount > 0 && (
-          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+          <span className="text-sm text-text-muted">
             {totalCount} {totalCount === 1 ? 'event' : 'events'}
           </span>
         )}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { escapeHtml } from '@/lib/escapeHtml'
 import { requireAuth } from '@/lib/api-auth'
+import { formatCurrency, formatDateFull as formatDate } from '@/lib/formatters'
 
 // GET - Generate wire batch report (HTML for PDF generation)
 export async function GET(
@@ -40,23 +41,6 @@ export async function GET(
     const builder = batch.builder
     const draws = batch.draws || []
 
-    const formatCurrency = (amount: number) => {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(amount)
-    }
-
-    const formatDate = (dateStr: string) => {
-      return new Date(dateStr).toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      })
-    }
 
     // Generate HTML report
     const html = `

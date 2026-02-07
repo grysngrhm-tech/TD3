@@ -7,6 +7,7 @@ import { supabase, Permission, PERMISSION_LABELS, PERMISSION_DESCRIPTIONS } from
 import { useAuth } from '@/app/context/AuthContext'
 import { useHasPermission } from '@/app/components/auth/PermissionGate'
 import { toast } from '@/app/components/ui/Toast'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 import { useRouter } from 'next/navigation'
 
 type AllowlistEntry = {
@@ -259,7 +260,7 @@ export default function AdminUsersPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)' }} />
+          <LoadingSpinner />
         </div>
       </div>
     )
@@ -270,10 +271,10 @@ export default function AdminUsersPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <h1 className="text-2xl font-semibold text-text-primary">
             User Management
           </h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-sm mt-1 text-text-muted">
             Manage access and permissions for TD3 users
           </p>
         </div>
@@ -290,36 +291,35 @@ export default function AdminUsersPage() {
 
       {/* Active Users */}
       <div className="card-ios p-0 overflow-hidden mb-8">
-        <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}>
-          <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+        <div className="px-5 py-4 border-b border-border bg-background-secondary">
+          <h2 className="font-semibold text-text-primary">
             Active Users ({users.length})
           </h2>
         </div>
 
         {users.length === 0 ? (
-          <div className="px-5 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
+          <div className="px-5 py-8 text-center text-text-muted">
             No users have signed in yet
           </div>
         ) : (
-          <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+          <div className="divide-y divide-border-subtle">
             {users.map(u => (
               <div key={u.id} className="px-5 py-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      <span className="font-medium text-text-primary">
                         {u.full_name || u.email}
                       </span>
                       {!u.first_login_completed && (
                         <span
-                          className="text-xs px-2 py-0.5 rounded-full"
-                          style={{ background: 'var(--warning-muted)', color: 'var(--warning)' }}
+                          className="text-xs px-2 py-0.5 rounded-full bg-warning-muted text-warning"
                         >
                           Pending setup
                         </span>
                       )}
                     </div>
-                    <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    <div className="text-sm text-text-muted">
                       {u.email}
                       {u.phone && ` • ${u.phone}`}
                     </div>
@@ -362,11 +362,11 @@ export default function AdminUsersPage() {
 
       {/* Allowlist (pending invites) */}
       <div className="card-ios p-0 overflow-hidden">
-        <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}>
-          <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+        <div className="px-5 py-4 border-b border-border bg-background-secondary">
+          <h2 className="font-semibold text-text-primary">
             Invited Users ({allowlist.filter(a => !users.some(u => u.email.toLowerCase() === a.email.toLowerCase())).length})
           </h2>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs mt-0.5 text-text-muted">
             Users who have been invited but haven&apos;t signed in yet
           </p>
         </div>
@@ -376,26 +376,26 @@ export default function AdminUsersPage() {
 
           if (pendingInvites.length === 0) {
             return (
-              <div className="px-5 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
+              <div className="px-5 py-8 text-center text-text-muted">
                 No pending invites
               </div>
             )
           }
 
           return (
-            <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="divide-y divide-border-subtle">
               {pendingInvites.map(entry => (
                 <div key={entry.id} className="px-5 py-3 flex items-center justify-between">
                   <div>
-                    <span style={{ color: 'var(--text-primary)' }}>{entry.email}</span>
-                    <span className="text-xs ml-2" style={{ color: 'var(--text-muted)' }}>
+                    <span className="text-text-primary">{entry.email}</span>
+                    <span className="text-xs ml-2 text-text-muted">
                       Invited {new Date(entry.invited_at).toLocaleDateString()}
                     </span>
                   </div>
                   <button
                     onClick={() => handleRemoveFromAllowlist(entry)}
-                    className="text-xs px-2 py-1 rounded hover:bg-[var(--bg-hover)]"
-                    style={{ color: 'var(--error)' }}
+                    className="text-xs px-2 py-1 rounded hover:bg-[var(--bg-hover)] text-error"
+                    
                   >
                     Remove
                   </button>
@@ -426,18 +426,17 @@ export default function AdminUsersPage() {
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.98, y: 10 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                  className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md rounded-ios"
-                  style={{ background: 'var(--bg-secondary)' }}
+                  className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md rounded-ios bg-background-secondary"
                 >
                   {/* Header */}
-                  <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
-                    <Dialog.Title className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                    <Dialog.Title className="text-lg font-semibold text-text-primary">
                       Invite User
                     </Dialog.Title>
                     <Dialog.Close asChild>
                       <button
-                        className="w-8 h-8 rounded-ios-xs flex items-center justify-center hover:bg-[var(--bg-hover)]"
-                        style={{ color: 'var(--text-muted)' }}
+                        className="w-8 h-8 rounded-ios-xs flex items-center justify-center hover:bg-[var(--bg-hover)] text-text-muted"
+                        
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -451,8 +450,8 @@ export default function AdminUsersPage() {
                     <div>
                       <label
                         htmlFor="newEmail"
-                        className="block text-sm font-medium mb-1.5"
-                        style={{ color: 'var(--text-secondary)' }}
+                        className="block text-sm font-medium mb-1.5 text-text-secondary"
+                        
                       >
                         Email Address
                       </label>
@@ -469,8 +468,8 @@ export default function AdminUsersPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                        Initial Permissions <span style={{ color: 'var(--text-muted)' }}>(optional)</span>
+                      <label className="block text-sm font-medium mb-2 text-text-secondary">
+                        Initial Permissions <span className="text-text-muted">(optional)</span>
                       </label>
                       <div className="space-y-2">
                         {ALL_PERMISSIONS.map(perm => (
@@ -493,10 +492,10 @@ export default function AdminUsersPage() {
                               disabled={saving}
                             />
                             <div>
-                              <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                              <div className="text-sm font-medium text-text-primary">
                                 {PERMISSION_LABELS[perm]}
                               </div>
-                              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                              <div className="text-xs text-text-muted">
                                 {PERMISSION_DESCRIPTIONS[perm]}
                               </div>
                             </div>
@@ -518,7 +517,7 @@ export default function AdminUsersPage() {
                       >
                         {saving ? (
                           <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent border-white" />
+                            <LoadingSpinner size="sm" variant="white" />
                             Adding...
                           </>
                         ) : (

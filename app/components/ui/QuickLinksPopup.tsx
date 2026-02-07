@@ -132,8 +132,7 @@ function QuickLinkItem({
         <span className="flex-1">{label}</span>
         {isActive && (
           <span 
-            className="w-1.5 h-1.5 rounded-full"
-            style={{ background: 'var(--accent)' }}
+            className="w-1.5 h-1.5 rounded-full bg-accent"
           />
         )}
       </Link>
@@ -158,8 +157,8 @@ function Section({
       className="mb-3"
     >
       <h4 
-        className="text-xs font-semibold uppercase tracking-wider px-3 mb-2"
-        style={{ color: 'var(--text-muted)' }}
+        className="text-xs font-semibold uppercase tracking-wider px-3 mb-2 text-text-muted"
+        
       >
         {title}
       </h4>
@@ -277,7 +276,7 @@ export function QuickLinksPopup({ variant }: QuickLinksPopupProps) {
                           }
                         }}
                       >
-                        <span style={{ color: 'var(--text-muted)' }}>{ICONS.clock}</span>
+                        <span className="text-text-muted">{ICONS.clock}</span>
                         <span className="flex-1 truncate">{page.title}</span>
                       </Link>
                     </motion.div>

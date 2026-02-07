@@ -67,16 +67,16 @@ export function DrawFilterSidebar({
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h2 
-            className="text-xs font-semibold uppercase tracking-wider" 
-            style={{ color: 'var(--text-muted)' }}
+            className="text-xs font-semibold uppercase tracking-wider text-text-muted" 
+            
           >
             Filters
           </h2>
           {hasBuilderFilters && (
             <motion.button 
               onClick={onClearBuilders}
-              className="text-xs font-medium"
-              style={{ color: 'var(--accent)' }}
+              className="text-xs font-medium text-accent"
+              
               whileHover={{ opacity: 0.8 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -88,8 +88,8 @@ export function DrawFilterSidebar({
         {/* Builder Filter List */}
         <div className="flex-1 min-h-0">
           <div 
-            className="text-xs font-medium uppercase tracking-wider mb-2" 
-            style={{ color: 'var(--text-muted)' }}
+            className="text-xs font-medium uppercase tracking-wider mb-2 text-text-muted" 
+            
           >
             Builder
           </div>
@@ -111,8 +111,8 @@ export function DrawFilterSidebar({
               >
                 {sortedBuilders.length === 0 ? (
                   <div 
-                    className="py-6 text-center text-xs" 
-                    style={{ color: 'var(--text-muted)' }}
+                    className="py-6 text-center text-xs text-text-muted" 
+                    
                   >
                     No builders available
                   </div>
@@ -120,8 +120,8 @@ export function DrawFilterSidebar({
                   <>
                     {enabledCount < sortedBuilders.length && (
                       <div 
-                        className="px-2 py-1.5 text-xs" 
-                        style={{ color: 'var(--text-muted)' }}
+                        className="px-2 py-1.5 text-xs text-text-muted" 
+                        
                       >
                         {enabledCount} of {sortedBuilders.length} with draws
                       </div>

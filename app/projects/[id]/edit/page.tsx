@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -8,6 +8,7 @@ import { logAuditEvent } from '@/lib/audit'
 import { useNavigation } from '@/app/context/NavigationContext'
 import { useAuth } from '@/app/context/AuthContext'
 import { useHasPermission } from '@/app/components/auth/PermissionGate'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 import { toast } from '@/app/components/ui/Toast'
 import type { Project } from '@/types/custom'
 
@@ -37,26 +38,7 @@ export default function EditProjectPage() {
   const [loanStartDate, setLoanStartDate] = useState('')
   const [maturityDate, setMaturityDate] = useState('')
 
-  useEffect(() => {
-    loadProject()
-  }, [projectId])
-
-  // Redirect if no permission
-  useEffect(() => {
-    if (!canProcess && !authLoading) {
-      toast.error('Access denied', 'You do not have permission to edit projects')
-      window.location.href = '/'
-    }
-  }, [canProcess, authLoading])
-
-  // Update page title when project loads
-  useEffect(() => {
-    if (project) {
-      setCurrentPageTitle(`Edit ${project.project_code || project.name}`)
-    }
-  }, [project, setCurrentPageTitle])
-
-  async function loadProject() {
+  const loadProject = useCallback(async () => {
     try {
       const { data, error: fetchError } = await supabase
         .from('projects')
@@ -86,7 +68,26 @@ export default function EditProjectPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [projectId])
+
+  useEffect(() => {
+    loadProject()
+  }, [loadProject])
+
+  // Redirect if no permission
+  useEffect(() => {
+    if (!canProcess && !authLoading) {
+      toast.error('Access denied', 'You do not have permission to edit projects')
+      window.location.href = '/'
+    }
+  }, [canProcess, authLoading])
+
+  // Update page title when project loads
+  useEffect(() => {
+    if (project) {
+      setCurrentPageTitle(`Edit ${project.project_code || project.name}`)
+    }
+  }, [project, setCurrentPageTitle])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -141,7 +142,7 @@ export default function EditProjectPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <LoadingSpinner />
       </div>
     )
   }
@@ -340,7 +341,7 @@ export default function EditProjectPage() {
           >
             {saving ? (
               <span className="flex items-center justify-center gap-2">
-                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+                <LoadingSpinner size="sm" variant="white" />
                 Saving...
               </span>
             ) : (

@@ -93,16 +93,16 @@ export default function AccountPage() {
       <div className="max-w-4xl mx-auto">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <h1 className="text-2xl font-semibold text-text-primary">
             Account Settings
           </h1>
-          <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
+          <p className="mt-1 text-sm text-text-muted">
             Manage your profile, preferences, and view activity
           </p>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex gap-1 p-1 mb-6 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
+        <div className="flex gap-1 p-1 mb-6 rounded-lg bg-background-secondary">
           {visibleTabs.map((tab) => (
             <button
               key={tab.id}

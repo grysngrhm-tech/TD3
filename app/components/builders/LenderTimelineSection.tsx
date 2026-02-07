@@ -6,6 +6,7 @@ import type { Project, DrawRequest, Lender } from '@/types/custom'
 import { TimelineProjectRow } from './TimelineProjectRow'
 import { GanttDrawBar } from './GanttDrawBar'
 import type { ProjectWithDraws, DrawWithProject } from './BuilderTimeline'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 type LenderTimelineSectionProps = {
   lender: Lender | null
@@ -167,32 +168,31 @@ export function LenderTimelineSection({
           <motion.svg
             animate={{ rotate: isCollapsed ? -90 : 0 }}
             transition={{ duration: 0.2 }}
-            className="w-4 h-4"
-            style={{ color: 'var(--text-muted)' }}
+            className="w-4 h-4 text-text-muted"
+            
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </motion.svg>
-          <h4 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+          <h4 className="font-semibold text-sm text-text-primary">
             {lender?.name || 'No Lender Assigned'}
           </h4>
           <span 
-            className="text-xs px-1.5 py-0.5 rounded"
-            style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+            className="text-xs px-1.5 py-0.5 rounded bg-background-hover text-text-muted"
           >
             {projects.length} loan{projects.length !== 1 ? 's' : ''}
           </span>
         </div>
 
         <div className="flex items-center gap-4 text-xs" style={{ fontFamily: 'var(--font-mono)' }}>
-          <span style={{ color: 'var(--text-muted)' }}>
+          <span className="text-text-muted">
             Drawn: <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
               {formatCurrency(sectionTotals.totalDrawn)}
             </span>
           </span>
-          <span style={{ color: 'var(--text-muted)' }}>
+          <span className="text-text-muted">
             of {formatCurrency(sectionTotals.totalBudget)}
           </span>
         </div>
@@ -257,7 +257,7 @@ export function LenderTimelineSection({
                     color: 'var(--text-primary)'
                   }}
                 >
-                  <span className="uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Totals</span>
+                  <span className="uppercase tracking-wide text-text-muted">Totals</span>
                   {sectionTotals.totalStaged > 0 && (
                     <span style={{ color: 'var(--warning)', fontFamily: 'var(--font-mono)' }}>
                       {formatCompactCurrency(sectionTotals.totalStaged)}
@@ -425,15 +425,6 @@ export function LenderTimelineSection({
   )
 }
 
-// Helper functions
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
 
 function formatCompactCurrency(amount: number): string {
   if (amount >= 1000000) {

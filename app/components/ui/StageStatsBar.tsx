@@ -119,15 +119,14 @@ export function StageStatsBar({ stage, projects, navButton }: StageStatsBarProps
       
       return (
         <div className="flex-1 max-w-[200px]">
-          <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>LTV Distribution</div>
-          <div className="relative h-6 rounded-full overflow-hidden flex" style={{ background: 'var(--bg-hover)' }}>
+          <div className="text-xs mb-1 text-text-muted">LTV Distribution</div>
+          <div className="relative h-6 rounded-full overflow-hidden flex bg-background-hover">
             {lowPct > 0 && (
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${lowPct}%` }}
                 transition={{ duration: 0.5 }}
-                className="h-full relative cursor-pointer"
-                style={{ background: 'var(--success)' }}
+                className="h-full relative cursor-pointer bg-success"
                 onMouseEnter={() => setHoveredSegment('low')}
                 onMouseLeave={() => setHoveredSegment(null)}
               >
@@ -144,8 +143,7 @@ export function StageStatsBar({ stage, projects, navButton }: StageStatsBarProps
                 initial={{ width: 0 }}
                 animate={{ width: `${midPct}%` }}
                 transition={{ duration: 0.5, delay: 0.1 }}
-                className="h-full relative cursor-pointer"
-                style={{ background: 'var(--warning)' }}
+                className="h-full relative cursor-pointer bg-warning"
                 onMouseEnter={() => setHoveredSegment('mid')}
                 onMouseLeave={() => setHoveredSegment(null)}
               >
@@ -162,8 +160,7 @@ export function StageStatsBar({ stage, projects, navButton }: StageStatsBarProps
                 initial={{ width: 0 }}
                 animate={{ width: `${highPct}%` }}
                 transition={{ duration: 0.5, delay: 0.2 }}
-                className="h-full relative cursor-pointer"
-                style={{ background: 'var(--error)' }}
+                className="h-full relative cursor-pointer bg-error"
                 onMouseEnter={() => setHoveredSegment('high')}
                 onMouseLeave={() => setHoveredSegment(null)}
               >
@@ -185,10 +182,10 @@ export function StageStatsBar({ stage, projects, navButton }: StageStatsBarProps
       return (
         <div className="flex-1 max-w-[200px]">
           <div className="flex justify-between text-xs mb-1">
-            <span style={{ color: 'var(--text-muted)' }}>Utilization</span>
-            <span style={{ color: 'var(--accent)' }}>{stats.utilization.toFixed(1)}%</span>
+            <span className="text-text-muted">Utilization</span>
+            <span className="text-accent">{stats.utilization.toFixed(1)}%</span>
           </div>
-          <div className="relative h-6 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
+          <div className="relative h-6 rounded-full overflow-hidden bg-background-hover">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${Math.min(stats.utilization, 100)}%` }}
@@ -214,7 +211,7 @@ export function StageStatsBar({ stage, projects, navButton }: StageStatsBarProps
       // For now, show a simple metric
       return (
         <div className="flex-1 max-w-[200px]">
-          <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Avg IRR</div>
+          <div className="text-xs mb-1 text-text-muted">Avg IRR</div>
           <div className="h-6 flex items-center">
             <span 
               className="text-lg font-bold"
@@ -293,11 +290,11 @@ export function StageStatsBar({ stage, projects, navButton }: StageStatsBarProps
     >
       {/* Nav button on left if configured */}
       {isLeftNav && renderNavButton()}
-      {isLeftNav && navButton && <div className="w-px h-10" style={{ background: 'var(--border)' }} />}
+      {isLeftNav && navButton && <div className="w-px h-10 bg-border" />}
 
       {/* Count */}
       <div>
-        <div className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
+        <div className="text-xs font-medium uppercase tracking-wider mb-1 text-text-muted">
           {stage === 'pending' ? 'In Pipeline' : stage === 'active' ? 'Active Loans' : 'Completed'}
         </div>
         <div className="font-bold financial-value" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-2xl)' }}>
@@ -305,11 +302,11 @@ export function StageStatsBar({ stage, projects, navButton }: StageStatsBarProps
         </div>
       </div>
       
-      <div className="w-px h-10" style={{ background: 'var(--border)' }} />
+      <div className="w-px h-10 bg-border" />
       
       {/* Stage-specific primary metric */}
       <div>
-        <div className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
+        <div className="text-xs font-medium uppercase tracking-wider mb-1 text-text-muted">
           {stage === 'pending' ? 'Pipeline Value' : stage === 'active' ? 'Total Committed' : 'Total Funded'}
         </div>
         <div className="font-bold financial-value" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-2xl)' }}>
@@ -317,11 +314,11 @@ export function StageStatsBar({ stage, projects, navButton }: StageStatsBarProps
         </div>
       </div>
       
-      <div className="w-px h-10" style={{ background: 'var(--border)' }} />
+      <div className="w-px h-10 bg-border" />
       
       {/* Stage-specific secondary metric */}
       <div>
-        <div className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
+        <div className="text-xs font-medium uppercase tracking-wider mb-1 text-text-muted">
           {stage === 'pending' ? 'Avg LTV' : stage === 'active' ? 'Total Drawn' : 'Total Income'}
         </div>
         <div className="font-bold financial-value" style={{ color: 'var(--accent)', fontSize: 'var(--text-2xl)' }}>
@@ -334,7 +331,7 @@ export function StageStatsBar({ stage, projects, navButton }: StageStatsBarProps
         </div>
       </div>
       
-      <div className="w-px h-10" style={{ background: 'var(--border)' }} />
+      <div className="w-px h-10 bg-border" />
       
       {/* Visual Element */}
       {renderVisualElement()}

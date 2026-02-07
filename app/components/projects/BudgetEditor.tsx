@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Budget, NahbCategory, NahbSubcategory } from '@/types/custom'
 import { toast } from '@/app/components/ui/Toast'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 type BudgetEditorProps = {
   budgets: Budget[]
@@ -90,15 +91,6 @@ export function BudgetEditor({
     }
   }
 
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null || amount === undefined) return '—'
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
 
   const totalBudget = useMemo(() => {
     return editableBudgets.reduce((sum, b) => sum + (b.current_amount || 0), 0)
@@ -363,8 +355,8 @@ export function BudgetEditor({
   return (
     <div className="card-ios p-0 overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-subtle)' }}>
-        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Budget</h3>
+      <div className="px-4 py-3 border-b border-border-subtle flex justify-between items-center">
+        <h3 className="font-semibold text-text-primary">Budget</h3>
         <div className="flex items-center gap-2">
           {isEditing && (
             <>
@@ -389,8 +381,8 @@ export function BudgetEditor({
               {editableBudgets.length > 0 && (
                 <button 
                   onClick={handleDeleteAllBudgets}
-                  className="btn-secondary text-sm flex items-center gap-1.5"
-                  style={{ color: 'var(--error)' }}
+                  className="btn-secondary text-sm flex items-center gap-1.5 text-error"
+                  
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -416,14 +408,13 @@ export function BudgetEditor({
       {editableBudgets.length === 0 ? (
         <div className="text-center py-12">
           <div 
-            className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center"
-            style={{ background: 'var(--bg-hover)' }}
+            className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center bg-background-hover"
           >
-            <svg className="w-6 h-6" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-6 h-6 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
-          <p className="mb-3" style={{ color: 'var(--text-muted)' }}>No budget items yet</p>
+          <p className="mb-3 text-text-muted">No budget items yet</p>
           {isEditing && (
             <div className="flex justify-center gap-2">
               <button onClick={handleAddRow} className="btn-secondary">
@@ -438,7 +429,7 @@ export function BudgetEditor({
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="sticky top-0" style={{ background: 'var(--bg-secondary)' }}>
+            <thead className="sticky top-0 bg-background-secondary">
               <tr>
                 <th className="table-header w-20">Code</th>
                 <th className="table-header">Category</th>
@@ -467,7 +458,7 @@ export function BudgetEditor({
                           title={`AI Confidence: ${Math.round((budget.ai_confidence || 0) * 100)}%`}
                         />
                       )}
-                      <span className="font-mono text-sm" style={{ color: 'var(--text-muted)' }}>
+                      <span className="font-mono text-sm text-text-muted">
                         {budget.cost_code || '—'}
                       </span>
                     </div>
@@ -487,7 +478,7 @@ export function BudgetEditor({
                         ))}
                       </select>
                     ) : (
-                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      <span className="font-medium text-text-primary">
                         {budget.nahb_category || budget.category || '—'}
                       </span>
                     )}
@@ -510,7 +501,7 @@ export function BudgetEditor({
                         ))}
                       </select>
                     ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>
+                      <span className="text-text-muted">
                         {budget.nahb_subcategory || '—'}
                       </span>
                     )}
@@ -527,7 +518,7 @@ export function BudgetEditor({
                         placeholder="Builder category..."
                       />
                     ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>
+                      <span className="text-text-muted">
                         {budget.builder_category_raw || '—'}
                       </span>
                     )}
@@ -537,7 +528,7 @@ export function BudgetEditor({
                   <td className="table-cell text-right">
                     {isEditing ? (
                       <div className="relative">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--text-muted)' }}>$</span>
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-text-muted">$</span>
                         <input
                           type="number"
                           value={budget.current_amount || ''}
@@ -558,8 +549,8 @@ export function BudgetEditor({
                     <td className="table-cell">
                       <button
                         onClick={() => handleDeleteRow(budget.id)}
-                        className="p-1.5 rounded hover:opacity-70 transition-opacity"
-                        style={{ color: 'var(--error)' }}
+                        className="p-1.5 rounded hover:opacity-70 transition-opacity text-error"
+                        
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -571,7 +562,7 @@ export function BudgetEditor({
               ))}
             </tbody>
             <tfoot>
-              <tr style={{ background: 'var(--bg-hover)' }}>
+              <tr className="bg-background-hover">
                 <td className="table-cell font-semibold" colSpan={isEditing ? 4 : 4}>
                   Total
                 </td>

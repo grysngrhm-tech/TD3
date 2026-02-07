@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useNavigation } from '@/app/context/NavigationContext'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 import type { Project, Budget, DrawRequest } from '@/types/custom'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 type CategorySummary = {
   nahbCode: string
@@ -34,18 +36,7 @@ export default function ProgressReportPage() {
   })
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadReport()
-  }, [projectId])
-
-  // Update page title when project loads
-  useEffect(() => {
-    if (project) {
-      setCurrentPageTitle(`${project.name} Report`)
-    }
-  }, [project, setCurrentPageTitle])
-
-  async function loadReport() {
+  const loadReport = useCallback(async () => {
     try {
       // Fetch project
       const { data: projectData, error: projectError } = await supabase
@@ -125,21 +116,23 @@ export default function ProgressReportPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [projectId])
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
+  useEffect(() => {
+    loadReport()
+  }, [loadReport])
+
+  // Update page title when project loads
+  useEffect(() => {
+    if (project) {
+      setCurrentPageTitle(`${project.name} Report`)
+    }
+  }, [project, setCurrentPageTitle])
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <LoadingSpinner />
       </div>
     )
   }

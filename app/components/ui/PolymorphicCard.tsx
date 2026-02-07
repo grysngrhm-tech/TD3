@@ -204,8 +204,8 @@ export function SectionCard({
     >
       {title && (
         <h3 
-          className="text-sm font-semibold uppercase tracking-wider mb-4"
-          style={{ color: 'var(--text-muted)' }}
+          className="text-sm font-semibold uppercase tracking-wider mb-4 text-text-muted"
+          
         >
           {title}
         </h3>

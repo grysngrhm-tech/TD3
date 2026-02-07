@@ -8,6 +8,7 @@ import { ProjectTile } from '@/app/components/ui/ProjectTile'
 import { StageSelector } from '@/app/components/ui/StageSelector'
 import { StageStatsBar } from '@/app/components/ui/StageStatsBar'
 import { DashboardHeader } from '@/app/components/ui/DashboardHeader'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 import { useFilters } from '@/app/hooks/useFilters'
 import { useNavigation } from '@/app/context/NavigationContext'
 import { useAuth } from '@/app/context/AuthContext'
@@ -321,7 +322,7 @@ export default function Dashboard() {
   if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)' }} />
+        <LoadingSpinner />
       </div>
     )
   }
@@ -332,17 +333,16 @@ export default function Dashboard() {
       <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
         <div className="text-center">
           <div
-            className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
-            style={{ background: 'var(--error-muted)' }}
+            className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center bg-error-muted"
           >
-            <svg className="w-8 h-8" style={{ color: 'var(--error)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-8 h-8 text-error"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+          <h3 className="text-lg font-medium mb-2 text-text-primary">
             Error loading data
           </h3>
-          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-sm mb-4 text-text-muted">
             {error}
           </p>
           <button
@@ -391,10 +391,10 @@ export default function Dashboard() {
               style={{ background: 'var(--bg-card)', borderLeft: '4px solid var(--accent)' }}
             >
               <div>
-                <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                <div className="text-sm text-text-muted">
                   Showing loans for
                 </div>
-                <div className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>
+                <div className="font-semibold text-lg text-text-primary">
                   {selectedBuilder.company_name}
                 </div>
               </div>
@@ -428,17 +428,16 @@ export default function Dashboard() {
           {filteredProjects.length === 0 ? (
             <div className="text-center py-20">
               <div 
-                className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
-                style={{ background: 'var(--bg-card)' }}
+                className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center bg-background-card"
               >
-                <svg className="w-8 h-8" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-8 h-8 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+              <h3 className="text-lg font-medium mb-2 text-text-primary">
                 No {selectedStage} loans found
               </h3>
-              <p className="mb-4" style={{ color: 'var(--text-muted)' }}>
+              <p className="mb-4 text-text-muted">
                 {Object.values(filters).some(f => f.length > 0) 
                   ? 'Try adjusting your filters'
                   : selectedStage === 'pending' 

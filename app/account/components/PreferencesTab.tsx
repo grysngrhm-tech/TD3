@@ -141,10 +141,10 @@ export function PreferencesTab() {
     return (
       <div className="card-ios">
         <div className="animate-pulse space-y-6">
-          <div className="h-6 w-32 rounded" style={{ background: 'var(--bg-hover)' }} />
+          <div className="h-6 w-32 rounded bg-background-hover" />
           <div className="space-y-3">
-            <div className="h-10 rounded" style={{ background: 'var(--bg-hover)' }} />
-            <div className="h-10 rounded" style={{ background: 'var(--bg-hover)' }} />
+            <div className="h-10 rounded bg-background-hover" />
+            <div className="h-10 rounded bg-background-hover" />
           </div>
         </div>
       </div>
@@ -155,13 +155,13 @@ export function PreferencesTab() {
     <div className="space-y-6">
       {/* Appearance Section */}
       <div className="card-ios">
-        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+        <h2 className="text-lg font-semibold mb-4 text-text-primary">
           Appearance
         </h2>
 
         {/* Theme Selection */}
         <div className="mb-6">
-          <label className="block text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>
+          <label className="block text-sm font-medium mb-3 text-text-secondary">
             Theme
           </label>
           <div className="flex gap-2">
@@ -188,7 +188,7 @@ export function PreferencesTab() {
 
         {/* Font Size Selection */}
         <div className="mb-6">
-          <label className="block text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>
+          <label className="block text-sm font-medium mb-3 text-text-secondary">
             Font Size
           </label>
           <div className="flex gap-2">
@@ -224,10 +224,10 @@ export function PreferencesTab() {
         <div>
           <div className="flex items-center justify-between">
             <div>
-              <label className="block text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+              <label className="block text-sm font-medium text-text-secondary">
                 Reduce Motion
               </label>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-xs mt-0.5 text-text-muted">
                 Minimize animations throughout the app
               </p>
             </div>
@@ -251,10 +251,10 @@ export function PreferencesTab() {
 
       {/* Default Dashboard Section */}
       <div className="card-ios">
-        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+        <h2 className="text-lg font-semibold mb-4 text-text-primary">
           Default View
         </h2>
-        <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-sm mb-4 text-text-muted">
           Choose which dashboard to show when you first sign in
         </p>
 
@@ -279,7 +279,7 @@ export function PreferencesTab() {
                 >
                   {option.label}
                 </span>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-xs mt-0.5 text-text-muted">
                   {option.description}
                 </p>
               </div>
@@ -297,7 +297,7 @@ export function PreferencesTab() {
       {isSaving && (
         <div className="fixed bottom-4 right-4 flex items-center gap-2 px-4 py-2 rounded-lg" style={{ background: 'var(--bg-card)', boxShadow: 'var(--elevation-3)' }}>
           <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
-          <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Saving...</span>
+          <span className="text-sm text-text-secondary">Saving...</span>
         </div>
       )}
     </div>

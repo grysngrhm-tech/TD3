@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 
 function AuthCallbackContent() {
   const router = useRouter()
@@ -67,15 +68,14 @@ function AuthCallbackContent() {
   // Show error state
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-primary)' }}>
+      <div className="min-h-screen flex items-center justify-center bg-background-primary">
         <div className="text-center p-8 max-w-md">
           <div
-            className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
-            style={{ background: 'var(--error-muted)' }}
+            className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center bg-error-muted"
           >
             <svg
-              className="w-8 h-8"
-              style={{ color: 'var(--error)' }}
+              className="w-8 h-8 text-error"
+              
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -88,10 +88,10 @@ function AuthCallbackContent() {
               />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+          <h2 className="text-lg font-semibold mb-2 text-text-primary">
             Authentication Failed
           </h2>
-          <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-sm mb-6 text-text-muted">
             {error}
           </p>
           <button
@@ -107,13 +107,10 @@ function AuthCallbackContent() {
 
   // Show loading state while processing
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-primary)' }}>
+    <div className="min-h-screen flex items-center justify-center bg-background-primary">
       <div className="text-center">
-        <div
-          className="animate-spin rounded-full h-12 w-12 border-4 border-t-transparent mx-auto mb-4"
-          style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
-        />
-        <p style={{ color: 'var(--text-muted)' }}>Completing sign in...</p>
+        <LoadingSpinner size="xl" className="mx-auto mb-4" />
+        <p className="text-text-muted">Completing sign in...</p>
       </div>
     </div>
   )
@@ -121,13 +118,10 @@ function AuthCallbackContent() {
 
 function LoadingFallback() {
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-primary)' }}>
+    <div className="min-h-screen flex items-center justify-center bg-background-primary">
       <div className="text-center">
-        <div
-          className="animate-spin rounded-full h-12 w-12 border-4 border-t-transparent mx-auto mb-4"
-          style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
-        />
-        <p style={{ color: 'var(--text-muted)' }}>Loading...</p>
+        <LoadingSpinner size="xl" className="mx-auto mb-4" />
+        <p className="text-text-muted">Loading...</p>
       </div>
     </div>
   )

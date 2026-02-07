@@ -138,7 +138,7 @@ export function DrawStatsBar({
                 borderRadius: 'var(--radius-full)' 
               }}
             />
-            <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            <span className="text-xs font-medium uppercase tracking-wider text-text-muted">
               Pending Review
             </span>
           </div>
@@ -146,7 +146,7 @@ export function DrawStatsBar({
             <span className="font-bold financial-value" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-2xl)' }}>
               {pendingReviewCount}
             </span>
-            <span className="text-sm financial-value" style={{ color: 'var(--text-secondary)' }}>
+            <span className="text-sm financial-value text-text-secondary">
               {formatCurrency(pendingReviewAmount)}
             </span>
           </div>
@@ -165,7 +165,7 @@ export function DrawStatsBar({
                 borderRadius: 'var(--radius-full)' 
               }}
             />
-            <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            <span className="text-xs font-medium uppercase tracking-wider text-text-muted">
               Staged
             </span>
           </div>
@@ -173,7 +173,7 @@ export function DrawStatsBar({
             <span className="font-bold financial-value" style={{ color: 'var(--info)', fontSize: 'var(--text-2xl)' }}>
               {formatCurrency(stagedAmount)}
             </span>
-            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            <span className="text-sm text-text-secondary">
               {stagedCount} draws
             </span>
           </div>
@@ -192,7 +192,7 @@ export function DrawStatsBar({
                 borderRadius: 'var(--radius-full)' 
               }}
             />
-            <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            <span className="text-xs font-medium uppercase tracking-wider text-text-muted">
               Pending Wire
             </span>
           </div>
@@ -200,7 +200,7 @@ export function DrawStatsBar({
             <span className="font-bold financial-value" style={{ color: 'var(--purple)', fontSize: 'var(--text-2xl)' }}>
               {formatCurrency(pendingWireAmount)}
             </span>
-            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            <span className="text-sm text-text-secondary">
               {pendingWireCount} batch{pendingWireCount !== 1 ? 'es' : ''}
             </span>
           </div>
@@ -211,14 +211,14 @@ export function DrawStatsBar({
 
         {/* Pipeline Total */}
         <div className="flex-1">
-          <div className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
+          <div className="text-xs font-medium uppercase tracking-wider mb-1 text-text-muted">
             Pipeline Total
           </div>
           <div className="flex items-baseline gap-2">
             <span className="font-bold financial-value" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-2xl)' }}>
               {formatCurrency(totalAmount)}
             </span>
-            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            <span className="text-sm text-text-secondary">
               {totalCount} items
             </span>
           </div>

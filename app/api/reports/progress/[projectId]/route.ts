@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { escapeHtml } from '@/lib/escapeHtml'
 import { requireAuth } from '@/lib/api-auth'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 export async function GET(
   request: NextRequest,
@@ -153,9 +154,6 @@ export async function GET(
 }
 
 function generateHtmlReport(report: any): string {
-  const formatCurrency = (amount: number) => 
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(amount)
-
   const categoryRows = report.categories.map((cat: any) => `
     <tr>
       <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">

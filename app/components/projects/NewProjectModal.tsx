@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import * as Dialog from '@radix-ui/react-dialog'
 import { supabase } from '@/lib/supabase'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 
 type NewProjectModalProps = {
   isOpen: boolean
@@ -89,17 +90,16 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                 initial={{ opacity: 0, scale: 0.98, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.98, y: 10 }}
-                className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md rounded-ios overflow-hidden"
-                style={{ background: 'var(--bg-secondary)' }}
+                className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md rounded-ios overflow-hidden bg-background-secondary"
               >
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <Dialog.Title className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
+                  <Dialog.Title className="text-lg font-semibold text-text-primary">
                     New Loan
                   </Dialog.Title>
                   <Dialog.Close asChild>
                     <button className="w-8 h-8 rounded-ios-xs flex items-center justify-center hover:bg-[var(--bg-hover)]">
-                      <svg className="w-4 h-4" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-4 h-4 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
@@ -110,8 +110,8 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                 <form onSubmit={handleSubmit} className="p-5 space-y-4">
                   {/* Loan Name (Required) */}
                   <div>
-                    <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-primary)' }}>
-                      Loan Name <span style={{ color: 'var(--error)' }}>*</span>
+                    <label className="block text-sm font-medium mb-1.5 text-text-primary">
+                      Loan Name <span className="text-error">*</span>
                     </label>
                     <input
                       type="text"
@@ -130,7 +130,7 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
 
                   {/* Loan Code */}
                   <div>
-                    <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                    <label className="block text-sm font-medium mb-1.5 text-text-primary">
                       Loan Code
                     </label>
                     <input
@@ -145,14 +145,14 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                         border: '1px solid var(--border)'
                       }}
                     />
-                    <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+                    <p className="mt-1 text-xs text-text-muted">
                       Short identifier for easy reference
                     </p>
                   </div>
 
                   {/* Builder Name */}
                   <div>
-                    <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                    <label className="block text-sm font-medium mb-1.5 text-text-primary">
                       Builder Name
                     </label>
                     <input
@@ -171,7 +171,7 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
 
                   {/* Address */}
                   <div>
-                    <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                    <label className="block text-sm font-medium mb-1.5 text-text-primary">
                       Property Address
                     </label>
                     <input
@@ -201,20 +201,18 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                       type="button"
                       onClick={() => { handleReset(); onClose(); }}
                       disabled={submitting}
-                      className="px-4 py-2 text-sm rounded-ios-sm"
-                      style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)' }}
+                      className="px-4 py-2 text-sm rounded-ios-sm bg-background-card text-text-secondary"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={submitting || !name.trim()}
-                      className="px-4 py-2 text-sm rounded-ios-sm font-medium disabled:opacity-50 flex items-center gap-2"
-                      style={{ background: 'var(--accent)', color: 'white' }}
+                      className="px-4 py-2 text-sm rounded-ios-sm font-medium disabled:opacity-50 flex items-center gap-2 bg-accent text-white"
                     >
                       {submitting ? (
                         <>
-                          <div className="animate-spin rounded-full h-3 w-3 border-2 border-t-transparent border-white" />
+                          <LoadingSpinner size="xs" variant="white" />
                           Creating...
                         </>
                       ) : (

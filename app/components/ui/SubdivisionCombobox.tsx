@@ -236,8 +236,8 @@ export function SubdivisionCombobox({
 
   return (
     <div ref={containerRef} className="relative">
-      <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
-        Subdivision <span style={{ color: 'var(--error)' }}>*</span>
+      <label className="block text-sm mb-1 text-text-muted">
+        Subdivision <span className="text-error">*</span>
       </label>
       
       <div className="relative">
@@ -263,8 +263,8 @@ export function SubdivisionCombobox({
             if (!isOpen) inputRef.current?.focus()
           }}
           disabled={disabled}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-opacity-50 transition-colors"
-          style={{ color: 'var(--text-muted)' }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-opacity-50 transition-colors text-text-muted"
+          
           tabIndex={-1}
         >
           <svg 
@@ -285,7 +285,7 @@ export function SubdivisionCombobox({
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
         >
           {loading ? (
-            <div className="p-3 text-sm text-center" style={{ color: 'var(--text-muted)' }}>
+            <div className="p-3 text-sm text-center text-text-muted">
               Loading subdivisions...
             </div>
           ) : (
@@ -303,8 +303,8 @@ export function SubdivisionCombobox({
                   }}
                 >
                   <svg 
-                    className="w-4 h-4 flex-shrink-0" 
-                    style={{ color: 'var(--accent)' }} 
+                    className="w-4 h-4 flex-shrink-0 text-accent" 
+                     
                     fill="none" 
                     viewBox="0 0 24 24" 
                     stroke="currentColor"
@@ -312,13 +312,12 @@ export function SubdivisionCombobox({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Create </span>
-                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                      "{inputValue.trim()}"
+                    <span className="text-text-muted">Create </span>
+                    <span className="font-medium text-text-primary">
+                      &ldquo;{inputValue.trim()}&rdquo;
                     </span>
                     <span 
-                      className="ml-2 text-xs font-mono px-1.5 py-0.5 rounded"
-                      style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}
+                      className="ml-2 text-xs font-mono px-1.5 py-0.5 rounded bg-background-secondary text-text-muted"
                     >
                       {generateAbbrev(inputValue.trim())}
                     </span>
@@ -328,7 +327,7 @@ export function SubdivisionCombobox({
 
               {/* Existing subdivision options */}
               {filteredOptions.length === 0 && !isNewSubdivision ? (
-                <div className="p-3 text-sm text-center" style={{ color: 'var(--text-muted)' }}>
+                <div className="p-3 text-sm text-center text-text-muted">
                   {inputValue.trim() ? 'No matching subdivisions' : 'No subdivisions yet'}
                 </div>
               ) : (
@@ -346,13 +345,12 @@ export function SubdivisionCombobox({
                       }}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                        <span className="font-medium text-text-primary">
                           {option.name}
                         </span>
                         {option.abbrev && (
                           <span 
-                            className="text-xs font-mono px-1.5 py-0.5 rounded"
-                            style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}
+                            className="text-xs font-mono px-1.5 py-0.5 rounded bg-background-secondary text-text-muted"
                           >
                             {option.abbrev}
                           </span>
@@ -360,8 +358,8 @@ export function SubdivisionCombobox({
                       </div>
                       {option.name === value && (
                         <svg 
-                          className="w-4 h-4 flex-shrink-0" 
-                          style={{ color: 'var(--accent)' }} 
+                          className="w-4 h-4 flex-shrink-0 text-accent" 
+                           
                           fill="none" 
                           viewBox="0 0 24 24" 
                           stroke="currentColor"
@@ -378,12 +376,11 @@ export function SubdivisionCombobox({
 
           {/* Helper text at bottom */}
           <div 
-            className="px-3 py-2 text-xs border-t"
-            style={{ borderColor: 'var(--border)', color: 'var(--text-muted)', background: 'var(--bg-secondary)' }}
+            className="px-3 py-2 text-xs border-t border-border text-text-muted bg-background-secondary"
           >
-            <kbd className="px-1 py-0.5 rounded text-xs" style={{ background: 'var(--bg-hover)' }}>↑↓</kbd> to navigate, 
-            <kbd className="px-1 py-0.5 rounded text-xs ml-1" style={{ background: 'var(--bg-hover)' }}>Enter</kbd> to select, 
-            <kbd className="px-1 py-0.5 rounded text-xs ml-1" style={{ background: 'var(--bg-hover)' }}>Esc</kbd> to close
+            <kbd className="px-1 py-0.5 rounded text-xs bg-background-hover">↑↓</kbd> to navigate,
+            <kbd className="px-1 py-0.5 rounded text-xs ml-1 bg-background-hover">Enter</kbd> to select,
+            <kbd className="px-1 py-0.5 rounded text-xs ml-1 bg-background-hover">Esc</kbd> to close
           </div>
         </div>
       )}

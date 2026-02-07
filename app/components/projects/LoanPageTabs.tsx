@@ -67,7 +67,7 @@ export function LoanPageTabs({ project, budgets, draws, drawLines = [], builder,
   return (
     <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
       {/* Tab Bar */}
-      <div className="border-b mb-6" style={{ borderColor: 'var(--border-subtle)' }}>
+      <div className="border-b border-border-subtle mb-6">
         <Tabs.List className="flex gap-1">
           {availableTabs.map((tab) => {
             const isActive = activeTab === tab.id
@@ -89,16 +89,14 @@ export function LoanPageTabs({ project, budgets, draws, drawLines = [], builder,
                   {tab.label}
                   {isCurrentStage && (
                     <span 
-                      className="w-2 h-2 rounded-full"
-                      style={{ background: 'var(--accent)' }}
+                      className="w-2 h-2 rounded-full bg-accent"
                     />
                   )}
                 </span>
                 {isActive && (
                   <motion.div
                     layoutId="activeTabIndicator"
-                    className="absolute bottom-0 left-0 right-0 h-0.5"
-                    style={{ background: 'var(--accent)' }}
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent"
                     transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                   />
                 )}

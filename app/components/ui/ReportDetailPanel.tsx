@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Budget, DrawRequestLine, DrawRequest } from '@/types/custom'
+import { formatCurrencyWhole as formatCurrency, formatDate } from '@/lib/formatters'
 
 export type DetailPanelContent = 
   | { type: 'budget'; data: Budget; drawHistory: DrawHistoryItem[] }
@@ -29,25 +30,6 @@ export type AnomalyDetail = {
 type ReportDetailPanelProps = {
   content: DetailPanelContent
   onClose: () => void
-}
-
-const formatCurrency = (amount: number | null) => {
-  if (amount === null || amount === undefined) return '—'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
-
-const formatDate = (dateStr: string | null) => {
-  if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
 }
 
 const getSeverityColor = (severity: 'info' | 'warning' | 'critical') => {
@@ -83,22 +65,20 @@ export function ReportDetailPanel({ content, onClose }: ReportDetailPanelProps) 
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed right-0 top-0 bottom-0 w-full max-w-lg z-50 overflow-hidden flex flex-col"
-            style={{ background: 'var(--bg-secondary)' }}
+            className="fixed right-0 top-0 bottom-0 w-full max-w-lg z-50 overflow-hidden flex flex-col bg-background-secondary"
           >
             {/* Header */}
             <div 
-              className="flex items-center justify-between p-5 border-b" 
-              style={{ borderColor: 'var(--border-subtle)' }}
+              className="flex items-center justify-between p-5 border-b border-border-subtle"
             >
               <div>
-                <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <h2 className="text-lg font-semibold text-text-primary">
                   {content.type === 'budget' && 'Budget Line Details'}
                   {content.type === 'draw' && `Draw #${content.data.draw_number}`}
                   {content.type === 'anomaly' && 'Anomaly Details'}
                 </h2>
                 {content.type === 'budget' && (
-                  <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  <p className="text-sm mt-0.5 text-text-muted">
                     {content.data.category}
                   </p>
                 )}
@@ -107,7 +87,7 @@ export function ReportDetailPanel({ content, onClose }: ReportDetailPanelProps) 
                 onClick={onClose}
                 className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors hover:bg-[var(--bg-hover)]"
               >
-                <svg className="w-5 h-5" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-5 h-5 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -140,23 +120,23 @@ function BudgetDetailContent({ data, drawHistory }: { data: Budget; drawHistory:
       <div className="card-ios">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-xs font-medium uppercase tracking-wider text-text-muted">
               Budget Amount
             </div>
-            <div className="text-xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>
+            <div className="text-xl font-bold mt-1 text-text-primary">
               {formatCurrency(budget)}
             </div>
           </div>
           <div>
-            <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-xs font-medium uppercase tracking-wider text-text-muted">
               Total Drawn
             </div>
-            <div className="text-xl font-bold mt-1" style={{ color: 'var(--accent)' }}>
+            <div className="text-xl font-bold mt-1 text-accent">
               {formatCurrency(spent)}
             </div>
           </div>
           <div>
-            <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-xs font-medium uppercase tracking-wider text-text-muted">
               Remaining
             </div>
             <div className="text-xl font-bold mt-1" style={{ color: isOverBudget ? 'var(--error)' : 'var(--success)' }}>
@@ -164,7 +144,7 @@ function BudgetDetailContent({ data, drawHistory }: { data: Budget; drawHistory:
             </div>
           </div>
           <div>
-            <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-xs font-medium uppercase tracking-wider text-text-muted">
               Utilization
             </div>
             <div className="text-xl font-bold mt-1" style={{ 
@@ -177,7 +157,7 @@ function BudgetDetailContent({ data, drawHistory }: { data: Budget; drawHistory:
 
         {/* Progress Bar */}
         <div className="mt-4">
-          <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
+          <div className="relative h-2 rounded-full overflow-hidden bg-background-hover">
             <motion.div 
               className="absolute inset-y-0 left-0 rounded-full"
               style={{ 
@@ -206,33 +186,33 @@ function BudgetDetailContent({ data, drawHistory }: { data: Budget; drawHistory:
 
       {/* Category Info */}
       <div className="card-ios space-y-3">
-        <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>Category Information</h3>
+        <h3 className="font-semibold text-sm text-text-primary">Category Information</h3>
         <div className="grid grid-cols-2 gap-3 text-sm">
           {data.cost_code && (
             <div>
-              <div style={{ color: 'var(--text-muted)' }}>Cost Code</div>
-              <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{data.cost_code}</div>
+              <div className="text-text-muted">Cost Code</div>
+              <div className="font-medium text-text-primary">{data.cost_code}</div>
             </div>
           )}
           {data.nahb_category && (
             <div>
-              <div style={{ color: 'var(--text-muted)' }}>NAHB Category</div>
-              <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{data.nahb_category}</div>
+              <div className="text-text-muted">NAHB Category</div>
+              <div className="font-medium text-text-primary">{data.nahb_category}</div>
             </div>
           )}
           {data.nahb_subcategory && (
             <div className="col-span-2">
-              <div style={{ color: 'var(--text-muted)' }}>NAHB Subcategory</div>
-              <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{data.nahb_subcategory}</div>
+              <div className="text-text-muted">NAHB Subcategory</div>
+              <div className="font-medium text-text-primary">{data.nahb_subcategory}</div>
             </div>
           )}
           <div>
-            <div style={{ color: 'var(--text-muted)' }}>Original Amount</div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(data.original_amount)}</div>
+            <div className="text-text-muted">Original Amount</div>
+            <div className="font-medium text-text-primary">{formatCurrency(data.original_amount)}</div>
           </div>
           {data.is_change_order && (
             <div>
-              <div style={{ color: 'var(--text-muted)' }}>Type</div>
+              <div className="text-text-muted">Type</div>
               <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full" style={{ 
                 background: 'var(--warning-muted)', 
                 color: 'var(--warning)' 
@@ -246,36 +226,35 @@ function BudgetDetailContent({ data, drawHistory }: { data: Budget; drawHistory:
 
       {/* Draw History */}
       <div className="card-ios p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-          <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+        <div className="px-4 py-3 border-b border-border-subtle">
+          <h3 className="font-semibold text-sm text-text-primary">
             Draw History ({drawHistory.length})
           </h3>
         </div>
         {drawHistory.length === 0 ? (
           <div className="px-4 py-8 text-center">
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No draws yet for this line item</p>
+            <p className="text-sm text-text-muted">No draws yet for this line item</p>
           </div>
         ) : (
-          <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+          <div className="divide-y divide-border-subtle">
             {drawHistory.map((draw, index) => (
               <div key={index} className="px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div 
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold"
-                    style={{ background: 'var(--bg-hover)', color: 'var(--accent)' }}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold bg-background-hover text-accent"
                   >
                     #{draw.drawNumber}
                   </div>
                   <div>
-                    <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                    <div className="text-sm font-medium text-text-primary">
                       Draw #{draw.drawNumber}
                     </div>
-                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    <div className="text-xs text-text-muted">
                       {formatDate(draw.date)}
                     </div>
                   </div>
                 </div>
-                <div className="font-semibold" style={{ color: 'var(--accent)' }}>
+                <div className="font-semibold text-accent">
                   {formatCurrency(draw.amount)}
                 </div>
               </div>
@@ -295,23 +274,23 @@ function DrawDetailContent({ data, lines }: { data: DrawRequest; lines: DrawRequ
       <div className="card-ios">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-xs font-medium uppercase tracking-wider text-text-muted">
               Total Amount
             </div>
-            <div className="text-2xl font-bold mt-1" style={{ color: 'var(--accent)' }}>
+            <div className="text-2xl font-bold mt-1 text-accent">
               {formatCurrency(data.total_amount)}
             </div>
           </div>
           <div>
-            <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-xs font-medium uppercase tracking-wider text-text-muted">
               Request Date
             </div>
-            <div className="text-lg font-semibold mt-1" style={{ color: 'var(--text-primary)' }}>
+            <div className="text-lg font-semibold mt-1 text-text-primary">
               {formatDate(data.request_date)}
             </div>
           </div>
           <div>
-            <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-xs font-medium uppercase tracking-wider text-text-muted">
               Status
             </div>
             <span className={`inline-block mt-1 badge badge-${data.status || 'draft'}`}>
@@ -319,10 +298,10 @@ function DrawDetailContent({ data, lines }: { data: DrawRequest; lines: DrawRequ
             </span>
           </div>
           <div>
-            <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-xs font-medium uppercase tracking-wider text-text-muted">
               Line Items
             </div>
-            <div className="text-lg font-semibold mt-1" style={{ color: 'var(--text-primary)' }}>
+            <div className="text-lg font-semibold mt-1 text-text-primary">
               {lines.length}
             </div>
           </div>
@@ -331,27 +310,27 @@ function DrawDetailContent({ data, lines }: { data: DrawRequest; lines: DrawRequ
 
       {/* Line Items */}
       <div className="card-ios p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-          <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+        <div className="px-4 py-3 border-b border-border-subtle">
+          <h3 className="font-semibold text-sm text-text-primary">
             Line Items
           </h3>
         </div>
-        <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+        <div className="divide-y divide-border-subtle">
           {lines.map((line) => (
             <div key={line.id} className="px-4 py-3">
               <div className="flex justify-between items-start">
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                  <div className="text-sm font-medium truncate text-text-primary">
                     {line.invoice_vendor_name || 'Unknown Vendor'}
                   </div>
                   {line.notes && (
-                    <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
+                    <p className="text-xs mt-0.5 truncate text-text-muted">
                       {line.notes}
                     </p>
                   )}
                 </div>
                 <div className="text-right ml-3">
-                  <div className="font-semibold" style={{ color: 'var(--accent)' }}>
+                  <div className="font-semibold text-accent">
                     {formatCurrency(line.amount_approved || line.amount_requested)}
                   </div>
                 </div>
@@ -364,8 +343,8 @@ function DrawDetailContent({ data, lines }: { data: DrawRequest; lines: DrawRequ
       {/* Notes */}
       {data.notes && (
         <div className="card-ios">
-          <h3 className="font-semibold text-sm mb-2" style={{ color: 'var(--text-primary)' }}>Notes</h3>
-          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{data.notes}</p>
+          <h3 className="font-semibold text-sm mb-2 text-text-primary">Notes</h3>
+          <p className="text-sm text-text-secondary">{data.notes}</p>
         </div>
       )}
     </>
@@ -413,9 +392,9 @@ function AnomalyDetailContent({ data }: { data: AnomalyDetail }) {
               >
                 {data.severity}
               </span>
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{data.type}</span>
+              <span className="text-xs text-text-muted">{data.type}</span>
             </div>
-            <h3 className="font-semibold mt-1" style={{ color: 'var(--text-primary)' }}>
+            <h3 className="font-semibold mt-1 text-text-primary">
               {data.title}
             </h3>
           </div>
@@ -424,27 +403,27 @@ function AnomalyDetailContent({ data }: { data: AnomalyDetail }) {
 
       {/* Description */}
       <div className="card-ios">
-        <h4 className="font-semibold text-sm mb-2" style={{ color: 'var(--text-primary)' }}>Description</h4>
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{data.message}</p>
+        <h4 className="font-semibold text-sm mb-2 text-text-primary">Description</h4>
+        <p className="text-sm text-text-secondary">{data.message}</p>
       </div>
 
       {/* Affected Item */}
       {data.affectedItem && (
         <div className="card-ios">
-          <h4 className="font-semibold text-sm mb-2" style={{ color: 'var(--text-primary)' }}>Affected Item</h4>
-          <p className="text-sm font-medium" style={{ color: 'var(--accent)' }}>{data.affectedItem}</p>
+          <h4 className="font-semibold text-sm mb-2 text-text-primary">Affected Item</h4>
+          <p className="text-sm font-medium text-accent">{data.affectedItem}</p>
         </div>
       )}
 
       {/* Data Points */}
       {data.data && Object.keys(data.data).length > 0 && (
         <div className="card-ios">
-          <h4 className="font-semibold text-sm mb-3" style={{ color: 'var(--text-primary)' }}>Details</h4>
+          <h4 className="font-semibold text-sm mb-3 text-text-primary">Details</h4>
           <div className="space-y-2">
             {Object.entries(data.data).map(([key, value]) => (
               <div key={key} className="flex justify-between text-sm">
-                <span style={{ color: 'var(--text-muted)' }}>{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
-                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                <span className="text-text-muted">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                <span className="font-medium text-text-primary">
                   {typeof value === 'number' && key.toLowerCase().includes('amount') 
                     ? formatCurrency(value) 
                     : value}
@@ -462,12 +441,12 @@ function AnomalyDetailContent({ data }: { data: AnomalyDetail }) {
           style={{ background: 'var(--info-muted)' }}
         >
           <div className="flex items-start gap-3">
-            <svg className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--info)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-info"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
             <div>
-              <h4 className="font-semibold text-sm" style={{ color: 'var(--info)' }}>Suggestion</h4>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{data.suggestion}</p>
+              <h4 className="font-semibold text-sm text-info">Suggestion</h4>
+              <p className="text-sm mt-1 text-text-secondary">{data.suggestion}</p>
             </div>
           </div>
         </div>

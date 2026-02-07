@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import type { ValidationResult, DrawRequest, DrawRequestLine, Budget, Invoice } from '@/types/custom'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 /**
  * Validates a draw request for budget overages, missing documents,
@@ -226,17 +227,6 @@ export function validateLineAmount(
   return { valid: true }
 }
 
-/**
- * Format currency helper
- */
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
 
 /**
  * Get validation summary as human-readable string

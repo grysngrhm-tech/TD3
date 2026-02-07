@@ -164,11 +164,11 @@ function ToastItem({
           {getIcon(t.type)}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <p className="font-semibold text-text-primary">
             {t.title}
           </p>
           {t.message && (
-            <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+            <p className="text-sm mt-0.5 text-text-secondary">
               {t.message}
             </p>
           )}
@@ -181,8 +181,8 @@ function ToastItem({
           whileTap={{ scale: 0.9 }}
         >
           <svg 
-            className="w-4 h-4" 
-            style={{ color: 'var(--text-muted)' }} 
+            className="w-4 h-4 text-text-muted" 
+             
             fill="none" 
             viewBox="0 0 24 24" 
             stroke="currentColor"
@@ -194,8 +194,7 @@ function ToastItem({
 
       {/* Progress bar */}
       <div 
-        className="absolute bottom-0 left-0 right-0 h-1"
-        style={{ background: 'var(--bg-hover)' }}
+        className="absolute bottom-0 left-0 right-0 h-1 bg-background-hover"
       >
         <motion.div
           className="h-full"
