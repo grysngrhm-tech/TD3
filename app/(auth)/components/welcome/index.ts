@@ -1,7 +1,6 @@
 export { WelcomePage } from './WelcomePage'
 export { HeroSection } from './HeroSection'
-export { ProblemsSection } from './ProblemsSection'
-export { SolutionsSection } from './SolutionsSection'
+export { ValueSection } from './ValueSection'
 export { WorkflowSection } from './WorkflowSection'
 export { CTASection } from './CTASection'
 export { LoginForm } from './LoginForm'

@@ -1,42 +1,22 @@
 'use client'
 
-import React, { forwardRef, useState, useEffect, type ComponentType } from 'react'
 import { motion } from 'framer-motion'
-import { WorkflowTimeline, type StageData } from './WorkflowTimeline'
-import { WorkflowStageDetail } from './WorkflowStageDetail'
-import {
-  ImportStage,
-  SubmitStage,
-  ReviewStage,
-  StagingStage,
-  FundingStage,
-  TrackingStage,
-} from './visuals/workflow'
 
-interface WorkflowSectionProps {
-  progress?: number
-  viewportScale?: number
+interface StageCard {
+  id: string
+  number: number
+  title: string
+  description: string
+  icon: React.ReactNode
 }
 
-// Map stage index to animation component
-const STAGE_ANIMATIONS: ComponentType<{ progress: number }>[] = [
-  ImportStage,
-  SubmitStage,
-  ReviewStage,
-  StagingStage,
-  FundingStage,
-  TrackingStage,
-]
-
-// Workflow stages data matching the copywriting
-const WORKFLOW_STAGES: StageData[] = [
+const WORKFLOW_STAGES: StageCard[] = [
   {
     id: 'import',
     number: 1,
     title: 'Import & Standardize',
-    shortTitle: 'Import',
     description:
-      'Budgets are uploaded directly from Excel or CSV files. TD3 detects structure, identifies line items, and applies AI-powered standardization to NAHB cost codes, allowing teams to confirm mappings while preserving original formatting and intent.',
+      'Upload budgets from Excel. TD3 detects structure and maps line items to NAHB cost codes.',
     icon: (
       <path
         strokeLinecap="round"
@@ -50,9 +30,8 @@ const WORKFLOW_STAGES: StageData[] = [
     id: 'submit',
     number: 2,
     title: 'Submit & Match',
-    shortTitle: 'Submit',
     description:
-      'When a draw request is received, amounts are automatically matched to existing budget lines. Supporting invoices can be uploaded at the same time, with AI-assisted extraction and matching that highlights discrepancies and confidence levels for review.',
+      'Draw requests match to budget lines automatically. Invoices are extracted and scored for review.',
     icon: (
       <path
         strokeLinecap="round"
@@ -66,9 +45,8 @@ const WORKFLOW_STAGES: StageData[] = [
     id: 'review',
     number: 3,
     title: 'Review with Full Context',
-    shortTitle: 'Review',
     description:
-      'Review screens present the complete picture in one place: requested amounts, remaining budget, invoice details, validation flags, and historical draw activity. Issues are resolved directly in the interface without switching tools.',
+      'See amounts, remaining budget, invoices, and validation flags together in one screen.',
     icon: (
       <path
         strokeLinecap="round"
@@ -82,9 +60,8 @@ const WORKFLOW_STAGES: StageData[] = [
     id: 'stage',
     number: 4,
     title: 'Stage for Funding',
-    shortTitle: 'Stage',
     description:
-      'Approved draws move into a staging area where they are grouped by builder. This staging step creates a clear separation between review and funding, allowing teams to prepare wire batches with visibility into totals and readiness.',
+      'Approved draws group by builder into wire batches with full visibility into totals and readiness.',
     icon: (
       <path
         strokeLinecap="round"
@@ -98,9 +75,8 @@ const WORKFLOW_STAGES: StageData[] = [
     id: 'fund',
     number: 5,
     title: 'Fund with Controls',
-    shortTitle: 'Fund',
     description:
-      'Funding is recorded in a controlled step. Authorized users select a funding date, add wire references if needed, and mark staged draws as funded. TD3 records the transaction, updates balances, and locks historical data automatically.',
+      'Authorized users record funding, add wire references, and lock historical data in a controlled step.',
     icon: (
       <path
         strokeLinecap="round"
@@ -114,9 +90,8 @@ const WORKFLOW_STAGES: StageData[] = [
     id: 'track',
     number: 6,
     title: 'Track Across the Portfolio',
-    shortTitle: 'Track',
     description:
-      'Dashboards provide real-time visibility across all loans and projects. Budget utilization, draw history, amortization progress, and risk indicators are continuously updated, eliminating the need for manual compilation or offline reporting.',
+      'Dashboards show budget utilization, draw history, and risk indicators across all loans.',
     icon: (
       <path
         strokeLinecap="round"
@@ -128,160 +103,111 @@ const WORKFLOW_STAGES: StageData[] = [
   },
 ]
 
-export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
-  function WorkflowSection({ progress = 0, viewportScale = 1 }, ref) {
-    const [isMobile, setIsMobile] = useState(false)
+const cardVariants = {
+  hidden: { opacity: 0, y: 24 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: {
+      delay: i * 0.05,
+      duration: 0.4,
+      ease: [0.25, 0.46, 0.45, 0.94],
+    },
+  }),
+}
 
-    // Check for mobile on mount and resize
-    useEffect(() => {
-      const checkMobile = () => {
-        setIsMobile(window.innerWidth < 768)
-      }
-      checkMobile()
-      window.addEventListener('resize', checkMobile)
-      return () => window.removeEventListener('resize', checkMobile)
-    }, [])
-
-    // Header is always visible so it scrolls into view naturally before pinning
-    // Content area fades in after the section pins (progress > 0)
-    const contentOpacity = Math.max(0, Math.min(1, progress * 20))  // 0-5%
-
-    // Stages start after 10% progress, use remaining 90% for 6 stages
-    // With doubled scroll distance (300%), each stage now gets ~15% of scroll
-    // which equals ~45% of viewport height - plenty of dwell time
-    const stageStartProgress = 0.10
-    const normalizedStageProgress = Math.max(0, progress - stageStartProgress) / (1 - stageStartProgress)
-    const activeStageFloat = Math.min(normalizedStageProgress * 6, 5.999)
-    const activeStage = Math.floor(activeStageFloat)
-    // Progress within the current stage (0-1)
-    const stageProgress = activeStageFloat - activeStage
-
-    return (
-      <section
-        ref={ref}
-        className="relative min-h-screen flex flex-col items-center justify-start px-4 pt-0 pb-8"
-        style={{ background: 'var(--bg-primary)' }}
-      >
-        {/* Content wrapper with viewport-based scaling */}
-        <div
-          className="w-full max-w-6xl mx-auto"
-          style={{
-            transform: viewportScale < 1 ? `scale(${viewportScale})` : undefined,
-            transformOrigin: 'center center',
-          }}
-        >
-          {/* Section Header - always visible, scrolls into view naturally */}
-          <div className="text-center mb-8 md:mb-12">
-            <span
-              className="inline-block text-xs font-semibold tracking-wider uppercase mb-4 px-3 py-1 rounded-full"
-              style={{
-                background: 'var(--accent-muted)',
-                color: 'var(--accent)',
-                border: '1px solid rgba(255, 255, 255, 0.04)',
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
-              }}
-            >
-              The Workflow
-            </span>
-            <h2
-              className="text-2xl md:text-3xl lg:text-4xl font-semibold max-w-2xl mx-auto leading-tight mb-4"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              From budget to funded.{' '}
-              <span style={{ color: 'var(--accent)' }}>Fully visible.</span>
-            </h2>
-            <p
-              className="text-base md:text-lg max-w-2xl mx-auto"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              TD3 guides each draw through a structured, end-to-end workflow
-              designed for accuracy, transparency, and efficient funding
-              operations.
-            </p>
-          </div>
-
-          {/* Main content area */}
-          <motion.div
-            style={{ opacity: contentOpacity }}
-            className="relative"
+export function WorkflowSection() {
+  return (
+    <section
+      className="relative flex flex-col items-center justify-start px-4 py-16 md:py-24"
+      style={{ background: 'var(--bg-primary)' }}
+    >
+      <div className="w-full max-w-6xl mx-auto">
+        {/* Section Header */}
+        <div className="text-center mb-12 md:mb-16">
+          <span
+            className="inline-block text-xs font-semibold tracking-wider uppercase mb-4 px-3 py-1 rounded-full"
+            style={{
+              background: 'var(--accent-muted)',
+              color: 'var(--accent)',
+              border: '1px solid rgba(255, 255, 255, 0.04)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+            }}
           >
-            {isMobile ? (
-              /* Mobile: Vertical stack with inline expansion */
-              <div className="space-y-2">
-                {/* Compact stage indicators */}
-                <WorkflowTimeline
-                  stages={WORKFLOW_STAGES}
-                  activeStage={activeStage}
-                  stageProgress={stageProgress}
-                  isMobile={true}
-                />
-
-                {/* Active stage title bar */}
-                <div
-                  className="px-4 py-3 rounded-xl"
-                  style={{
-                    background: 'color-mix(in srgb, var(--accent) 8%, var(--bg-card))',
-                    border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)',
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{
-                        background: 'var(--accent)',
-                      }}
-                    >
-                      <span className="text-sm font-bold text-white">
-                        {WORKFLOW_STAGES[activeStage].number}
-                      </span>
-                    </div>
-                    <h3
-                      className="text-base font-semibold"
-                      style={{ color: 'var(--text-primary)' }}
-                    >
-                      {WORKFLOW_STAGES[activeStage].title}
-                    </h3>
-                  </div>
-                </div>
-
-                {/* Stage detail with animation */}
-                <WorkflowStageDetail
-                  stage={WORKFLOW_STAGES[activeStage]}
-                  stageIndex={activeStage}
-                  progress={stageProgress}
-                  isActive={true}
-                  isMobile={true}
-                  AnimationComponent={STAGE_ANIMATIONS[activeStage]}
-                />
-              </div>
-            ) : (
-              /* Desktop: Timeline+Content left, Animation right - mirrored layout */
-              <div className="flex gap-6 lg:gap-8">
-                {/* Left column: Timeline with inline expansion - takes ~38-40% width */}
-                <div className="w-[40%] lg:w-[38%] flex-shrink-0">
-                  <WorkflowTimeline
-                    stages={WORKFLOW_STAGES}
-                    activeStage={activeStage}
-                    stageProgress={stageProgress}
-                    isMobile={false}
-                    compact={false}
-                    expandInline={true}
-                    showProgressBar={true}
-                  />
-                </div>
-
-                {/* Right column: Animation - takes ~60-62% width, taller container */}
-                <div className="flex-1 min-w-0 min-h-[350px] lg:min-h-[420px] xl:min-h-[480px] relative">
-                  {React.createElement(STAGE_ANIMATIONS[activeStage], { progress: stageProgress })}
-                </div>
-              </div>
-            )}
-          </motion.div>
+            The Workflow
+          </span>
+          <h2
+            className="text-2xl md:text-3xl lg:text-4xl font-semibold max-w-2xl mx-auto leading-tight mb-4"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            From budget to funded.{' '}
+            <span style={{ color: 'var(--accent)' }}>Fully visible.</span>
+          </h2>
+          <p
+            className="text-base md:text-lg max-w-2xl mx-auto"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            TD3 guides each draw through a structured, end-to-end workflow
+            designed for accuracy, transparency, and efficient funding
+            operations.
+          </p>
         </div>
-      </section>
-    )
-  }
-)
+
+        {/* Card Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+          {WORKFLOW_STAGES.map((stage, i) => (
+            <motion.div
+              key={stage.id}
+              className="card-glass flex flex-col gap-3"
+              custom={i}
+              variants={cardVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: '-40px' }}
+            >
+              {/* Top row: badge + icon */}
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'var(--accent)' }}
+                >
+                  <span className="text-sm font-bold text-white">
+                    {stage.number}
+                  </span>
+                </div>
+                <svg
+                  className="w-5 h-5 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  {stage.icon}
+                </svg>
+              </div>
+
+              {/* Title */}
+              <h3
+                className="text-base font-semibold leading-snug"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                {stage.title}
+              </h3>
+
+              {/* Description */}
+              <p
+                className="text-sm leading-relaxed"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                {stage.description}
+              </p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
 
 export default WorkflowSection

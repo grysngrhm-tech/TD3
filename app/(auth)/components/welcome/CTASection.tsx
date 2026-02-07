@@ -15,7 +15,7 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
     return (
       <section
         ref={ref}
-        className="relative flex flex-col items-center px-4 pt-16 pb-4"
+        className="relative flex flex-col items-center px-4 pt-12 pb-4"
         style={{
           background: 'linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)',
         }}
