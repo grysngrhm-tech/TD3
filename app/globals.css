@@ -176,6 +176,12 @@
   --container-lg: 1024px;
   --container-xl: 1280px;
   --container-2xl: 1536px;
+
+  /* Glass morphism tokens */
+  --glass-bg: rgba(30, 30, 35, 0.60);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-highlight: rgba(255, 255, 255, 0.03);
+  --gradient-accent-text: linear-gradient(135deg, #C41919, #950606, #E85050);
 }
 
 /* =============================================================================
@@ -255,6 +261,12 @@
   --elevation-3: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
   --elevation-4: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
   --elevation-5: 0 20px 25px rgba(0, 0, 0, 0.15), 0 8px 10px rgba(0, 0, 0, 0.08);
+
+  /* Glass morphism tokens - Light Mode */
+  --glass-bg: rgba(255, 255, 255, 0.60);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --glass-highlight: rgba(0, 0, 0, 0.02);
+  --gradient-accent-text: linear-gradient(135deg, #740505, #950606, #B00808);
 }
 
 /* =============================================================================
@@ -367,6 +379,12 @@ body {
   50% { transform: translateY(-4px); }
 }
 
+@keyframes ambientGlow {
+  0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.4; }
+  33% { transform: scale(1.1) translate(2%, -1%); opacity: 0.5; }
+  66% { transform: scale(0.95) translate(-1%, 2%); opacity: 0.35; }
+}
+
 /* =============================================================================
    REDUCED MOTION
    ============================================================================= */
@@ -407,6 +425,23 @@ body {
   .card-ios.interactive:hover {
     border-color: var(--accent);
     box-shadow: var(--elevation-3), 0 0 20px var(--accent-glow);
+  }
+
+  .card-glass {
+    @apply p-5 transition-all;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: var(--elevation-2), inset 0 1px 0 var(--glass-highlight);
+    transition-duration: var(--duration-normal);
+    transition-timing-function: var(--ease-out);
+  }
+
+  .card-glass:hover {
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: var(--elevation-3), inset 0 1px 0 var(--glass-highlight);
   }
 
   /* ---------------------------------------------------------------------------
@@ -860,6 +895,13 @@ body {
   .text-warning { color: var(--warning); }
   .text-error { color: var(--error); }
   .text-info { color: var(--info); }
+
+  .text-gradient-accent {
+    background: var(--gradient-accent-text);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
 
   /* Background utilities */
   .bg-accent { background: var(--accent); }

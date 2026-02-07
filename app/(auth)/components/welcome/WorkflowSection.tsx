@@ -177,6 +177,9 @@ export const WorkflowSection = forwardRef<HTMLElement, WorkflowSectionProps>(
               style={{
                 background: 'var(--accent-muted)',
                 color: 'var(--accent)',
+                border: '1px solid rgba(255, 255, 255, 0.04)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
               }}
             >
               The Workflow

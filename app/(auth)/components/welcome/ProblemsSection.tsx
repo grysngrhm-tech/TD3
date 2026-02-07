@@ -74,6 +74,9 @@ export const ProblemsSection = forwardRef<HTMLElement, ProblemsSectionProps>(
               style={{
                 background: 'var(--error-muted)',
                 color: 'var(--error)',
+                border: '1px solid rgba(255, 255, 255, 0.04)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
               }}
             >
               The Challenge
