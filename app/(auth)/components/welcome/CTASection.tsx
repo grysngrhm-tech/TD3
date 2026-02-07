@@ -29,12 +29,12 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
             <h2
-              className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-semibold mb-4 tracking-tight uppercase whitespace-normal sm:whitespace-nowrap leading-tight"
+              className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-bold mb-4 tracking-tight uppercase whitespace-normal sm:whitespace-nowrap leading-tight"
               style={{ color: 'var(--text-primary)' }}
             >
               Construction Finance.
               <br />
-              <span style={{ color: 'var(--accent)' }}>{accentWord}.</span>
+              <span className="text-gradient-accent">{accentWord}.</span>
             </h2>
           </motion.div>
         </div>
@@ -46,8 +46,8 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
             transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-            className="text-base md:text-lg mb-8"
-            style={{ color: 'var(--text-secondary)' }}
+            className="text-base md:text-lg mb-8 leading-relaxed"
+            style={{ color: 'var(--text-secondary)', letterSpacing: '0.01em' }}
           >
             Sign in to access loan tracking, draw management, funding workflows, and financial reporting.
           </motion.p>
@@ -58,20 +58,23 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
             transition={{ duration: 0.6, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="card-ios p-4 sm:p-6 md:p-8"
-            style={{
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06)',
-            }}
+            className="card-glass p-4 sm:p-6 md:p-8 max-w-md mx-auto"
           >
             <div className="flex items-center justify-center gap-3 mb-6">
               <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden relative"
                 style={{
-                  background: 'var(--accent)',
+                  background: 'linear-gradient(135deg, #B00808, #950606, #740505)',
                   boxShadow: '0 4px 12px rgba(149, 6, 6, 0.25)',
                 }}
               >
-                <span className="text-sm font-bold text-white">TD3</span>
+                <div
+                  className="absolute inset-0 rounded-xl"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%)',
+                  }}
+                />
+                <span className="relative text-sm font-bold text-white">TD3</span>
               </div>
               <span
                 className="text-lg font-semibold"
@@ -92,7 +95,7 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.4 }}
           className="w-full mt-auto pt-6 pb-2 border-t"
-          style={{ borderColor: 'var(--border-subtle)' }}
+          style={{ borderColor: 'var(--border-subtle)', background: 'var(--glass-bg)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
         >
           <div className="max-w-5xl mx-auto px-4">
             {/* Three columns with descriptions - tighter spacing */}
@@ -101,10 +104,16 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <div
-                    className="w-7 h-7 rounded-lg flex items-center justify-center"
-                    style={{ background: 'var(--accent)' }}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden relative"
+                    style={{ background: 'linear-gradient(135deg, #B00808, #950606, #740505)' }}
                   >
-                    <span className="text-[10px] font-bold text-white">TD3</span>
+                    <div
+                      className="absolute inset-0 rounded-lg"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%)',
+                      }}
+                    />
+                    <span className="relative text-[10px] font-bold text-white">TD3</span>
                   </div>
                   <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                     TD3
@@ -115,7 +124,7 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
                 </p>
                 <a
                   href="https://td3.tennantdevelopments.com"
-                  className="inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-medium hover:underline transition-opacity duration-200 hover:opacity-80"
                   style={{ color: 'var(--accent)' }}
                 >
                   td3.tennantdevelopments.com
@@ -134,7 +143,7 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
                   href="https://tennantdevelopments.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-medium hover:underline transition-opacity duration-200 hover:opacity-80"
                   style={{ color: 'var(--accent)' }}
                 >
                   tennantdevelopments.com
@@ -154,7 +163,7 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
                 </p>
                 <a
                   href="https://td3.tennantdevelopments.com"
-                  className="inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-medium hover:underline transition-opacity duration-200 hover:opacity-80"
                   style={{ color: 'var(--accent)' }}
                 >
                   td3.tennantdevelopments.com

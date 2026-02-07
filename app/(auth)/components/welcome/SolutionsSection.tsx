@@ -74,6 +74,9 @@ export const SolutionsSection = forwardRef<HTMLElement, SolutionsSectionProps>(
               style={{
                 background: 'var(--success-muted)',
                 color: 'var(--success)',
+                border: '1px solid rgba(255, 255, 255, 0.04)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
               }}
             >
               The Solution
