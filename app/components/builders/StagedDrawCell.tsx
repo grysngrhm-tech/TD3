@@ -52,8 +52,7 @@ export function StagedDrawCell({ draws, projectId }: StagedDrawCellProps) {
       >
         {/* Pulsing glow effect */}
         <motion.div
-          className="absolute inset-0 rounded-full"
-          style={{ background: 'var(--warning)' }}
+          className="absolute inset-0 rounded-full bg-warning"
           animate={{
             scale: [1, 1.4, 1],
             opacity: [0.4, 0, 0.4],
@@ -135,7 +134,7 @@ export function StagedDrawCell({ draws, projectId }: StagedDrawCellProps) {
                       onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
                       onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                     >
-                      <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                      <span className="text-sm font-medium text-text-primary">
                         Draw #{draw.draw_number}
                       </span>
                       <span 
@@ -160,7 +159,7 @@ export function StagedDrawCell({ draws, projectId }: StagedDrawCellProps) {
                       background: 'var(--bg-secondary)'
                     }}
                   >
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Total</span>
+                    <span className="text-xs text-text-muted">Total</span>
                     <span 
                       className="text-sm font-bold"
                       style={{ 

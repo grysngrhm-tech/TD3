@@ -56,14 +56,14 @@ export function ProfileTab() {
 
   return (
     <div className="card-ios">
-      <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+      <h2 className="text-lg font-semibold mb-4 text-text-primary">
         Profile Information
       </h2>
 
       <div className="space-y-6">
         {/* Email (read-only) */}
         <div>
-          <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+          <label className="block text-sm font-medium mb-1.5 text-text-secondary">
             Email
           </label>
           <input
@@ -72,14 +72,14 @@ export function ProfileTab() {
             disabled
             className="input-ios w-full opacity-60 cursor-not-allowed"
           />
-          <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+          <p className="mt-1 text-xs text-text-muted">
             Email cannot be changed
           </p>
         </div>
 
         {/* Full Name */}
         <div>
-          <label htmlFor="full-name" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+          <label htmlFor="full-name" className="block text-sm font-medium mb-1.5 text-text-secondary">
             Full Name
           </label>
           <input
@@ -94,7 +94,7 @@ export function ProfileTab() {
 
         {/* Phone */}
         <div>
-          <label htmlFor="phone" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+          <label htmlFor="phone" className="block text-sm font-medium mb-1.5 text-text-secondary">
             Phone Number
           </label>
           <input
@@ -108,20 +108,20 @@ export function ProfileTab() {
         </div>
 
         {/* Account Info */}
-        <div className="pt-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-          <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>
+        <div className="pt-4 border-t border-border-subtle">
+          <h3 className="text-sm font-medium mb-3 text-text-secondary">
             Account Information
           </h3>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span style={{ color: 'var(--text-muted)' }}>User ID</span>
-              <p className="font-mono text-xs mt-0.5 truncate" style={{ color: 'var(--text-secondary)' }}>
+              <span className="text-text-muted">User ID</span>
+              <p className="font-mono text-xs mt-0.5 truncate text-text-secondary">
                 {user?.id}
               </p>
             </div>
             <div>
-              <span style={{ color: 'var(--text-muted)' }}>Member Since</span>
-              <p className="mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+              <span className="text-text-muted">Member Since</span>
+              <p className="mt-0.5 text-text-secondary">
                 {profile?.created_at
                   ? new Date(profile.created_at).toLocaleDateString('en-US', {
                       month: 'long',

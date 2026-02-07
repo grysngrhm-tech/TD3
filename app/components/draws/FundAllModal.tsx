@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Builder, DrawRequest, Project } from '@/types/custom'
 import { useHasPermission } from '@/app/components/auth/PermissionGate'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 type DrawWithProject = DrawRequest & {
   project?: Project | null
@@ -45,15 +46,6 @@ export function FundAllModal({
 
   // Permission check (defense in depth - button should already be hidden)
   const canProcess = useHasPermission('processor')
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
 
   const maskAccountNumber = (num: string | null): string => {
     if (!num) return '****'
@@ -129,22 +121,21 @@ export function FundAllModal({
         >
           {/* Header */}
           <div 
-            className="px-6 py-4 border-b flex items-center justify-between"
-            style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-secondary)' }}
+            className="px-6 py-4 border-b flex items-center justify-between border-border-subtle bg-background-secondary"
           >
             <div>
-              <h2 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
+              <h2 className="font-bold text-lg text-text-primary">
                 Submit for Wire Funding
               </h2>
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-sm text-text-muted">
                 {builder.company_name}
               </p>
             </div>
             <button
               onClick={handleClose}
               disabled={isSubmitting}
-              className="p-2 rounded-lg hover:opacity-70 transition-opacity"
-              style={{ color: 'var(--text-muted)' }}
+              className="p-2 rounded-lg hover:opacity-70 transition-opacity text-text-muted"
+              
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -170,13 +161,13 @@ export function FundAllModal({
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
             >
               <div className="flex justify-between items-center mb-3">
-                <span style={{ color: 'var(--text-muted)' }}>Draws to submit</span>
-                <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <span className="text-text-muted">Draws to submit</span>
+                <span className="font-semibold text-text-primary">
                   {stagedDraws.length}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span style={{ color: 'var(--text-muted)' }}>Total Amount</span>
+                <span className="text-text-muted">Total Amount</span>
                 <span 
                   className="font-bold text-xl"
                   style={{ color: 'var(--success)', fontFamily: 'var(--font-mono)' }}
@@ -191,32 +182,32 @@ export function FundAllModal({
               className="p-4 rounded-lg"
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
             >
-              <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>
+              <h3 className="text-sm font-medium mb-3 text-text-secondary">
                 Wire Destination
               </h3>
               <dl className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <dt style={{ color: 'var(--text-muted)' }}>Bank</dt>
-                  <dd className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  <dt className="text-text-muted">Bank</dt>
+                  <dd className="font-medium text-text-primary">
                     {builder.bank_name || 'Not provided'}
                   </dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt style={{ color: 'var(--text-muted)' }}>Routing</dt>
-                  <dd className="font-mono" style={{ color: 'var(--text-primary)' }}>
+                  <dt className="text-text-muted">Routing</dt>
+                  <dd className="font-mono text-text-primary">
                     {builder.bank_routing_number || 'N/A'}
                   </dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt style={{ color: 'var(--text-muted)' }}>Account</dt>
-                  <dd className="font-mono" style={{ color: 'var(--text-primary)' }}>
+                  <dt className="text-text-muted">Account</dt>
+                  <dd className="font-mono text-text-primary">
                     {maskAccountNumber(builder.bank_account_number)}
                   </dd>
                 </div>
                 {builder.bank_account_name && (
                   <div className="flex justify-between">
-                    <dt style={{ color: 'var(--text-muted)' }}>Account Name</dt>
-                    <dd style={{ color: 'var(--text-primary)' }}>
+                    <dt className="text-text-muted">Account Name</dt>
+                    <dd className="text-text-primary">
                       {builder.bank_account_name}
                     </dd>
                   </div>
@@ -226,12 +217,11 @@ export function FundAllModal({
 
             {/* Draw list */}
             <div>
-              <h3 className="text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+              <h3 className="text-sm font-medium mb-2 text-text-secondary">
                 Staged Draws
               </h3>
               <div 
-                className="rounded-lg overflow-hidden divide-y"
-                style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-subtle)' }}
+                className="rounded-lg overflow-hidden divide-y bg-background-secondary divide-border-subtle"
               >
                 {stagedDraws.map(draw => (
                   <div 
@@ -240,11 +230,11 @@ export function FundAllModal({
                     style={{ borderColor: 'var(--border-subtle)' }}
                   >
                     <div>
-                      <span className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+                      <span className="font-medium text-sm text-text-primary">
                         {draw.project?.project_code || draw.project?.name}
                       </span>
-                      <span className="mx-2 text-sm" style={{ color: 'var(--text-muted)' }}>—</span>
-                      <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                      <span className="mx-2 text-sm text-text-muted">—</span>
+                      <span className="text-sm text-text-muted">
                         Draw #{draw.draw_number}
                       </span>
                     </div>
@@ -269,15 +259,14 @@ export function FundAllModal({
               </svg>
               <p>
                 This will send the funding report to the bookkeeper. The draws will move to 
-                "Pending Wire" status until the bookkeeper confirms the wire has been sent.
+                &ldquo;Pending Wire&rdquo; status until the bookkeeper confirms the wire has been sent.
               </p>
             </div>
           </div>
 
           {/* Footer */}
           <div 
-            className="px-6 py-4 border-t flex justify-end gap-3"
-            style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-secondary)' }}
+            className="px-6 py-4 border-t flex justify-end gap-3 border-border-subtle bg-background-secondary"
           >
             <button
               onClick={handleClose}

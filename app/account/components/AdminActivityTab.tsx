@@ -70,7 +70,7 @@ export function AdminActivityTab() {
     setIsLoading(true)
     setActivities([])
     loadActivities(0)
-  }, [selectedUser, selectedAction, selectedEntity])
+  }, [loadActivities])
 
   const handleLoadMore = () => {
     setIsLoadingMore(true)
@@ -92,7 +92,7 @@ export function AdminActivityTab() {
       {/* Filters */}
       <div className="card-ios">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+          <span className="text-sm font-medium text-text-secondary">
             Filter:
           </span>
 
@@ -144,8 +144,8 @@ export function AdminActivityTab() {
           {hasFilters && (
             <button
               onClick={clearFilters}
-              className="text-sm px-2 py-1 rounded hover:bg-[var(--bg-hover)]"
-              style={{ color: 'var(--text-muted)' }}
+              className="text-sm px-2 py-1 rounded hover:bg-[var(--bg-hover)] text-text-muted"
+              
             >
               Clear
             </button>
@@ -156,11 +156,11 @@ export function AdminActivityTab() {
       {/* Activity List */}
       <div className="card-ios">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <h2 className="text-lg font-semibold text-text-primary">
             All User Activity
           </h2>
           {totalCount > 0 && (
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            <span className="text-sm text-text-muted">
               {totalCount} {totalCount === 1 ? 'event' : 'events'}
             </span>
           )}

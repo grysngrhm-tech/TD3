@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { validateDrawRequest } from '@/lib/validations'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -10,6 +11,8 @@ import { useNavigation } from '@/app/context/NavigationContext'
 import { InvoiceMatchPanel } from '@/app/components/draws/InvoiceMatchPanel'
 import type { DrawRequestWithDetails, ValidationResult, Budget, Invoice, Builder, Project, NahbCategory, NahbSubcategory, DrawRequest, DrawRequestLine } from '@/types/custom'
 import { DRAW_STATUS_LABELS, DRAW_FLAG_LABELS, DrawStatus, DrawLineFlag } from '@/types/custom'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 
 type LineWithBudget = {
   id: string
@@ -75,10 +78,6 @@ export default function DrawDetailPage() {
   const [isStaging, setIsStaging] = useState(false)
   const [isUnstaging, setIsUnstaging] = useState(false)
   const [actionError, setActionError] = useState('')
-
-  useEffect(() => {
-    loadDrawRequest()
-  }, [drawId])
 
   // Update page title when draw loads
   useEffect(() => {
@@ -182,7 +181,7 @@ export default function DrawDetailPage() {
     }
   }, [drawId])
 
-  async function loadDrawRequest() {
+  const loadDrawRequest = useCallback(async () => {
     try {
       // Fetch draw request with project and builder
       const { data: drawData, error: drawError } = await supabase
@@ -277,16 +276,11 @@ export default function DrawDetailPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [drawId])
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
+  useEffect(() => {
+    loadDrawRequest()
+  }, [loadDrawRequest])
 
   const getStatusColor = (status: string): string => {
     const colors: Record<string, string> = {
@@ -828,7 +822,7 @@ export default function DrawDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}></div>
+        <LoadingSpinner />
       </div>
     )
   }
@@ -836,8 +830,8 @@ export default function DrawDetailPage() {
   if (!draw) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>Draw Request Not Found</h2>
-        <p style={{ color: 'var(--text-muted)' }} className="mt-2">The requested draw could not be found.</p>
+        <h2 className="text-xl font-semibold text-text-primary">Draw Request Not Found</h2>
+        <p className="mt-2 text-text-muted">The requested draw could not be found.</p>
       </div>
     )
   }
@@ -855,7 +849,7 @@ export default function DrawDetailPage() {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: 'var(--text-primary)' }}>
+          <h1 className="text-2xl font-bold flex items-center gap-3 text-text-primary">
             Draw #{draw.draw_number} - {project?.project_code || project?.name}
             <span 
               className="px-3 py-1 rounded-full text-sm font-medium"
@@ -867,17 +861,17 @@ export default function DrawDetailPage() {
               {DRAW_STATUS_LABELS[(draw.status as DrawStatus) || 'draft']}
             </span>
           </h1>
-          <p style={{ color: 'var(--text-muted)' }} className="mt-1">
+          <p className="mt-1 text-text-muted">
             {project?.builder?.company_name || 'No Builder'} • {draw.request_date ? new Date(draw.request_date).toLocaleDateString() : 'No date'}
           </p>
         </div>
         
         {(flagCount > 0 || unmatchedLines.length > 0) && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(245, 158, 11, 0.1)' }}>
-            <svg className="w-5 h-5" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5 text-warning"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            <span className="font-medium" style={{ color: 'var(--warning)' }}>
+            <span className="font-medium text-warning">
               {unmatchedLines.length > 0 
                 ? `${unmatchedLines.length} unmatched categor${unmatchedLines.length !== 1 ? 'ies' : 'y'}`
                 : `${flagCount} item${flagCount !== 1 ? 's' : ''} need attention`}
@@ -891,20 +885,20 @@ export default function DrawDetailPage() {
         {/* Budget / Remaining / Requested */}
         <div className="card p-4">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Budget</p>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Remaining</p>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Requested</p>
+            <p className="text-sm text-text-muted">Budget</p>
+            <p className="text-sm text-text-muted">Remaining</p>
+            <p className="text-sm text-text-muted">Requested</p>
           </div>
           <div className="flex items-center justify-between">
-            <p className="text-lg font-bold" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(totalBudget)}</p>
+            <p className="text-lg font-bold text-text-secondary">{formatCurrency(totalBudget)}</p>
             <p className="text-lg font-bold" style={{ color: totalRemaining < totalRequested ? 'var(--error)' : 'var(--text-secondary)' }}>{formatCurrency(totalRemaining)}</p>
-            <p className="text-lg font-bold" style={{ color: 'var(--accent)' }}>{formatCurrency(totalRequested)}</p>
+            <p className="text-lg font-bold text-accent">{formatCurrency(totalRequested)}</p>
           </div>
         </div>
         
         {/* Lines Matched */}
         <div className="card p-4">
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Lines Matched</p>
+          <p className="text-sm text-text-muted">Lines Matched</p>
           <p className="text-2xl font-bold" style={{ color: matchedLines.length === lines.length ? 'var(--success)' : 'var(--warning)' }}>
             {matchedLines.length}/{lines.length}
           </p>
@@ -912,7 +906,7 @@ export default function DrawDetailPage() {
         
         {/* Invoices Matched */}
         <div className="card p-4">
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Invoices Matched</p>
+          <p className="text-sm text-text-muted">Invoices Matched</p>
           <p className="text-2xl font-bold" style={{ color: linesWithInvoice === lines.length ? 'var(--success)' : 'var(--text-primary)' }}>
             {linesWithInvoice}/{lines.length}
           </p>
@@ -927,13 +921,13 @@ export default function DrawDetailPage() {
           {unmatchedLines.length > 0 && (
             <div className="card overflow-hidden" style={{ borderColor: 'var(--warning)', borderWidth: '2px' }}>
               <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: 'var(--border-primary)', background: 'rgba(245, 158, 11, 0.1)' }}>
-                <svg className="w-5 h-5" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-5 h-5 text-warning"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                <h3 className="font-semibold" style={{ color: 'var(--warning)' }}>
+                <h3 className="font-semibold text-warning">
                   Unmatched Categories ({unmatchedLines.length})
                 </h3>
-                <span className="text-xs ml-auto" style={{ color: 'var(--text-muted)' }}>
+                <span className="text-xs ml-auto text-text-muted">
                   Select a budget category for each
                 </span>
               </div>
@@ -953,12 +947,12 @@ export default function DrawDetailPage() {
                       {/* Original category and amount */}
                       <div className="flex items-center justify-between mb-3">
                         <div>
-                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Original:</p>
-                          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                            "{originalCategory}"
+                          <p className="text-xs text-text-muted">Original:</p>
+                          <p className="text-sm font-medium text-text-primary">
+                            &ldquo;{originalCategory}&rdquo;
                           </p>
                         </div>
-                        <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+                        <p className="text-lg font-bold text-text-primary">
                           {formatCurrency(line.amount_requested)}
                         </p>
                       </div>
@@ -1063,7 +1057,7 @@ export default function DrawDetailPage() {
                       
                       {/* Helper text when creating new budget */}
                       {selectedCatId && availableBudgets.length === 0 && (
-                        <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                        <p className="text-xs mt-2 text-text-muted">
                           No existing budget for this category. Select a subcategory to create a new budget line with {formatCurrency(line.amount_requested)}.
                         </p>
                       )}
@@ -1077,16 +1071,16 @@ export default function DrawDetailPage() {
           {/* Matched Lines Table */}
           <div className="card overflow-hidden">
             <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-primary)' }}>
-              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Draw Line Items</h3>
+              <h3 className="font-semibold text-text-primary">Draw Line Items</h3>
               {isEditable && (
-                <span className="text-xs px-2 py-1 rounded" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                <span className="text-xs px-2 py-1 rounded bg-background-secondary text-text-muted">
                   Click amount to edit
                 </span>
               )}
             </div>
             
             {/* Table Header */}
-            <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs font-medium border-b" style={{ borderColor: 'var(--border-primary)', color: 'var(--text-muted)', background: 'var(--bg-secondary)' }}>
+            <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs font-medium border-b text-text-muted bg-background-secondary" style={{ borderColor: 'var(--border-primary)' }}>
               <div className="col-span-3">Builder Category</div>
               <div className="col-span-2 text-right">Budget</div>
               <div className="col-span-2 text-right">Remaining</div>
@@ -1107,11 +1101,11 @@ export default function DrawDetailPage() {
                   <div key={line.id} className="grid grid-cols-12 gap-2 px-4 py-3 items-center hover:bg-[var(--bg-hover)] transition-colors">
                     {/* Category */}
                     <div className="col-span-3">
-                      <p className="font-medium text-sm truncate" style={{ color: 'var(--text-primary)' }}>
+                      <p className="font-medium text-sm truncate text-text-primary">
                         {line.budget?.builder_category_raw || line.budget?.category || 'Unknown'}
                       </p>
                       {line.budget?.nahb_category && (
-                        <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+                        <p className="text-xs truncate text-text-muted">
                           {line.budget.nahb_category}{line.budget.nahb_subcategory ? ` : ${line.budget.nahb_subcategory}` : ''}
                         </p>
                       )}
@@ -1119,7 +1113,7 @@ export default function DrawDetailPage() {
                     
                     {/* Budget Amount */}
                     <div className="col-span-2 text-right">
-                      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                      <span className="text-sm text-text-secondary">
                         {formatCurrency(line.budget?.current_amount || 0)}
                       </span>
                     </div>
@@ -1153,8 +1147,8 @@ export default function DrawDetailPage() {
                           <button
                             onClick={() => saveLineAmount(line.id)}
                             disabled={isSaving}
-                            className="p-1 rounded hover:bg-green-100"
-                            style={{ color: 'var(--success)' }}
+                            className="p-1 rounded hover:bg-green-100 text-success"
+                            
                           >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -1162,8 +1156,8 @@ export default function DrawDetailPage() {
                           </button>
                           <button
                             onClick={cancelEditing}
-                            className="p-1 rounded hover:bg-red-100"
-                            style={{ color: 'var(--error)' }}
+                            className="p-1 rounded hover:bg-red-100 text-error"
+                            
                           >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1186,7 +1180,7 @@ export default function DrawDetailPage() {
                     <div className="col-span-1 flex justify-center">
                       {lineFlags.length > 0 ? (
                         <div className="relative group">
-                          <svg className="w-5 h-5" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <svg className="w-5 h-5 text-warning"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                           </svg>
                           {/* Tooltip */}
@@ -1197,7 +1191,7 @@ export default function DrawDetailPage() {
                           </div>
                         </div>
                       ) : (
-                        <svg className="w-5 h-5" style={{ color: 'var(--success)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-5 h-5 text-success"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       )}
@@ -1210,17 +1204,16 @@ export default function DrawDetailPage() {
                           <button
                             key={inv.id}
                             onClick={() => setSelectedInvoice(inv)}
-                            className="px-2 py-1 rounded text-xs hover:opacity-80"
-                            style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}
+                            className="px-2 py-1 rounded text-xs hover:opacity-80 bg-accent-glow text-accent"
                           >
                             {inv.vendor_name?.slice(0, 10)}...
                           </button>
                         ))
                       ) : (
-                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>
+                        <span className="text-xs text-text-muted">—</span>
                       )}
                       {lineInvoices.length > 2 && (
-                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>+{lineInvoices.length - 2}</span>
+                        <span className="text-xs text-text-muted">+{lineInvoices.length - 2}</span>
                       )}
                     </div>
                   </div>
@@ -1228,7 +1221,7 @@ export default function DrawDetailPage() {
               })}
               
               {matchedLines.length === 0 && (
-                <div className="p-8 text-center" style={{ color: 'var(--text-muted)' }}>
+                <div className="p-8 text-center text-text-muted">
                   {lines.length === 0 
                     ? 'No line items found for this draw request'
                     : 'All line items need budget category assignment'}
@@ -1237,10 +1230,10 @@ export default function DrawDetailPage() {
             </div>
             
             {/* Total */}
-            <div className="grid grid-cols-12 gap-2 px-4 py-3 border-t items-center" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-primary)' }}>
-              <div className="col-span-7 text-right font-semibold" style={{ color: 'var(--text-primary)' }}>Total</div>
+            <div className="grid grid-cols-12 gap-2 px-4 py-3 border-t items-center bg-background-secondary" style={{ borderColor: 'var(--border-primary)' }}>
+              <div className="col-span-7 text-right font-semibold text-text-primary">Total</div>
               <div className="col-span-2 text-right">
-                <span className="text-lg font-bold" style={{ color: 'var(--accent)' }}>{formatCurrency(totalRequested)}</span>
+                <span className="text-lg font-bold text-accent">{formatCurrency(totalRequested)}</span>
               </div>
               <div className="col-span-3"></div>
             </div>
@@ -1251,7 +1244,7 @@ export default function DrawDetailPage() {
         <div className="space-y-4">
           {/* Actions */}
           <div className="card p-4">
-            <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Actions</h3>
+            <h3 className="font-semibold mb-4 text-text-primary">Actions</h3>
             
             {actionError && (
               <p className="text-sm mb-4 p-2 rounded" style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)' }}>
@@ -1271,19 +1264,19 @@ export default function DrawDetailPage() {
               )}
               
               {draw.status === 'review' && unmatchedLines.length > 0 && (
-                <p className="text-xs text-center py-2" style={{ color: 'var(--warning)' }}>
+                <p className="text-xs text-center py-2 text-warning">
                   Resolve unmatched categories to stage
                 </p>
               )}
               
               {draw.status === 'staged' && (
                 <div className="text-center py-4">
-                  <svg className="w-12 h-12 mx-auto mb-2" style={{ color: 'var(--success)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-12 h-12 mx-auto mb-2 text-success"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <p className="font-medium" style={{ color: 'var(--success)' }}>Staged for Funding</p>
-                  <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                    Ready to fund with builder's other staged draws
+                  <p className="font-medium text-success">Staged for Funding</p>
+                  <p className="text-sm mt-1 text-text-muted">
+                    Ready to fund with builder&apos;s other staged draws
                   </p>
                   {project?.builder_id && (
                     <div className="mt-3 space-y-2">
@@ -1304,8 +1297,7 @@ export default function DrawDetailPage() {
                   <button
                     onClick={handleUnstageDraw}
                     disabled={isUnstaging}
-                    className="w-full mt-3 py-2 px-4 rounded-lg border text-sm font-medium hover:opacity-80 disabled:opacity-50"
-                    style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                    className="w-full mt-3 py-2 px-4 rounded-lg border text-sm font-medium hover:opacity-80 disabled:opacity-50 border-border text-text-secondary"
                   >
                     {isUnstaging ? 'Unstaging...' : 'Unstage Draw'}
                   </button>
@@ -1314,11 +1306,11 @@ export default function DrawDetailPage() {
 
               {draw.status === 'pending_wire' && (
                 <div className="text-center py-4">
-                  <svg className="w-12 h-12 mx-auto mb-2" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-12 h-12 mx-auto mb-2 text-warning"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <p className="font-medium" style={{ color: 'var(--warning)' }}>Pending Wire</p>
-                  <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                  <p className="font-medium text-warning">Pending Wire</p>
+                  <p className="text-sm mt-1 text-text-muted">
                     Awaiting bookkeeper confirmation
                   </p>
                   <Link
@@ -1332,12 +1324,12 @@ export default function DrawDetailPage() {
               
               {draw.status === 'funded' && (
                 <div className="text-center py-4">
-                  <svg className="w-12 h-12 mx-auto mb-2" style={{ color: 'var(--success)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-12 h-12 mx-auto mb-2 text-success"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <p className="font-medium" style={{ color: 'var(--success)' }}>Funded</p>
+                  <p className="font-medium text-success">Funded</p>
                   {draw.funded_at && (
-                    <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                    <p className="text-sm mt-1 text-text-muted">
                       {new Date(draw.funded_at).toLocaleDateString()}
                     </p>
                   )}
@@ -1347,8 +1339,7 @@ export default function DrawDetailPage() {
               {isEditable && (
                 <button
                   onClick={handleReject}
-                  className="w-full py-2 px-4 rounded-lg border text-sm font-medium hover:opacity-80"
-                  style={{ borderColor: 'var(--error)', color: 'var(--error)' }}
+                  className="w-full py-2 px-4 rounded-lg border text-sm font-medium hover:opacity-80 border-error text-error"
                 >
                   Reject Draw
                 </button>
@@ -1359,7 +1350,7 @@ export default function DrawDetailPage() {
           {/* Invoice Management */}
           {isEditable && (
             <div className="card p-4">
-              <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Invoices</h3>
+              <h3 className="font-semibold mb-4 text-text-primary">Invoices</h3>
               
               <div className="space-y-3">
                 {/* Hidden file input */}
@@ -1375,8 +1366,7 @@ export default function DrawDetailPage() {
                 {/* Attach Invoices Button */}
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-2 px-4 rounded-lg border text-sm font-medium hover:opacity-80 flex items-center justify-center gap-2"
-                  style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                  className="w-full py-2 px-4 rounded-lg border text-sm font-medium hover:opacity-80 flex items-center justify-center gap-2 border-border text-text-primary"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -1387,14 +1377,13 @@ export default function DrawDetailPage() {
                 {/* New files pending upload */}
                 {newInvoiceFiles.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    <p className="text-xs text-text-muted">
                       {newInvoiceFiles.length} file(s) ready to upload
                     </p>
                     <button
                       onClick={uploadNewInvoices}
                       disabled={isUploadingInvoices}
-                      className="w-full py-2 px-4 rounded-lg text-sm font-medium"
-                      style={{ background: 'var(--accent)', color: 'white' }}
+                      className="w-full py-2 px-4 rounded-lg text-sm font-medium bg-accent text-white"
                     >
                       {isUploadingInvoices ? 'Uploading...' : 'Upload Files'}
                     </button>
@@ -1405,22 +1394,21 @@ export default function DrawDetailPage() {
                 <button
                   onClick={rerunInvoiceMatching}
                   disabled={isRerunningMatching || invoices.length === 0}
-                  className="w-full py-2 px-4 rounded-lg border text-sm font-medium hover:opacity-80 disabled:opacity-50"
-                  style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                  className="w-full py-2 px-4 rounded-lg border text-sm font-medium hover:opacity-80 disabled:opacity-50 border-border text-text-secondary"
                 >
                   {isRerunningMatching ? 'Processing...' : 'Re-run Invoice Matching'}
                 </button>
                 
                 <div className="flex items-center justify-between">
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  <p className="text-xs text-text-muted">
                     {invoices.length} invoice(s) attached
                   </p>
                   {invoices.length > 0 && (
                     <button
                       onClick={clearInvoices}
                       disabled={isClearingInvoices}
-                      className="text-xs hover:underline disabled:opacity-50"
-                      style={{ color: 'var(--error)' }}
+                      className="text-xs hover:underline disabled:opacity-50 text-error"
+                      
                     >
                       {isClearingInvoices ? 'Clearing...' : 'Clear All'}
                     </button>
@@ -1432,17 +1420,17 @@ export default function DrawDetailPage() {
 
           {/* Project Info */}
           <div className="card p-4">
-            <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Project Details</h3>
+            <h3 className="font-semibold mb-4 text-text-primary">Project Details</h3>
             <dl className="space-y-3 text-sm">
               <div>
-                <dt style={{ color: 'var(--text-muted)' }}>Project</dt>
-                <dd className="font-medium" style={{ color: 'var(--text-primary)' }}>{project?.project_code || project?.name}</dd>
+                <dt className="text-text-muted">Project</dt>
+                <dd className="font-medium text-text-primary">{project?.project_code || project?.name}</dd>
               </div>
               {project?.builder && (
                 <div>
-                  <dt style={{ color: 'var(--text-muted)' }}>Builder</dt>
-                  <dd style={{ color: 'var(--text-primary)' }}>
-                    <Link href={`/builders/${project.builder.id}`} className="hover:underline" style={{ color: 'var(--accent)' }}>
+                  <dt className="text-text-muted">Builder</dt>
+                  <dd className="text-text-primary">
+                    <Link href={`/builders/${project.builder.id}`} className="hover:underline text-accent">
                       {project.builder.company_name}
                     </Link>
                   </dd>
@@ -1450,21 +1438,21 @@ export default function DrawDetailPage() {
               )}
               {project?.loan_amount && (
                 <div>
-                  <dt style={{ color: 'var(--text-muted)' }}>Loan Amount</dt>
-                  <dd className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(project.loan_amount)}</dd>
+                  <dt className="text-text-muted">Loan Amount</dt>
+                  <dd className="font-medium text-text-primary">{formatCurrency(project.loan_amount)}</dd>
                 </div>
               )}
               {project?.address && (
                 <div>
-                  <dt style={{ color: 'var(--text-muted)' }}>Address</dt>
-                  <dd style={{ color: 'var(--text-primary)' }}>{project.address}</dd>
+                  <dt className="text-text-muted">Address</dt>
+                  <dd className="text-text-primary">{project.address}</dd>
                 </div>
               )}
             </dl>
             <Link
               href={`/projects/${draw.project_id}`}
-              className="text-sm font-medium mt-4 inline-block hover:underline"
-              style={{ color: 'var(--accent)' }}
+              className="text-sm font-medium mt-4 inline-block hover:underline text-accent"
+              
             >
               View Full Project →
             </Link>
@@ -1474,9 +1462,9 @@ export default function DrawDetailPage() {
           {invoices.length > 0 && (
             <div className="card p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>All Invoices ({invoices.length})</h3>
+                <h3 className="font-semibold text-text-primary">All Invoices ({invoices.length})</h3>
                 {invoices.some(isInvoiceProcessing) && (
-                  <span className="flex items-center gap-2 text-xs px-2 py-1 rounded-full" style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}>
+                  <span className="flex items-center gap-2 text-xs px-2 py-1 rounded-full bg-accent-glow text-accent">
                     <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -1503,39 +1491,38 @@ export default function DrawDetailPage() {
                   <button
                     key={inv.id}
                     onClick={() => !isInvoiceProcessing(inv) && setSelectedInvoice(inv)}
-                    className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all ${isInvoiceProcessing(inv) ? 'cursor-wait opacity-70' : 'hover:opacity-80'}`}
-                    style={{ background: 'var(--bg-secondary)' }}
+                    className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all bg-background-secondary ${isInvoiceProcessing(inv) ? 'cursor-wait opacity-70' : 'hover:opacity-80'}`}
                     disabled={isInvoiceProcessing(inv)}
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       {/* Status indicator */}
                       {isInvoiceProcessing(inv) ? (
-                        <svg className="w-4 h-4 flex-shrink-0 animate-spin" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 flex-shrink-0 animate-spin text-accent"  fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                       ) : inv.status === 'matched' ? (
-                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--success)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-4 h-4 flex-shrink-0 text-success"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       ) : inv.status === 'rejected' ? (
-                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--error)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-4 h-4 flex-shrink-0 text-error"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       ) : inv.status === 'pending' ? (
-                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-4 h-4 flex-shrink-0 text-warning"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
                       ) : (
-                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-4 h-4 flex-shrink-0 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                       )}
                       <div className="min-w-0">
-                        <p className="font-medium text-sm truncate" style={{ color: 'var(--text-primary)' }}>
+                        <p className="font-medium text-sm truncate text-text-primary">
                           {isInvoiceProcessing(inv) ? 'Processing...' : inv.vendor_name}
                         </p>
-                        <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+                        <p className="text-xs truncate text-text-muted">
                           {isInvoiceProcessing(inv) ? 'Extracting invoice data' :
                            (isInvoiceErrored(inv) ? (getInvoiceErrorDetail(inv.flags) || 'Processing failed') :
                             inv.matched_to_category || (inv.status === 'rejected' ? 'Processing failed' : 'Needs review'))}
@@ -1578,15 +1565,15 @@ export default function DrawDetailPage() {
             >
               <div className="flex justify-between items-center p-4 border-b" style={{ borderColor: 'var(--border-primary)' }}>
                 <div>
-                  <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>{selectedInvoice.vendor_name}</h3>
-                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  <h3 className="font-semibold text-text-primary">{selectedInvoice.vendor_name}</h3>
+                  <p className="text-sm text-text-muted">
                     {formatCurrency(selectedInvoice.amount)} • {selectedInvoice.matched_to_category || 'Unmatched'}
                   </p>
                 </div>
                 <button
                   onClick={() => setSelectedInvoice(null)}
-                  className="p-2 rounded-lg hover:opacity-70"
-                  style={{ color: 'var(--text-muted)' }}
+                  className="p-2 rounded-lg hover:opacity-70 text-text-muted"
+                  
                 >
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1603,21 +1590,25 @@ export default function DrawDetailPage() {
                       title="Invoice PDF"
                     />
                   ) : (
-                    <img
-                      src={selectedInvoice.file_url}
-                      alt="Invoice"
-                      className="max-w-full h-auto mx-auto rounded-lg"
-                    />
+                    <div className="relative w-full h-full">
+                      <Image
+                        src={selectedInvoice.file_url}
+                        alt="Invoice"
+                        fill
+                        className="object-contain rounded-lg"
+                        unoptimized
+                      />
+                    </div>
                   )
                 ) : (
-                  <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-muted)' }}>
+                  <div className="flex items-center justify-center h-full text-text-muted">
                     <p>No file available</p>
                   </div>
                 )}
               </div>
               
               <div className="p-4 border-t flex justify-between items-center" style={{ borderColor: 'var(--border-primary)' }}>
-                <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                <div className="text-sm text-text-muted">
                   {selectedInvoice.invoice_number && <span>Invoice #{selectedInvoice.invoice_number} • </span>}
                   {selectedInvoice.invoice_date && <span>{new Date(selectedInvoice.invoice_date).toLocaleDateString()}</span>}
                 </div>

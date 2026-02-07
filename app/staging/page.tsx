@@ -10,10 +10,12 @@ import { DashboardHeader } from '@/app/components/ui/DashboardHeader'
 import { DrawStatusSelector } from '@/app/components/ui/DrawStatusSelector'
 import { DrawFilterSidebar } from '@/app/components/ui/DrawFilterSidebar'
 import { DrawStatsBar } from '@/app/components/ui/DrawStatsBar'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 import { FundAllModal } from '@/app/components/draws/FundAllModal'
 import { FundingReport } from '@/app/components/draws/FundingReport'
 import { useNavigation } from '@/app/context/NavigationContext'
 import { PermissionGate, useHasPermission } from '@/app/components/auth/PermissionGate'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 type DrawStatus = 'all' | 'review' | 'staged' | 'pending_wire'
 
@@ -318,14 +320,6 @@ function StagingDashboardContent() {
     )
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
 
   const formatTimeAgo = (dateStr: string) => {
     const date = new Date(dateStr)
@@ -405,10 +399,7 @@ function StagingDashboardContent() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
-        <div
-          className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent"
-          style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
-        />
+        <LoadingSpinner />
       </div>
     )
   }
@@ -470,13 +461,12 @@ function StagingDashboardContent() {
                 {filteredPendingWireBatches.length === 0 ? (
                   // Collapsed empty state
                   <div 
-                    className="px-4 py-2.5 flex items-center gap-2"
-                    style={{ background: 'var(--bg-secondary)' }}
+                    className="px-4 py-2.5 flex items-center gap-2 bg-background-secondary"
                   >
-                    <svg className="w-4 h-4" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-4 h-4 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>No pending wire confirmations</span>
+                    <span className="text-sm text-text-muted">No pending wire confirmations</span>
                   </div>
                 ) : (
                   // Expanded state with content
@@ -485,7 +475,7 @@ function StagingDashboardContent() {
                       className="px-4 py-3 border-b"
                       style={{ borderColor: 'var(--border-subtle)', background: 'rgba(245, 158, 11, 0.1)' }}
                     >
-                      <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--warning)' }}>
+                      <h3 className="font-semibold flex items-center gap-2 text-warning">
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -496,7 +486,7 @@ function StagingDashboardContent() {
                       </h3>
                     </div>
 
-                    <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <div className="divide-y divide-border-subtle">
                       {filteredPendingWireBatches.map(batch => (
                         <button
                           key={batch.id}
@@ -508,14 +498,14 @@ function StagingDashboardContent() {
                         >
                           <div className="flex justify-between items-start">
                             <div>
-                              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                              <p className="font-semibold text-text-primary">
                                 {batch.builder?.company_name}
                               </p>
-                              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                              <p className="text-sm text-text-muted">
                                 {batch.draws?.length || 0} draw{(batch.draws?.length || 0) !== 1 ? 's' : ''} • {formatTimeAgo(batch.submitted_at || batch.created_at || '')}
                               </p>
                             </div>
-                            <span className="font-bold" style={{ color: 'var(--warning)' }}>
+                            <span className="font-bold text-warning">
                               {formatCurrency(batch.total_amount)}
                             </span>
                           </div>
@@ -546,12 +536,12 @@ function StagingDashboardContent() {
                     }`}
                     style={{ minWidth: filteredPendingReview.length > 0 ? 400 : 200 }}
                   >
-                    <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-subtle)' }}>
-                      <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                        <span className="w-2 h-2 rounded-full" style={{ background: 'var(--accent)' }}></span>
+                    <div className="px-4 py-3 border-b border-border-subtle flex justify-between items-center">
+                      <h3 className="font-semibold flex items-center gap-2 text-text-primary">
+                        <span className="w-2 h-2 rounded-full bg-accent"></span>
                         Pending Review
                         {filteredPendingReview.length > 0 && (
-                          <span className="text-sm px-2 py-0.5 rounded" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                          <span className="text-sm px-2 py-0.5 rounded bg-background-secondary text-text-muted">
                             {filteredPendingReview.length}
                           </span>
                         )}
@@ -559,14 +549,14 @@ function StagingDashboardContent() {
                     </div>
 
                     {filteredPendingReview.length === 0 ? (
-                      <div className="px-4 py-4 flex items-center justify-center gap-2" style={{ color: 'var(--text-muted)' }}>
+                      <div className="px-4 py-4 flex items-center justify-center gap-2 text-text-muted">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span className="text-sm">No draws pending review</span>
                       </div>
                     ) : (
-                      <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                      <div className="divide-y divide-border-subtle">
                         {filteredPendingReview.map(draw => (
                           <Link
                             key={draw.id}
@@ -575,23 +565,23 @@ function StagingDashboardContent() {
                             style={{ background: 'transparent' }}
                           >
                             <div>
-                              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                              <span className="font-medium text-text-primary">
                                 Draw #{draw.draw_number}
                               </span>
-                              <span className="mx-2" style={{ color: 'var(--text-muted)' }}>—</span>
-                              <span style={{ color: 'var(--text-secondary)' }}>
+                              <span className="mx-2 text-text-muted">—</span>
+                              <span className="text-text-secondary">
                                 {draw.project?.builder?.company_name || 'No Builder'}
                               </span>
-                              <span className="mx-2" style={{ color: 'var(--text-muted)' }}>—</span>
-                              <span style={{ color: 'var(--text-muted)' }}>
+                              <span className="mx-2 text-text-muted">—</span>
+                              <span className="text-text-muted">
                                 {draw.project?.project_code || draw.project?.name}
                               </span>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                              <span className="font-bold text-text-primary">
                                 {formatCurrency(draw.total_amount)}
                               </span>
-                              <svg className="w-5 h-5" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg className="w-5 h-5 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                               </svg>
                             </div>
@@ -618,12 +608,12 @@ function StagingDashboardContent() {
                     }`}
                     style={{ minWidth: filteredStagedByBuilder.length > 0 ? 400 : 200 }}
                   >
-                    <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-subtle)' }}>
-                      <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                        <span className="w-2 h-2 rounded-full" style={{ background: 'var(--success)' }}></span>
+                    <div className="px-4 py-3 border-b border-border-subtle flex justify-between items-center">
+                      <h3 className="font-semibold flex items-center gap-2 text-text-primary">
+                        <span className="w-2 h-2 rounded-full bg-success"></span>
                         Staged by Builder
                         {filteredStagedByBuilder.length > 0 && (
-                          <span className="text-sm px-2 py-0.5 rounded" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                          <span className="text-sm px-2 py-0.5 rounded bg-background-secondary text-text-muted">
                             {filteredStagedByBuilder.reduce((sum, b) => sum + b.stagedDraws.length, 0)}
                           </span>
                         )}
@@ -631,26 +621,26 @@ function StagingDashboardContent() {
                     </div>
 
                     {filteredStagedByBuilder.length === 0 ? (
-                      <div className="px-4 py-4 flex items-center justify-center gap-2" style={{ color: 'var(--text-muted)' }}>
+                      <div className="px-4 py-4 flex items-center justify-center gap-2 text-text-muted">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                         </svg>
                         <span className="text-sm">No draws staged for funding</span>
                       </div>
                     ) : (
-                      <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                      <div className="divide-y divide-border-subtle">
                         {filteredStagedByBuilder.map(builder => (
                           <div key={builder.id} className="p-4">
                             <div className="flex items-center justify-between mb-3">
                               <Link
                                 href={`/builders/${builder.id}`}
-                                className="font-semibold hover:underline"
-                                style={{ color: 'var(--text-primary)' }}
+                                className="font-semibold hover:underline text-text-primary"
+                                
                               >
                                 {builder.company_name}
                               </Link>
                               <div className="flex items-center gap-3">
-                                <span className="font-bold" style={{ color: 'var(--success)' }}>
+                                <span className="font-bold text-success">
                                   {formatCurrency(builder.totalAmount)}
                                 </span>
                                 {canProcess && (
@@ -671,8 +661,8 @@ function StagingDashboardContent() {
                                 <Link
                                   key={draw.id}
                                   href={`/draws/${draw.id}`}
-                                  className="flex justify-between py-1 px-2 -mx-2 rounded hover:opacity-80 transition-opacity"
-                                  style={{ color: 'var(--text-muted)' }}
+                                  className="flex justify-between py-1 px-2 -mx-2 rounded hover:opacity-80 transition-opacity text-text-muted"
+                                  
                                 >
                                   <span className="hover:underline">{draw.project?.project_code || draw.project?.name} - Draw #{draw.draw_number}</span>
                                   <span>{formatCurrency(draw.total_amount)}</span>
@@ -717,20 +707,20 @@ function StagingDashboardContent() {
               className="card max-w-2xl w-full max-h-[90vh] overflow-y-auto"
               onClick={e => e.stopPropagation()}
             >
-              <div className="p-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="p-4 border-b border-border-subtle">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>
+                    <h3 className="font-semibold text-lg text-text-primary">
                       Wire Batch Confirmation
                     </h3>
-                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    <p className="text-sm text-text-muted">
                       Batch #{selectedBatch.id.slice(0, 8).toUpperCase()} • {selectedBatch.builder?.company_name}
                     </p>
                   </div>
                   <button
                     onClick={() => { setSelectedBatch(null); setShowFundingReport(false); }}
-                    className="p-2 rounded-lg hover:opacity-70"
-                    style={{ color: 'var(--text-muted)' }}
+                    className="p-2 rounded-lg hover:opacity-70 text-text-muted"
+                    
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -771,32 +761,32 @@ function StagingDashboardContent() {
                 <>
                   <div className="p-4 space-y-4">
                     {/* Wire Details */}
-                    <div className="p-4 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
-                      <h4 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
+                    <div className="p-4 rounded-lg bg-background-secondary">
+                      <h4 className="font-semibold mb-3 text-text-primary">
                         Wire Destination
                       </h4>
                       <dl className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
                         <div>
-                          <dt style={{ color: 'var(--text-muted)' }}>Bank</dt>
-                          <dd className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                          <dt className="text-text-muted">Bank</dt>
+                          <dd className="font-medium text-text-primary">
                             {selectedBatch.builder?.bank_name || 'N/A'}
                           </dd>
                         </div>
                         <div>
-                          <dt style={{ color: 'var(--text-muted)' }}>Account Name</dt>
-                          <dd className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                          <dt className="text-text-muted">Account Name</dt>
+                          <dd className="font-medium text-text-primary">
                             {selectedBatch.builder?.bank_account_name || 'N/A'}
                           </dd>
                         </div>
                         <div>
-                          <dt style={{ color: 'var(--text-muted)' }}>Routing</dt>
-                          <dd className="font-mono" style={{ color: 'var(--text-primary)' }}>
+                          <dt className="text-text-muted">Routing</dt>
+                          <dd className="font-mono text-text-primary">
                             {selectedBatch.builder?.bank_routing_number || 'N/A'}
                           </dd>
                         </div>
                         <div>
-                          <dt style={{ color: 'var(--text-muted)' }}>Account</dt>
-                          <dd className="font-mono" style={{ color: 'var(--text-primary)' }}>
+                          <dt className="text-text-muted">Account</dt>
+                          <dd className="font-mono text-text-primary">
                             {maskAccountNumber(selectedBatch.builder?.bank_account_number)}
                           </dd>
                         </div>
@@ -805,7 +795,7 @@ function StagingDashboardContent() {
 
                     {/* Draws */}
                     <div>
-                      <h4 className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                      <h4 className="font-semibold mb-2 text-text-primary">
                         Draws Included ({selectedBatch.draws?.length || 0})
                       </h4>
                       <div className="space-y-1 text-sm">
@@ -813,13 +803,12 @@ function StagingDashboardContent() {
                           <Link
                             key={draw.id}
                             href={`/draws/${draw.id}`}
-                            className="flex justify-between p-2 rounded hover:opacity-80 transition-opacity"
-                            style={{ background: 'var(--bg-secondary)' }}
+                            className="flex justify-between p-2 rounded hover:opacity-80 transition-opacity bg-background-secondary"
                           >
-                            <span style={{ color: 'var(--text-secondary)' }}>
+                            <span className="text-text-secondary">
                               {draw.project?.project_code || draw.project?.name} - Draw #{draw.draw_number}
                             </span>
-                            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                            <span className="font-medium text-text-primary">
                               {formatCurrency(draw.total_amount)}
                             </span>
                           </Link>
@@ -828,16 +817,16 @@ function StagingDashboardContent() {
                     </div>
 
                     {/* Total */}
-                    <div className="flex justify-between items-center pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                      <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Total Wire Amount</span>
-                      <span className="text-2xl font-bold font-mono" style={{ color: 'var(--success)' }}>
+                    <div className="flex justify-between items-center pt-3 border-t border-border-subtle">
+                      <span className="font-semibold text-text-primary">Total Wire Amount</span>
+                      <span className="text-2xl font-bold font-mono text-success">
                         {formatCurrency(selectedBatch.total_amount)}
                       </span>
                     </div>
 
                     {/* Funding Date */}
                     <div>
-                      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                      <label className="block text-sm font-medium mb-1 text-text-secondary">
                         Funded Date *
                       </label>
                       <input
@@ -846,14 +835,14 @@ function StagingDashboardContent() {
                         onChange={(e) => setFundingDate(e.target.value)}
                         className="input w-full"
                       />
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                      <p className="text-xs mt-1 text-text-muted">
                         Date the wire was sent (used for amortization calculations)
                       </p>
                     </div>
 
                     {/* Wire Reference Input */}
                     <div>
-                      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                      <label className="block text-sm font-medium mb-1 text-text-secondary">
                         Wire Reference # (optional)
                       </label>
                       <input
@@ -866,7 +855,7 @@ function StagingDashboardContent() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                      <label className="block text-sm font-medium mb-1 text-text-secondary">
                         Notes (optional)
                       </label>
                       <textarea
@@ -885,12 +874,12 @@ function StagingDashboardContent() {
                     )}
                   </div>
 
-                  <div className="p-4 border-t flex justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="p-4 border-t border-border-subtle flex justify-between">
                     {canProcess && (
                       <button
                         onClick={() => handleCancelBatch(selectedBatch.id)}
-                        className="btn-secondary text-sm"
-                        style={{ color: 'var(--error)' }}
+                        className="btn-secondary text-sm text-error"
+                        
                       >
                         Cancel Batch
                       </button>
@@ -949,7 +938,7 @@ export default function StagingDashboardPage() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}></div>
+        <LoadingSpinner />
       </div>
     }>
       <StagingDashboardContent />

@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/app/components/ui/Toast'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 
 type LoginState = 'input' | 'checking' | 'sending' | 'verify' | 'verifying' | 'error'
 
@@ -236,8 +237,8 @@ export function LoginForm({
               {!compact && (
                 <label
                   htmlFor="email"
-                  className="block text-sm font-medium mb-1.5"
-                  style={{ color: 'var(--text-secondary)' }}
+                  className="block text-sm font-medium mb-1.5 text-text-secondary"
+                  
                 >
                   Email address
                 </label>
@@ -261,13 +262,13 @@ export function LoginForm({
             >
               {state === 'checking' && (
                 <>
-                  <LoadingSpinner />
+                  <LoadingSpinner size="sm" variant="white" />
                   {!compact && 'Verifying...'}
                 </>
               )}
               {state === 'sending' && (
                 <>
-                  <LoadingSpinner />
+                  <LoadingSpinner size="sm" variant="white" />
                   {!compact && 'Sending code...'}
                 </>
               )}
@@ -275,7 +276,7 @@ export function LoginForm({
             </button>
 
             {!compact && (
-              <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-xs text-center text-text-muted">
                 We&apos;ll send you a verification code to sign in
               </p>
             )}
@@ -292,12 +293,11 @@ export function LoginForm({
             className="text-center py-4"
           >
             <div
-              className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center"
-              style={{ background: 'var(--accent-muted)' }}
+              className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center bg-accent-muted"
             >
               <svg
-                className="w-6 h-6"
-                style={{ color: 'var(--accent)' }}
+                className="w-6 h-6 text-accent"
+                
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -310,11 +310,11 @@ export function LoginForm({
                 />
               </svg>
             </div>
-            <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+            <h2 className="text-base font-semibold mb-1 text-text-primary">
               Enter verification code
             </h2>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-              Sent to <strong style={{ color: 'var(--text-primary)' }}>{email}</strong>
+            <p className="text-sm mb-4 text-text-muted">
+              Sent to <strong className="text-text-primary">{email}</strong>
             </p>
 
             <div className="flex justify-center gap-1.5 mb-4">
@@ -344,13 +344,13 @@ export function LoginForm({
             </div>
 
             {state === 'verifying' && (
-              <div className="flex items-center justify-center gap-2 mb-3" style={{ color: 'var(--text-muted)' }}>
-                <LoadingSpinner />
+              <div className="flex items-center justify-center gap-2 mb-3 text-text-muted">
+                <LoadingSpinner size="sm" variant="white" />
                 <span className="text-sm">Verifying...</span>
               </div>
             )}
 
-            <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-xs mb-3 text-text-muted">
               Code expires in 5 minutes
             </p>
 
@@ -373,12 +373,11 @@ export function LoginForm({
             className="text-center py-4"
           >
             <div
-              className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center"
-              style={{ background: 'var(--error-muted)' }}
+              className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center bg-error-muted"
             >
               <svg
-                className="w-6 h-6"
-                style={{ color: 'var(--error)' }}
+                className="w-6 h-6 text-error"
+                
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -391,10 +390,10 @@ export function LoginForm({
                 />
               </svg>
             </div>
-            <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+            <h2 className="text-base font-semibold mb-1 text-text-primary">
               Unable to sign in
             </h2>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-sm mb-4 text-text-muted">
               {errorMessage}
             </p>
 
@@ -408,12 +407,6 @@ export function LoginForm({
         )}
       </AnimatePresence>
     </div>
-  )
-}
-
-function LoadingSpinner() {
-  return (
-    <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent border-white" />
   )
 }
 

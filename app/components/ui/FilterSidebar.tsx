@@ -120,16 +120,16 @@ export function FilterSidebar({
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <h2 
-            className="text-xs font-semibold uppercase tracking-wider" 
-            style={{ color: 'var(--text-muted)' }}
+            className="text-xs font-semibold uppercase tracking-wider text-text-muted" 
+            
           >
             Filters
           </h2>
           {hasActiveFilters && (
             <motion.button 
               onClick={onClearAll}
-              className="text-xs font-medium"
-              style={{ color: 'var(--accent)' }}
+              className="text-xs font-medium text-accent"
+              
               whileHover={{ opacity: 0.8 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -232,7 +232,7 @@ export function FilterSidebar({
             >
               {currentOptions.length === 0 ? (
                 <div className="py-8 text-center">
-                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  <p className="text-sm text-text-muted">
                     No {CATEGORY_LABELS[activeCategory].toLowerCase()}s available
                   </p>
                 </div>
@@ -240,7 +240,7 @@ export function FilterSidebar({
                 <div className="space-y-0.5">
                   {/* Context: showing X of Y */}
                   {enabledCount < totalCount && (
-                    <div className="px-3 py-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+                    <div className="px-3 py-1.5 text-xs text-text-muted">
                       {enabledCount} of {totalCount} with matches
                     </div>
                   )}

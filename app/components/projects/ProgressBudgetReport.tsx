@@ -15,6 +15,7 @@ import {
 } from '@/lib/anomalyDetection'
 import type { DetailPanelContent, DrawHistoryItem } from '@/app/components/ui/ReportDetailPanel'
 import { getCategoryOrder, CHART_TOOLTIPS } from '@/lib/constants'
+import { formatCurrencyWhole as formatCurrency, formatDate } from '@/lib/formatters'
 
 type DrawLineWithBudget = DrawRequestLine & {
   budget?: Budget | null
@@ -37,25 +38,6 @@ type GroupedBudget = {
   totalBudget: number
   totalSpent: number
   isExpanded: boolean
-}
-
-const formatCurrency = (amount: number | null) => {
-  if (amount === null || amount === undefined) return '—'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
-
-const formatDate = (dateStr: string | null) => {
-  if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
 }
 
 /**
@@ -218,8 +200,7 @@ export function ProgressBudgetReport({
     <div className="card-ios p-0 overflow-hidden">
       {/* Sticky Header */}
       <div 
-        className="sticky top-0 z-10"
-        style={{ background: 'var(--bg-card)' }}
+        className="sticky top-0 z-10 bg-background-card"
       >
         <table className="w-full">
           <thead>
@@ -321,11 +302,11 @@ export function ProgressBudgetReport({
           </tbody>
 
           {/* Sticky Footer with Totals */}
-          <tfoot className="sticky bottom-0" style={{ background: 'var(--bg-hover)' }}>
+          <tfoot className="sticky bottom-0 bg-background-hover">
             <tr>
               <td className="table-cell font-semibold">Total</td>
               <td className="table-cell text-right font-semibold">{formatCurrency(totals.totalBudget)}</td>
-              <td className="table-cell text-right font-semibold" style={{ color: 'var(--accent)' }}>
+              <td className="table-cell text-right font-semibold text-accent">
                 {formatCurrency(totals.totalSpent)}
               </td>
               <td className="table-cell text-right font-semibold" style={{ 
@@ -379,15 +360,14 @@ function GroupedBudgetRows({
     <>
       {/* Category Header Row */}
       <tr 
-        className="cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
-        style={{ background: 'var(--bg-secondary)' }}
+        className="cursor-pointer hover:bg-[var(--bg-hover)] transition-colors bg-background-secondary"
         onClick={onToggleCategory}
       >
         <td className="table-cell font-semibold">
           <div className="flex items-center gap-2">
             <motion.svg 
-              className="w-4 h-4 flex-shrink-0"
-              style={{ color: 'var(--text-muted)' }}
+              className="w-4 h-4 flex-shrink-0 text-text-muted"
+              
               animate={{ rotate: isExpanded ? 90 : 0 }}
               transition={{ duration: 0.2 }}
               fill="none" 
@@ -396,7 +376,7 @@ function GroupedBudgetRows({
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </motion.svg>
-            <span style={{ color: 'var(--text-primary)' }}>
+            <span className="text-text-primary">
               {group.categoryCode} - {group.category}
             </span>
             <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ 
@@ -407,10 +387,10 @@ function GroupedBudgetRows({
             </span>
           </div>
         </td>
-        <td className="table-cell text-right font-semibold" style={{ color: 'var(--text-primary)' }}>
+        <td className="table-cell text-right font-semibold text-text-primary">
           {formatCurrency(group.totalBudget)}
         </td>
-        <td className="table-cell text-right font-semibold" style={{ color: 'var(--accent)' }}>
+        <td className="table-cell text-right font-semibold text-accent">
           {formatCurrency(group.totalSpent)}
         </td>
         <td className="table-cell text-right font-semibold" style={{ 
@@ -461,8 +441,8 @@ function GroupedBudgetRows({
                       className="w-5 h-5 rounded flex items-center justify-center hover:bg-[var(--bg-card)] transition-colors"
                     >
                       <motion.svg 
-                        className="w-3 h-3"
-                        style={{ color: 'var(--text-muted)' }}
+                        className="w-3 h-3 text-text-muted"
+                        
                         animate={{ rotate: isBudgetExpanded ? 90 : 0 }}
                         transition={{ duration: 0.2 }}
                         fill="none" 
@@ -474,12 +454,12 @@ function GroupedBudgetRows({
                     </button>
                   )}
                   <div>
-                    <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                      {budget.cost_code && <span className="mr-2" style={{ color: 'var(--text-muted)' }}>{budget.cost_code}</span>}
+                    <div className="text-sm font-medium text-text-primary">
+                      {budget.cost_code && <span className="mr-2 text-text-muted">{budget.cost_code}</span>}
                       {budget.category}
                     </div>
                     {budget.nahb_subcategory && (
-                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      <div className="text-xs text-text-muted">
                         {budget.nahb_subcategory}
                       </div>
                     )}
@@ -487,7 +467,7 @@ function GroupedBudgetRows({
                 </div>
               </td>
               <td className="table-cell text-right">{formatCurrency(budget.current_amount)}</td>
-              <td className="table-cell text-right" style={{ color: 'var(--accent)' }}>
+              <td className="table-cell text-right text-accent">
                 {(budget.spent_amount || 0) > 0 ? formatCurrency(budget.spent_amount) : '—'}
               </td>
               <td className="table-cell text-right" style={{ 
@@ -505,7 +485,7 @@ function GroupedBudgetRows({
                     showTooltip={false}
                   />
                 ) : (
-                  <span style={{ color: 'var(--text-muted)' }}>—</span>
+                  <span className="text-text-muted">—</span>
                 )}
               </td>
               <td className="table-cell text-right" style={{ 
@@ -625,11 +605,11 @@ function SankeyChart({
     return (
       <div className="card-ios flex items-center justify-center" style={{ height: 350 }}>
         <div className="text-center">
-          <svg className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-12 h-12 mx-auto mb-3 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
           </svg>
-          <p style={{ color: 'var(--text-muted)' }}>No draw data available for flow chart</p>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Draw funds to see the flow visualization</p>
+          <p className="text-text-muted">No draw data available for flow chart</p>
+          <p className="text-sm mt-1 text-text-muted">Draw funds to see the flow visualization</p>
         </div>
       </div>
     )
@@ -752,7 +732,7 @@ function CategoryUtilizationChart({
     return (
       <div className="card-ios flex items-center justify-center" style={{ height: 350 }}>
         <div className="text-center">
-          <p style={{ color: 'var(--text-muted)' }}>No budget data available</p>
+          <p className="text-text-muted">No budget data available</p>
         </div>
       </div>
     )
@@ -823,26 +803,26 @@ function CategoryUtilizationChart({
                   minWidth: '180px',
                 }}
               >
-                <div className="font-medium text-sm mb-2" style={{ color: 'var(--text-primary)' }}>
+                <div className="font-medium text-sm mb-2 text-text-primary">
                   {fullCategory}
                 </div>
                 <div className="space-y-1 text-xs">
                   <div className="flex justify-between">
-                    <span style={{ color: 'var(--text-muted)' }}>Budget:</span>
-                    <span style={{ color: 'var(--text-primary)' }}>{formatCurrency(budgetAmount)}</span>
+                    <span className="text-text-muted">Budget:</span>
+                    <span className="text-text-primary">{formatCurrency(budgetAmount)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span style={{ color: 'var(--text-muted)' }}>Spent:</span>
-                    <span style={{ color: 'var(--accent)' }}>{formatCurrency(spent)}</span>
+                    <span className="text-text-muted">Spent:</span>
+                    <span className="text-accent">{formatCurrency(spent)}</span>
                   </div>
-                  <div className="flex justify-between pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Variance:</span>
+                  <div className="flex justify-between pt-1 border-t border-border-subtle">
+                    <span className="text-text-muted">Variance:</span>
                     <span style={{ color: isOverBudget ? 'var(--error)' : 'var(--success)' }}>
                       {isOverBudget ? '-' : '+'}{formatCurrency(Math.abs(variance))}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span style={{ color: 'var(--text-muted)' }}>Utilized:</span>
+                    <span className="text-text-muted">Utilized:</span>
                     <span style={{ color: isOverBudget ? 'var(--error)' : percentUsed > 80 ? 'var(--warning)' : 'var(--text-primary)' }}>
                       {percentUsed.toFixed(1)}%
                     </span>
@@ -926,11 +906,11 @@ function SpendingVelocityChart({
     return (
       <div className="card-ios flex items-center justify-center" style={{ height: 350 }}>
         <div className="text-center">
-          <svg className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-12 h-12 mx-auto mb-3 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
           </svg>
-          <p style={{ color: 'var(--text-muted)' }}>No spending history available</p>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Draw funds to see velocity chart</p>
+          <p className="text-text-muted">No spending history available</p>
+          <p className="text-sm mt-1 text-text-muted">Draw funds to see velocity chart</p>
         </div>
       </div>
     )
@@ -1007,7 +987,7 @@ function SpendingVelocityChart({
                   boxShadow: 'var(--elevation-2)',
                 }}
               >
-                <div className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+                <div className="font-medium text-sm text-text-primary">
                   {point.data.xFormatted}
                 </div>
                 <div className="flex items-center gap-2 mt-1">
@@ -1015,7 +995,7 @@ function SpendingVelocityChart({
                     className="w-3 h-3 rounded-full" 
                     style={{ background: isActual ? 'var(--accent)' : 'var(--text-muted)' }} 
                   />
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  <span className="text-xs text-text-muted">
                     {point.serieId}:
                   </span>
                   <span className="text-xs font-semibold" style={{ color: isActual ? 'var(--accent)' : 'var(--text-primary)' }}>

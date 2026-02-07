@@ -40,11 +40,11 @@ export function NavBackButton() {
   // Separator icon
   const SeparatorIcon = (
     <svg 
-      className="w-3 h-3 flex-shrink-0" 
+      className="w-3 h-3 flex-shrink-0 text-text-disabled" 
       fill="none" 
       viewBox="0 0 24 24" 
       stroke="currentColor"
-      style={{ color: 'var(--text-disabled)' }}
+      
     >
       <path 
         strokeLinecap="round" 

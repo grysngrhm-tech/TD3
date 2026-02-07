@@ -215,8 +215,8 @@ export function BuilderInfoCard({
           displayValue = (
             <a 
               href={`mailto:${value}`} 
-              className="hover:underline transition-colors"
-              style={{ color: 'var(--accent)' }}
+              className="hover:underline transition-colors text-accent"
+              
             >
               {value}
             </a>
@@ -225,8 +225,8 @@ export function BuilderInfoCard({
           displayValue = (
             <a 
               href={`tel:${value}`} 
-              className="hover:underline transition-colors"
-              style={{ color: 'var(--accent)' }}
+              className="hover:underline transition-colors text-accent"
+              
             >
               {value}
             </a>
@@ -238,8 +238,8 @@ export function BuilderInfoCard({
 
       return (
         <div className="min-w-0">
-          <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{label}</div>
-          <div className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+          <div className="text-xs truncate text-text-muted">{label}</div>
+          <div className="text-sm font-medium truncate text-text-primary">
             {displayValue}
           </div>
         </div>
@@ -248,7 +248,7 @@ export function BuilderInfoCard({
 
     return (
       <div className="min-w-0">
-        <label className="block text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>
+        <label className="block text-xs mb-0.5 text-text-muted">
           {label}
         </label>
         <input
@@ -267,7 +267,7 @@ export function BuilderInfoCard({
       {/* Header with Edit/Save buttons */}
       {!isNew && (
         <div className="flex justify-between items-center">
-          <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <h3 className="font-semibold text-text-primary">
             Builder Information
           </h3>
           {isEditing ? (
@@ -294,7 +294,7 @@ export function BuilderInfoCard({
       )}
 
       {/* Company & Contact - Combined Row */}
-      <div className="p-3 rounded-ios-sm" style={{ background: 'var(--bg-card)' }}>
+      <div className="p-3 rounded-ios-sm bg-background-card">
         <div className="grid grid-cols-4 gap-3">
           {renderField('Company Name', 'company_name', { placeholder: 'Company name' })}
           {renderField('Owner / Guarantor', 'borrower_name', { placeholder: 'Personal guarantor' })}
@@ -304,8 +304,8 @@ export function BuilderInfoCard({
       </div>
 
       {/* Mailing Address - Compact Row */}
-      <div className="p-3 rounded-ios-sm" style={{ background: 'var(--bg-card)' }}>
-        <div className="text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>Mailing Address</div>
+      <div className="p-3 rounded-ios-sm bg-background-card">
+        <div className="text-xs font-medium mb-2 text-text-muted">Mailing Address</div>
         <div className="grid grid-cols-4 gap-3">
           <div className="col-span-2">
             {renderField('Street', 'address_street', { placeholder: '123 Main St' })}
@@ -319,8 +319,8 @@ export function BuilderInfoCard({
       </div>
 
       {/* Banking Information - Compact Row */}
-      <div className="p-3 rounded-ios-sm" style={{ background: 'var(--bg-card)' }}>
-        <div className="text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>
+      <div className="p-3 rounded-ios-sm bg-background-card">
+        <div className="text-xs font-medium mb-2 text-text-muted">
           Banking Information
           <span className="font-normal ml-1">(for wiring draw funds)</span>
         </div>
@@ -341,19 +341,19 @@ export function BuilderInfoCard({
       </div>
 
       {/* Notes - Collapsible */}
-      <div className="rounded-ios-sm overflow-hidden" style={{ background: 'var(--bg-card)' }}>
+      <div className="rounded-ios-sm overflow-hidden bg-background-card">
         <button
           onClick={() => !isEditing && setNotesExpanded(!notesExpanded)}
           className="w-full p-3 flex items-center justify-between text-left"
           disabled={isEditing}
         >
-          <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Notes</span>
+          <span className="text-xs font-medium text-text-muted">Notes</span>
           {!isEditing && (
             <motion.svg
               animate={{ rotate: notesExpanded ? 180 : 0 }}
               transition={{ duration: 0.2 }}
-              className="w-4 h-4"
-              style={{ color: 'var(--text-muted)' }}
+              className="w-4 h-4 text-text-muted"
+              
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"

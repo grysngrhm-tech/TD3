@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useNavigation } from '@/app/context/NavigationContext'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 import { Project, Budget } from '@/types/custom'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 type BudgetWithProject = Budget & { project_name?: string }
 
@@ -60,15 +62,6 @@ export default function BudgetsPage() {
     ? budgets
     : budgets.filter(b => b.project_id === selectedProject)
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
-
   const getProgressColor = (remaining: number, current: number) => {
     const percent = current > 0 ? (remaining / current) * 100 : 100
     if (percent > 50) return 'var(--success)'
@@ -90,10 +83,7 @@ export default function BudgetsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div 
-          className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent"
-          style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
-        />
+        <LoadingSpinner />
       </div>
     )
   }
@@ -103,8 +93,8 @@ export default function BudgetsPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Budgets</h1>
-          <p className="mt-1" style={{ color: 'var(--text-muted)' }}>Manage project budget line items</p>
+          <h1 className="text-2xl font-bold text-text-primary">Budgets</h1>
+          <p className="mt-1 text-text-muted">Manage project budget line items</p>
         </div>
         <Link href="/budgets/new" className="btn-primary">
           + New Budget
@@ -114,7 +104,7 @@ export default function BudgetsPage() {
       {/* Filters */}
       <div className="card">
         <div className="flex items-center gap-4">
-          <label className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Filter by Project:</label>
+          <label className="text-sm font-medium text-text-secondary">Filter by Project:</label>
           <select
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
@@ -130,28 +120,28 @@ export default function BudgetsPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="card" style={{ background: 'var(--bg-secondary)' }}>
-          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Original Budget</div>
-          <div className="text-xl font-bold financial-value" style={{ color: 'var(--text-primary)' }}>{formatCurrency(totals.original)}</div>
+        <div className="card bg-background-secondary">
+          <div className="text-sm text-text-muted">Original Budget</div>
+          <div className="text-xl font-bold financial-value text-text-primary">{formatCurrency(totals.original)}</div>
         </div>
-        <div className="card" style={{ background: 'var(--accent-muted)' }}>
-          <div className="text-sm" style={{ color: 'var(--accent)' }}>Current Budget</div>
-          <div className="text-xl font-bold financial-value" style={{ color: 'var(--text-primary)' }}>{formatCurrency(totals.current)}</div>
+        <div className="card bg-accent-muted">
+          <div className="text-sm text-accent">Current Budget</div>
+          <div className="text-xl font-bold financial-value text-text-primary">{formatCurrency(totals.current)}</div>
         </div>
-        <div className="card" style={{ background: 'var(--success-muted)' }}>
-          <div className="text-sm" style={{ color: 'var(--success)' }}>Spent</div>
-          <div className="text-xl font-bold financial-value" style={{ color: 'var(--success)' }}>{formatCurrency(totals.spent)}</div>
+        <div className="card bg-success-muted">
+          <div className="text-sm text-success">Spent</div>
+          <div className="text-xl font-bold financial-value text-success">{formatCurrency(totals.spent)}</div>
         </div>
-        <div className="card" style={{ background: 'var(--warning-muted)' }}>
-          <div className="text-sm" style={{ color: 'var(--warning)' }}>Remaining</div>
-          <div className="text-xl font-bold financial-value" style={{ color: 'var(--warning)' }}>{formatCurrency(totals.remaining)}</div>
+        <div className="card bg-warning-muted">
+          <div className="text-sm text-warning">Remaining</div>
+          <div className="text-xl font-bold financial-value text-warning">{formatCurrency(totals.remaining)}</div>
         </div>
       </div>
 
       {/* Budget Table */}
       <div className="card p-0 overflow-hidden">
         {filteredBudgets.length === 0 ? (
-          <p className="text-center py-12" style={{ color: 'var(--text-muted)' }}>No budget items found</p>
+          <p className="text-center py-12 text-text-muted">No budget items found</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -169,11 +159,11 @@ export default function BudgetsPage() {
               <tbody>
                 {filteredBudgets.map((budget) => (
                   <tr key={budget.id} className="table-row">
-                    <td className="table-cell text-sm" style={{ color: 'var(--text-secondary)' }}>{budget.project_name}</td>
+                    <td className="table-cell text-sm text-text-secondary">{budget.project_name}</td>
                     <td className="table-cell font-medium">{budget.category}</td>
                     <td className="table-cell text-right financial-value">{formatCurrency(budget.original_amount)}</td>
                     <td className="table-cell text-right financial-value">{formatCurrency(budget.current_amount)}</td>
-                    <td className="table-cell text-right financial-value" style={{ color: 'var(--success)' }}>{formatCurrency(budget.spent_amount)}</td>
+                    <td className="table-cell text-right financial-value text-success">{formatCurrency(budget.spent_amount)}</td>
                     <td className="table-cell text-right font-medium financial-value">{formatCurrency(budget.remaining_amount ?? 0)}</td>
                     <td className="table-cell">
                       <div className="w-24 h-2 overflow-hidden" style={{ background: 'var(--bg-hover)', borderRadius: 'var(--radius-full)' }}>
@@ -190,12 +180,12 @@ export default function BudgetsPage() {
                   </tr>
                 ))}
               </tbody>
-              <tfoot style={{ background: 'var(--bg-hover)' }}>
+              <tfoot className="bg-background-hover">
                 <tr className="font-semibold">
                   <td className="table-cell" colSpan={2}>Total</td>
                   <td className="table-cell text-right financial-value">{formatCurrency(totals.original)}</td>
                   <td className="table-cell text-right financial-value">{formatCurrency(totals.current)}</td>
-                  <td className="table-cell text-right financial-value" style={{ color: 'var(--success)' }}>{formatCurrency(totals.spent)}</td>
+                  <td className="table-cell text-right financial-value text-success">{formatCurrency(totals.spent)}</td>
                   <td className="table-cell text-right financial-value">{formatCurrency(totals.remaining)}</td>
                   <td className="table-cell"></td>
                 </tr>

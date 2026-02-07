@@ -6,6 +6,7 @@ import type { Json } from '@/types/database'
 import type { Invoice, Budget, MatchCandidate, InvoiceMatchDecision } from '@/types/custom'
 import { supabase } from '@/lib/supabase'
 import { recordMatchCorrection } from '@/lib/invoiceLearning'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 type DrawLine = {
   id: string
@@ -25,17 +26,6 @@ type InvoiceMatchPanelProps = {
   allBudgets: Budget[]
   onClose: () => void
   onMatched: () => void
-}
-
-// Format currency
-function formatCurrency(amount: number | null): string {
-  if (amount === null || amount === undefined) return '—'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
 }
 
 // Format percentage
@@ -257,8 +247,8 @@ export function InvoiceMatchPanel({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--border-primary)' }}>
           <div>
-            <h3 className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>Match Invoice to Category</h3>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            <h3 className="font-semibold text-lg text-text-primary">Match Invoice to Category</h3>
+            <p className="text-sm text-text-muted">
               {candidates.length > 0
                 ? `${candidates.length} candidate${candidates.length !== 1 ? 's' : ''} found • Select the best match`
                 : 'Review the invoice and select which draw line it supports'}
@@ -266,8 +256,8 @@ export function InvoiceMatchPanel({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:opacity-70"
-            style={{ color: 'var(--text-muted)' }}
+            className="p-2 rounded-lg hover:opacity-70 text-text-muted"
+            
             aria-label="Close panel"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -280,8 +270,8 @@ export function InvoiceMatchPanel({
         <div className="flex-1 flex overflow-hidden">
           {/* PDF Preview - Left Side */}
           <div className="w-1/2 border-r flex flex-col" style={{ borderColor: 'var(--border-primary)', background: 'var(--bg-tertiary)' }}>
-            <div className="p-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
-              <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+            <div className="p-3 border-b border-border-subtle flex items-center justify-between">
+              <span className="text-sm font-medium text-text-secondary">
                 Invoice Preview
               </span>
               {fileUrl && (
@@ -289,8 +279,7 @@ export function InvoiceMatchPanel({
                   href={fileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs flex items-center gap-1 px-2 py-1 rounded hover:opacity-70"
-                  style={{ color: 'var(--accent)', background: 'var(--accent-glow)' }}
+                  className="text-xs flex items-center gap-1 px-2 py-1 rounded hover:opacity-70 text-accent bg-accent-glow"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -314,26 +303,25 @@ export function InvoiceMatchPanel({
                 />
               ) : (
                 <div
-                  className="w-full h-full rounded-lg border flex flex-col items-center justify-center gap-4"
-                  style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-secondary)' }}
+                  className="w-full h-full rounded-lg border flex flex-col items-center justify-center gap-4 border-border-subtle bg-background-secondary"
                 >
                   <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'var(--bg-tertiary)' }}>
-                    <svg className="w-8 h-8" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-8 h-8 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </div>
                   <div className="text-center">
-                    <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                    <p className="font-medium text-text-primary">
                       {pdfError ? 'Unable to load preview' : 'No preview available'}
                     </p>
-                    <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                    <p className="text-sm mt-1 text-text-muted">
                       {fileUrl ? (
                         <a
                           href={fileUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="underline hover:no-underline"
-                          style={{ color: 'var(--accent)' }}
+                          className="underline hover:no-underline text-accent"
+                          
                         >
                           Click to open file directly
                         </a>
@@ -350,25 +338,25 @@ export function InvoiceMatchPanel({
           {/* Category Selection - Right Side */}
           <div className="w-1/2 flex flex-col">
             {/* Invoice Summary */}
-            <div className="p-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-secondary)' }}>
+            <div className="p-4 border-b border-border-subtle bg-background-secondary">
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--accent-glow)' }}>
-                  <svg className="w-5 h-5" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-5 h-5 text-accent"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                  <p className="font-semibold truncate text-text-primary">
                     {invoice.vendor_name}
                   </p>
-                  <div className="flex items-center gap-3 text-sm" style={{ color: 'var(--text-muted)' }}>
+                  <div className="flex items-center gap-3 text-sm text-text-muted">
                     {invoice.invoice_number && <span>#{invoice.invoice_number}</span>}
                     {invoice.invoice_date && <span>{new Date(invoice.invoice_date).toLocaleDateString()}</span>}
                   </div>
                   {/* Extracted context */}
                   {extracted?.context && (
-                    <p className="text-xs mt-1 italic" style={{ color: 'var(--text-muted)' }}>
-                      "{extracted.context}"
+                    <p className="text-xs mt-1 italic text-text-muted">
+                      &ldquo;{extracted.context}&rdquo;
                     </p>
                   )}
                   {/* Extracted keywords */}
@@ -377,14 +365,13 @@ export function InvoiceMatchPanel({
                       {extracted.keywords.slice(0, 5).map((kw: string) => (
                         <span
                           key={kw}
-                          className="px-1.5 py-0.5 text-xs rounded"
-                          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}
+                          className="px-1.5 py-0.5 text-xs rounded bg-background-tertiary text-text-muted"
                         >
                           {kw}
                         </span>
                       ))}
                       {extracted.keywords.length > 5 && (
-                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        <span className="text-xs text-text-muted">
                           +{extracted.keywords.length - 5} more
                         </span>
                       )}
@@ -392,11 +379,11 @@ export function InvoiceMatchPanel({
                   )}
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-lg font-bold" style={{ color: 'var(--accent)' }}>
+                  <p className="text-lg font-bold text-accent">
                     {formatCurrency(invoice.amount)}
                   </p>
                   {extracted?.trade && (
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    <p className="text-xs text-text-muted">
                       Trade: {extracted.trade}
                     </p>
                   )}
@@ -406,9 +393,9 @@ export function InvoiceMatchPanel({
 
             {/* AI Reasoning (if available) */}
             {lastDecision?.ai_reasoning && (
-              <div className="px-4 py-2 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--accent-glow)' }}>
-                <p className="text-xs font-medium" style={{ color: 'var(--accent)' }}>AI Reasoning</p>
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{lastDecision.ai_reasoning}</p>
+              <div className="px-4 py-2 border-b border-border-subtle bg-accent-glow">
+                <p className="text-xs font-medium text-accent">AI Reasoning</p>
+                <p className="text-sm text-text-secondary">{lastDecision.ai_reasoning}</p>
               </div>
             )}
 
@@ -418,7 +405,7 @@ export function InvoiceMatchPanel({
                 {/* Candidates Section (if available) */}
                 {sortedCandidates.length > 0 && (
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-2 px-1" style={{ color: 'var(--accent)' }}>
+                    <p className="text-xs font-semibold uppercase tracking-wider mb-2 px-1 text-accent">
                       Scored Candidates
                     </p>
                     <div className="space-y-2">
@@ -431,12 +418,11 @@ export function InvoiceMatchPanel({
                           <button
                             key={candidate.drawLineId}
                             onClick={() => setSelectedLineId(candidate.drawLineId)}
-                            className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
+                            className={`w-full p-3 rounded-lg border-2 text-left transition-all bg-background-secondary ${
                               isSelected
                                 ? 'border-[var(--accent)]'
                                 : 'border-transparent hover:border-[var(--border-primary)]'
                             }`}
-                            style={{ background: 'var(--bg-secondary)' }}
                           >
                             <div className="flex items-start gap-3">
                               <div
@@ -450,17 +436,17 @@ export function InvoiceMatchPanel({
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <p className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                                  <p className="font-medium truncate text-text-primary">
                                     {candidate.budgetCategory}
                                   </p>
                                   {idx === 0 && (
-                                    <span className="px-1.5 py-0.5 text-xs rounded" style={{ background: 'var(--success)', color: 'white' }}>
+                                    <span className="px-1.5 py-0.5 text-xs rounded bg-success text-white">
                                       Best
                                     </span>
                                   )}
                                 </div>
                                 {candidate.nahbCategory && (
-                                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                  <p className="text-xs text-text-muted">
                                     NAHB: {candidate.nahbCategory}
                                   </p>
                                 )}
@@ -470,13 +456,13 @@ export function InvoiceMatchPanel({
                                     {formatPercent(candidate.scores.composite)} match
                                   </span>
                                   {candidate.factors.tradeMatch && (
-                                    <span style={{ color: 'var(--success)' }}>Trade match</span>
+                                    <span className="text-success">Trade match</span>
                                   )}
                                   {candidate.factors.vendorPreviousMatch && (
-                                    <span style={{ color: 'var(--success)' }}>Vendor history</span>
+                                    <span className="text-success">Vendor history</span>
                                   )}
                                   {candidate.factors.keywordMatches.length > 0 && (
-                                    <span style={{ color: 'var(--text-muted)' }}>
+                                    <span className="text-text-muted">
                                       {candidate.factors.keywordMatches.length} keywords
                                     </span>
                                   )}
@@ -493,10 +479,10 @@ export function InvoiceMatchPanel({
                                 )}
                               </div>
                               <div className="text-right flex-shrink-0">
-                                <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                <p className="font-semibold text-text-primary">
                                   {formatCurrency(candidate.amountRequested)}
                                 </p>
-                                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                <p className="text-xs text-text-muted">
                                   requested
                                 </p>
                               </div>
@@ -507,8 +493,8 @@ export function InvoiceMatchPanel({
                       {sortedCandidates.length > 3 && !showAllCategories && (
                         <button
                           onClick={() => setShowAllCategories(true)}
-                          className="w-full py-2 text-sm hover:opacity-70"
-                          style={{ color: 'var(--accent)' }}
+                          className="w-full py-2 text-sm hover:opacity-70 text-accent"
+                          
                         >
                           Show {sortedCandidates.length - 3} more candidates
                         </button>
@@ -523,8 +509,8 @@ export function InvoiceMatchPanel({
                     <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
                     <button
                       onClick={() => setShowAllCategories(!showAllCategories)}
-                      className="text-xs hover:opacity-70"
-                      style={{ color: 'var(--text-muted)' }}
+                      className="text-xs hover:opacity-70 text-text-muted"
+                      
                     >
                       {showAllCategories ? 'Show less' : 'Show all categories'}
                     </button>
@@ -538,12 +524,11 @@ export function InvoiceMatchPanel({
                     {/* Unmatched option */}
                     <button
                       onClick={() => setSelectedLineId(null)}
-                      className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
+                      className={`w-full p-3 rounded-lg border-2 text-left transition-all bg-background-secondary ${
                         selectedLineId === null
                           ? 'border-[var(--warning)]'
                           : 'border-transparent hover:border-[var(--border-primary)]'
                       }`}
-                      style={{ background: 'var(--bg-secondary)' }}
                     >
                       <div className="flex items-center gap-3">
                         <div
@@ -556,8 +541,8 @@ export function InvoiceMatchPanel({
                           )}
                         </div>
                         <div>
-                          <p className="font-medium" style={{ color: 'var(--text-primary)' }}>Leave Unmatched</p>
-                          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>This invoice doesn't match any draw line</p>
+                          <p className="font-medium text-text-primary">Leave Unmatched</p>
+                          <p className="text-sm text-text-muted">This invoice doesn&apos;t match any draw line</p>
                         </div>
                       </div>
                     </button>
@@ -565,7 +550,7 @@ export function InvoiceMatchPanel({
                     {/* Grouped draw lines */}
                     {Object.entries(groupedLines).map(([category, lines]) => (
                       <div key={category}>
-                        <p className="text-xs font-semibold uppercase tracking-wider mb-2 px-1" style={{ color: 'var(--text-muted)' }}>
+                        <p className="text-xs font-semibold uppercase tracking-wider mb-2 px-1 text-text-muted">
                           {category}
                         </p>
                         <div className="space-y-2">
@@ -578,12 +563,11 @@ export function InvoiceMatchPanel({
                               <button
                                 key={line.id}
                                 onClick={() => setSelectedLineId(line.id)}
-                                className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
+                                className={`w-full p-3 rounded-lg border-2 text-left transition-all bg-background-secondary ${
                                   isSelected
                                     ? 'border-[var(--accent)]'
                                     : 'border-transparent hover:border-[var(--border-primary)]'
                                 }`}
-                                style={{ background: 'var(--bg-secondary)' }}
                               >
                                 <div className="flex items-center gap-3">
                                   <div
@@ -596,11 +580,11 @@ export function InvoiceMatchPanel({
                                     )}
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <p className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                                    <p className="font-medium truncate text-text-primary">
                                       {budget?.category || 'Unknown Category'}
                                     </p>
                                     {budget?.cost_code && (
-                                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                      <p className="text-xs text-text-muted">
                                         Code: {budget.cost_code}
                                       </p>
                                     )}
@@ -611,11 +595,11 @@ export function InvoiceMatchPanel({
                                     )}
                                   </div>
                                   <div className="text-right flex-shrink-0">
-                                    <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                    <p className="font-semibold text-text-primary">
                                       {formatCurrency(line.amount_requested)}
                                     </p>
                                     {budget && (
-                                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                      <p className="text-xs text-text-muted">
                                         Budget: {formatCurrency(budget.current_amount)}
                                       </p>
                                     )}
@@ -635,7 +619,7 @@ export function InvoiceMatchPanel({
             {/* Correction Reason (when changing from existing match) */}
             {isCorrection && (
               <div className="p-4 border-t" style={{ borderColor: 'var(--border-subtle)', background: 'var(--warning-glow)' }}>
-                <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                <p className="text-sm font-medium mb-2 text-text-primary">
                   Why are you changing this match?
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -643,12 +627,11 @@ export function InvoiceMatchPanel({
                     <button
                       key={reason.value}
                       onClick={() => setCorrectionReason(reason.value)}
-                      className={`px-3 py-1.5 text-sm rounded-lg border transition-all ${
+                      className={`px-3 py-1.5 text-sm rounded-lg border transition-all bg-background-secondary ${
                         correctionReason === reason.value
                           ? 'border-[var(--warning)]'
                           : 'border-transparent hover:border-[var(--border-primary)]'
                       }`}
-                      style={{ background: 'var(--bg-secondary)' }}
                     >
                       {reason.label}
                     </button>
@@ -676,7 +659,7 @@ export function InvoiceMatchPanel({
         {/* Footer */}
         <div className="p-4 border-t flex items-center justify-between" style={{ borderColor: 'var(--border-primary)' }}>
           {error && (
-            <p className="text-sm" style={{ color: 'var(--error)' }}>{error}</p>
+            <p className="text-sm text-error">{error}</p>
           )}
           <div className="flex gap-3 ml-auto">
             <button

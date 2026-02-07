@@ -29,8 +29,8 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
             <h2
-              className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-bold mb-4 tracking-tight uppercase whitespace-normal sm:whitespace-nowrap leading-tight"
-              style={{ color: 'var(--text-primary)' }}
+              className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-bold mb-4 tracking-tight uppercase whitespace-normal sm:whitespace-nowrap leading-tight text-text-primary"
+              
             >
               Construction Finance.
               <br />
@@ -77,8 +77,8 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
                 <span className="relative text-sm font-bold text-white">TD3</span>
               </div>
               <span
-                className="text-lg font-semibold"
-                style={{ color: 'var(--text-primary)' }}
+                className="text-lg font-semibold text-text-primary"
+                
               >
                 Sign in to continue
               </span>
@@ -115,17 +115,17 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
                     />
                     <span className="relative text-[10px] font-bold text-white">TD3</span>
                   </div>
-                  <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  <span className="text-sm font-semibold text-text-primary">
                     TD3
                   </span>
                 </div>
-                <p className="text-xs leading-relaxed mb-2" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-xs leading-relaxed mb-2 text-text-muted">
                   A construction finance management platform designed to provide structure, visibility, and accountability across loans, budgets, draws, and funding.
                 </p>
                 <a
                   href="https://td3.tennantdevelopments.com"
-                  className="inline-flex items-center gap-1 text-xs font-medium hover:underline transition-opacity duration-200 hover:opacity-80"
-                  style={{ color: 'var(--accent)' }}
+                  className="inline-flex items-center gap-1 text-xs font-medium hover:underline transition-opacity duration-200 hover:opacity-80 text-accent"
+                  
                 >
                   td3.tennantdevelopments.com
                 </a>
@@ -133,18 +133,18 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
 
               {/* Tennant Developments Column */}
               <div>
-                <h4 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                <h4 className="text-sm font-semibold mb-2 text-text-primary">
                   Tennant Developments
                 </h4>
-                <p className="text-xs leading-relaxed mb-2" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-xs leading-relaxed mb-2 text-text-muted">
                   A real estate development firm based in Central Oregon, focused on master-planned communities, construction finance, and commercial properties.
                 </p>
                 <a
                   href="https://tennantdevelopments.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-medium hover:underline transition-opacity duration-200 hover:opacity-80"
-                  style={{ color: 'var(--accent)' }}
+                  className="inline-flex items-center gap-1 text-xs font-medium hover:underline transition-opacity duration-200 hover:opacity-80 text-accent"
+                  
                 >
                   tennantdevelopments.com
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -155,16 +155,16 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
 
               {/* Learn More Column */}
               <div>
-                <h4 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                <h4 className="text-sm font-semibold mb-2 text-text-primary">
                   Learn More
                 </h4>
-                <p className="text-xs leading-relaxed mb-2" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-xs leading-relaxed mb-2 text-text-muted">
                   Explore how TD3 streamlines construction loan management — from budget import to draw funding.
                 </p>
                 <a
                   href="https://td3.tennantdevelopments.com"
-                  className="inline-flex items-center gap-1 text-xs font-medium hover:underline transition-opacity duration-200 hover:opacity-80"
-                  style={{ color: 'var(--accent)' }}
+                  className="inline-flex items-center gap-1 text-xs font-medium hover:underline transition-opacity duration-200 hover:opacity-80 text-accent"
+                  
                 >
                   td3.tennantdevelopments.com
                 </a>
@@ -173,13 +173,12 @@ export const CTASection = forwardRef<HTMLElement, CTASectionProps>(
 
             {/* Bottom bar - tighter */}
             <div
-              className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-4 border-t"
-              style={{ borderColor: 'var(--border-subtle)' }}
+              className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-4 border-t border-border-subtle"
             >
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-xs text-text-muted">
                 © {new Date().getFullYear()} TD3 · Tennant Developments
               </p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-xs text-text-muted">
                 Built by Grayson Graham
               </p>
             </div>

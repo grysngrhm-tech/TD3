@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/app/context/AuthContext'
 import { toast } from '@/app/components/ui/Toast'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 
 export function FirstLoginModal() {
   const { user, profile, refreshProfile } = useAuth()
@@ -113,15 +114,14 @@ export function FirstLoginModal() {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.98, y: 10 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md rounded-ios"
-                style={{ background: 'var(--bg-secondary)' }}
+                className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md rounded-ios bg-background-secondary"
               >
                 {/* Header */}
-                <div className="px-6 py-5 border-b" style={{ borderColor: 'var(--border)' }}>
-                  <Dialog.Title className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <div className="px-6 py-5 border-b border-border">
+                  <Dialog.Title className="text-lg font-semibold text-text-primary">
                     Complete Your Profile
                   </Dialog.Title>
-                  <Dialog.Description className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                  <Dialog.Description className="text-sm mt-1 text-text-muted">
                     Welcome to TD3! Please provide your contact information.
                   </Dialog.Description>
                 </div>
@@ -129,21 +129,18 @@ export function FirstLoginModal() {
                 {/* Content - Loading state or Form */}
                 {isCreatingProfile || !profile ? (
                   <div className="p-6 flex flex-col items-center justify-center py-12">
-                    <div
-                      className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent mb-4"
-                      style={{ borderColor: 'var(--accent)' }}
-                    />
-                    <p style={{ color: 'var(--text-muted)' }}>Setting up your account...</p>
+                    <LoadingSpinner className="mb-4" />
+                    <p className="text-text-muted">Setting up your account...</p>
                   </div>
                 ) : (
                   <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div>
                       <label
                         htmlFor="fullName"
-                        className="block text-sm font-medium mb-1.5"
-                        style={{ color: 'var(--text-secondary)' }}
+                        className="block text-sm font-medium mb-1.5 text-text-secondary"
+                        
                       >
-                        Full Name <span style={{ color: 'var(--error)' }}>*</span>
+                        Full Name <span className="text-error">*</span>
                       </label>
                       <input
                         id="fullName"
@@ -160,10 +157,10 @@ export function FirstLoginModal() {
                     <div>
                       <label
                         htmlFor="phone"
-                        className="block text-sm font-medium mb-1.5"
-                        style={{ color: 'var(--text-secondary)' }}
+                        className="block text-sm font-medium mb-1.5 text-text-secondary"
+                        
                       >
-                        Phone Number <span style={{ color: 'var(--text-muted)' }}>(optional)</span>
+                        Phone Number <span className="text-text-muted">(optional)</span>
                       </label>
                       <input
                         id="phone"
@@ -184,7 +181,7 @@ export function FirstLoginModal() {
                       >
                         {saving ? (
                           <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent border-white" />
+                            <LoadingSpinner size="sm" variant="white" />
                             Saving...
                           </>
                         ) : (

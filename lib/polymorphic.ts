@@ -28,118 +28,106 @@ export type WorkflowStatus =
 export type ThemeMode = 'light' | 'dark'
 
 /**
+ * Unified status theme configuration.
+ * Each status maps to tint (light/dark), color, and badge background.
+ */
+const STATUS_THEME: Record<WorkflowStatus, {
+  tint: { light: string; dark: string }
+  color: string
+  badgeBg: string
+}> = {
+  draft: {
+    tint: { light: 'rgba(107, 114, 128, 0.05)', dark: 'rgba(107, 114, 128, 0.08)' },
+    color: 'var(--text-muted)',
+    badgeBg: 'var(--bg-hover)',
+  },
+  pending: {
+    tint: { light: 'rgba(245, 158, 11, 0.05)', dark: 'rgba(245, 158, 11, 0.08)' },
+    color: 'var(--warning)',
+    badgeBg: 'var(--warning-muted)',
+  },
+  pending_review: {
+    tint: { light: 'rgba(245, 158, 11, 0.05)', dark: 'rgba(245, 158, 11, 0.08)' },
+    color: 'var(--warning)',
+    badgeBg: 'var(--warning-muted)',
+  },
+  review: {
+    tint: { light: 'rgba(149, 6, 6, 0.05)', dark: 'rgba(149, 6, 6, 0.08)' },
+    color: 'var(--accent)',
+    badgeBg: 'var(--accent-muted)',
+  },
+  staged: {
+    tint: { light: 'rgba(59, 130, 246, 0.05)', dark: 'rgba(59, 130, 246, 0.08)' },
+    color: 'var(--info)',
+    badgeBg: 'var(--info-muted)',
+  },
+  funded: {
+    tint: { light: 'rgba(16, 185, 129, 0.05)', dark: 'rgba(16, 185, 129, 0.08)' },
+    color: 'var(--success)',
+    badgeBg: 'var(--success-muted)',
+  },
+  approved: {
+    tint: { light: 'rgba(16, 185, 129, 0.05)', dark: 'rgba(16, 185, 129, 0.08)' },
+    color: 'var(--success)',
+    badgeBg: 'var(--success-muted)',
+  },
+  rejected: {
+    tint: { light: 'rgba(239, 68, 68, 0.05)', dark: 'rgba(239, 68, 68, 0.08)' },
+    color: 'var(--error)',
+    badgeBg: 'var(--error-muted)',
+  },
+  pending_wire: {
+    tint: { light: 'rgba(139, 92, 246, 0.05)', dark: 'rgba(139, 92, 246, 0.08)' },
+    color: 'var(--purple)',
+    badgeBg: 'var(--purple-muted)',
+  },
+  paid: {
+    tint: { light: 'rgba(16, 185, 129, 0.08)', dark: 'rgba(16, 185, 129, 0.12)' },
+    color: 'var(--success)',
+    badgeBg: 'var(--success-muted)',
+  },
+  complete: {
+    tint: { light: 'rgba(16, 185, 129, 0.05)', dark: 'rgba(16, 185, 129, 0.08)' },
+    color: 'var(--success)',
+    badgeBg: 'var(--success-muted)',
+  },
+  active: {
+    tint: { light: 'transparent', dark: 'transparent' },
+    color: 'var(--success)',
+    badgeBg: 'var(--success-muted)',
+  },
+  historic: {
+    tint: { light: 'rgba(107, 114, 128, 0.03)', dark: 'rgba(107, 114, 128, 0.05)' },
+    color: 'var(--text-muted)',
+    badgeBg: 'var(--bg-hover)',
+  },
+  on_hold: {
+    tint: { light: 'rgba(245, 158, 11, 0.05)', dark: 'rgba(245, 158, 11, 0.08)' },
+    color: 'var(--warning)',
+    badgeBg: 'var(--warning-muted)',
+  },
+}
+
+/**
  * Get a subtle background tint based on status
  * Used for cards, rows, and sections to provide visual context
  */
 export function getStatusTint(status: WorkflowStatus, theme: ThemeMode = 'dark'): string {
-  const tints: Record<WorkflowStatus, { light: string; dark: string }> = {
-    draft: { 
-      light: 'rgba(107, 114, 128, 0.05)', 
-      dark: 'rgba(107, 114, 128, 0.08)' 
-    },
-    pending: { 
-      light: 'rgba(245, 158, 11, 0.05)', 
-      dark: 'rgba(245, 158, 11, 0.08)' 
-    },
-    pending_review: { 
-      light: 'rgba(245, 158, 11, 0.05)', 
-      dark: 'rgba(245, 158, 11, 0.08)' 
-    },
-    review: {
-      light: 'rgba(149, 6, 6, 0.05)',
-      dark: 'rgba(149, 6, 6, 0.08)'
-    },
-    staged: { 
-      light: 'rgba(59, 130, 246, 0.05)', 
-      dark: 'rgba(59, 130, 246, 0.08)' 
-    },
-    funded: {
-      light: 'rgba(16, 185, 129, 0.05)',
-      dark: 'rgba(16, 185, 129, 0.08)'
-    },
-    approved: { 
-      light: 'rgba(16, 185, 129, 0.05)', 
-      dark: 'rgba(16, 185, 129, 0.08)' 
-    },
-    rejected: { 
-      light: 'rgba(239, 68, 68, 0.05)', 
-      dark: 'rgba(239, 68, 68, 0.08)' 
-    },
-    pending_wire: { 
-      light: 'rgba(139, 92, 246, 0.05)', 
-      dark: 'rgba(139, 92, 246, 0.08)' 
-    },
-    paid: { 
-      light: 'rgba(16, 185, 129, 0.08)', 
-      dark: 'rgba(16, 185, 129, 0.12)' 
-    },
-    complete: { 
-      light: 'rgba(16, 185, 129, 0.05)', 
-      dark: 'rgba(16, 185, 129, 0.08)' 
-    },
-    active: { 
-      light: 'transparent', 
-      dark: 'transparent' 
-    },
-    historic: { 
-      light: 'rgba(107, 114, 128, 0.03)', 
-      dark: 'rgba(107, 114, 128, 0.05)' 
-    },
-    on_hold: { 
-      light: 'rgba(245, 158, 11, 0.05)', 
-      dark: 'rgba(245, 158, 11, 0.08)' 
-    },
-  }
-
-  return tints[status]?.[theme] || 'transparent'
+  return STATUS_THEME[status]?.tint[theme] || 'transparent'
 }
 
 /**
  * Get the semantic color variable for a status
  */
 export function getStatusColor(status: WorkflowStatus): string {
-  const colors: Record<WorkflowStatus, string> = {
-    draft: 'var(--text-muted)',
-    pending: 'var(--warning)',
-    pending_review: 'var(--warning)',
-    review: 'var(--accent)',
-    staged: 'var(--info)',
-    funded: 'var(--success)',
-    approved: 'var(--success)',
-    rejected: 'var(--error)',
-    pending_wire: 'var(--purple)',
-    paid: 'var(--success)',
-    complete: 'var(--success)',
-    active: 'var(--success)',
-    historic: 'var(--text-muted)',
-    on_hold: 'var(--warning)',
-  }
-
-  return colors[status] || 'var(--text-muted)'
+  return STATUS_THEME[status]?.color || 'var(--text-muted)'
 }
 
 /**
  * Get the muted background color for a status badge
  */
 export function getStatusBadgeBackground(status: WorkflowStatus): string {
-  const backgrounds: Record<WorkflowStatus, string> = {
-    draft: 'var(--bg-hover)',
-    pending: 'var(--warning-muted)',
-    pending_review: 'var(--warning-muted)',
-    review: 'var(--accent-muted)',
-    staged: 'var(--info-muted)',
-    funded: 'var(--success-muted)',
-    approved: 'var(--success-muted)',
-    rejected: 'var(--error-muted)',
-    pending_wire: 'var(--purple-muted)',
-    paid: 'var(--success-muted)',
-    complete: 'var(--success-muted)',
-    active: 'var(--success-muted)',
-    historic: 'var(--bg-hover)',
-    on_hold: 'var(--warning-muted)',
-  }
-
-  return backgrounds[status] || 'var(--bg-hover)'
+  return STATUS_THEME[status]?.badgeBg || 'var(--bg-hover)'
 }
 
 // =============================================================================

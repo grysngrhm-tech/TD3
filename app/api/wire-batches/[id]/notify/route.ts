@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { requirePermission } from '@/lib/api-auth'
+import { formatCurrency } from '@/lib/formatters'
 
 // POST - Send notification to bookkeeper about wire batch
 export async function POST(
@@ -39,14 +40,6 @@ export async function POST(
 
     const builder = batch.builder
     const draws = batch.draws || []
-
-    const formatCurrency = (amount: number) => {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2,
-      }).format(amount)
-    }
 
     // Prepare notification payload
     const notificationPayload = {

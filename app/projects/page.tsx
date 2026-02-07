@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useNavigation } from '@/app/context/NavigationContext'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 import { Project } from '@/types/custom'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 export default function ProjectsPage() {
   const { setCurrentPageTitle } = useNavigation()
@@ -35,16 +37,6 @@ export default function ProjectsPage() {
     }
   }
 
-  const formatCurrency = (amount: number | null) => {
-    if (!amount) return '-'
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
-
   const getStatusStyle = (status: string) => {
     const styles: Record<string, { background: string; color: string }> = {
       active: { background: 'var(--success-muted)', color: 'var(--success)' },
@@ -57,10 +49,7 @@ export default function ProjectsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div 
-          className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent"
-          style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
-        />
+        <LoadingSpinner />
       </div>
     )
   }
@@ -70,8 +59,8 @@ export default function ProjectsPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Projects</h1>
-          <p className="mt-1" style={{ color: 'var(--text-muted)' }}>Manage construction projects</p>
+          <h1 className="text-2xl font-bold text-text-primary">Projects</h1>
+          <p className="mt-1 text-text-muted">Manage construction projects</p>
         </div>
         <Link href="/projects/new" className="btn-primary">
           + New Project
@@ -81,7 +70,7 @@ export default function ProjectsPage() {
       {/* Projects Grid */}
       {projects.length === 0 ? (
         <div className="card text-center py-12">
-          <p className="mb-4" style={{ color: 'var(--text-muted)' }}>No projects yet</p>
+          <p className="mb-4 text-text-muted">No projects yet</p>
           <Link href="/projects/new" className="btn-primary">
             Create Your First Project
           </Link>
@@ -93,7 +82,7 @@ export default function ProjectsPage() {
             return (
               <div key={project.id} className="card hover:shadow-elevation-3 transition-shadow">
                 <div className="flex justify-between items-start mb-3">
-                  <h3 className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>{project.name}</h3>
+                  <h3 className="font-semibold text-lg text-text-primary">{project.name}</h3>
                   <span 
                     className="px-2 py-1 rounded-full text-xs font-medium"
                     style={statusStyle}
@@ -103,12 +92,12 @@ export default function ProjectsPage() {
                 </div>
                 
                 {project.address && (
-                  <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>{project.address}</p>
+                  <p className="text-sm mb-3 text-text-secondary">{project.address}</p>
                 )}
                 
                 <div className="pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                  <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Loan Amount</div>
-                  <div className="text-xl font-bold financial-value" style={{ color: 'var(--text-primary)' }}>
+                  <div className="text-sm text-text-muted">Loan Amount</div>
+                  <div className="text-xl font-bold financial-value text-text-primary">
                     {formatCurrency(project.loan_amount)}
                   </div>
                 </div>
@@ -116,8 +105,8 @@ export default function ProjectsPage() {
                 <div className="mt-4 flex gap-2">
                   <Link
                     href={`/budgets?project=${project.id}`}
-                    className="text-sm font-medium transition-colors"
-                    style={{ color: 'var(--accent)' }}
+                    className="text-sm font-medium transition-colors text-accent"
+                    
                   >
                     View Budget →
                   </Link>

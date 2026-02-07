@@ -19,8 +19,8 @@ export function SmartLogo() {
     >
       {/* Company Name */}
       <motion.span 
-        className="font-semibold hidden sm:inline text-sm tracking-tight" 
-        style={{ color: 'var(--text-primary)' }}
+        className="font-semibold hidden sm:inline text-sm tracking-tight text-text-primary" 
+        
         whileHover={{ opacity: 0.8 }}
       >
         Tennant Developments
@@ -42,8 +42,8 @@ export function SmartLogo() {
         transition={{ type: 'spring', stiffness: 500, damping: 30 }}
       >
         <span 
-          className="font-bold text-xs tracking-wide"
-          style={{ color: 'var(--text-inverse)' }}
+          className="font-bold text-xs tracking-wide text-text-inverse"
+          
         >
           TD3
         </span>

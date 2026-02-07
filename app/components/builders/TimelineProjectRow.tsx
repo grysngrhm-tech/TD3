@@ -121,8 +121,8 @@ export function TimelineProjectRow({
       <div className="flex-1 min-w-0">
         <button
           onClick={handleProjectClick}
-          className="font-medium text-sm truncate block w-full text-left hover:underline transition-colors"
-          style={{ color: 'var(--text-primary)' }}
+          className="font-medium text-sm truncate block w-full text-left hover:underline transition-colors text-text-primary"
+          
           title={`View ${projectDisplay}`}
         >
           {projectDisplay}
@@ -137,7 +137,7 @@ export function TimelineProjectRow({
             projectId={project.id}
           />
         ) : (
-          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>
+          <span className="text-xs text-text-muted">—</span>
         )}
       </div>
     </motion.div>

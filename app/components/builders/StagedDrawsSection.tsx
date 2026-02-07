@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
 import { useHasPermission } from '@/app/components/auth/PermissionGate'
 import type { Builder, DrawRequest, Project } from '@/types/custom'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 type StagedDraw = DrawRequest & {
   project?: Project | null
@@ -25,15 +26,6 @@ export function StagedDrawsSection({ builder, stagedDraws, onRefresh }: StagedDr
   const canProcess = useHasPermission('processor')
 
   const totalAmount = stagedDraws.reduce((sum, draw) => sum + draw.total_amount, 0)
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
 
   const maskAccountNumber = (num: string | null): string => {
     if (!num) return '****'
@@ -118,16 +110,16 @@ export function StagedDrawsSection({ builder, stagedDraws, onRefresh }: StagedDr
       <div className="p-4" style={{ background: 'rgba(16, 185, 129, 0.1)' }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'var(--success)' }}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-success">
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+              <h3 className="font-semibold text-text-primary">
                 Staged for Funding
               </h3>
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-sm text-text-muted">
                 {stagedDraws.length} draw{stagedDraws.length !== 1 ? 's' : ''} ready to wire
               </p>
             </div>
@@ -158,7 +150,7 @@ export function StagedDrawsSection({ builder, stagedDraws, onRefresh }: StagedDr
 
       {error && (
         <div className="px-4 py-2" style={{ background: 'rgba(239, 68, 68, 0.1)' }}>
-          <p className="text-sm" style={{ color: 'var(--error)' }}>{error}</p>
+          <p className="text-sm text-error">{error}</p>
         </div>
       )}
 
@@ -171,30 +163,29 @@ export function StagedDrawsSection({ builder, stagedDraws, onRefresh }: StagedDr
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
-              className="flex items-center justify-between p-3 rounded-lg"
-              style={{ background: 'var(--bg-secondary)' }}
+              className="flex items-center justify-between p-3 rounded-lg bg-background-secondary"
             >
               <div className="flex items-center gap-4">
                 <Link
                   href={`/draws/${draw.id}`}
-                  className="font-medium hover:underline"
-                  style={{ color: 'var(--text-primary)' }}
+                  className="font-medium hover:underline text-text-primary"
+                  
                 >
                   {draw.project?.project_code || draw.project?.name || `Project ${draw.project_id?.slice(0, 8)}`}
                 </Link>
-                <span className="text-sm px-2 py-0.5 rounded" style={{ background: 'var(--bg-primary)', color: 'var(--text-muted)' }}>
+                <span className="text-sm px-2 py-0.5 rounded bg-background-primary text-text-muted">
                   Draw #{draw.draw_number}
                 </span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="font-bold" style={{ color: 'var(--accent)' }}>
+                <span className="font-bold text-accent">
                   {formatCurrency(draw.total_amount)}
                 </span>
                 <div className="flex items-center gap-1">
                   <Link
                     href={`/draws/${draw.id}`}
-                    className="p-1.5 rounded hover:opacity-70"
-                    style={{ color: 'var(--text-muted)' }}
+                    className="p-1.5 rounded hover:opacity-70 text-text-muted"
+                    
                     title="Edit"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -204,8 +195,8 @@ export function StagedDrawsSection({ builder, stagedDraws, onRefresh }: StagedDr
                   {canProcess && (
                     <button
                       onClick={() => handleUnstage(draw.id)}
-                      className="p-1.5 rounded hover:opacity-70"
-                      style={{ color: 'var(--error)' }}
+                      className="p-1.5 rounded hover:opacity-70 text-error"
+                      
                       title="Remove from staging"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -221,18 +212,18 @@ export function StagedDrawsSection({ builder, stagedDraws, onRefresh }: StagedDr
 
         {/* Total */}
         <div className="pt-3 border-t flex justify-between items-center" style={{ borderColor: 'var(--border-primary)' }}>
-          <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Total Wire Amount</span>
-          <span className="text-xl font-bold" style={{ color: 'var(--success)' }}>{formatCurrency(totalAmount)}</span>
+          <span className="font-semibold text-text-primary">Total Wire Amount</span>
+          <span className="text-xl font-bold text-success">{formatCurrency(totalAmount)}</span>
         </div>
 
         {/* Banking Info */}
         {builder.bank_name && (
           <div className="pt-3 border-t" style={{ borderColor: 'var(--border-primary)' }}>
-            <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Wire To</div>
+            <div className="text-sm text-text-muted">Wire To</div>
             <div className="flex items-center gap-4 mt-1">
-              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{builder.bank_name}</span>
-              <span style={{ color: 'var(--text-muted)' }}>•</span>
-              <span style={{ color: 'var(--text-secondary)' }}>{maskAccountNumber(builder.bank_account_number)}</span>
+              <span className="font-medium text-text-primary">{builder.bank_name}</span>
+              <span className="text-text-muted">•</span>
+              <span className="text-text-secondary">{maskAccountNumber(builder.bank_account_number)}</span>
             </div>
           </div>
         )}

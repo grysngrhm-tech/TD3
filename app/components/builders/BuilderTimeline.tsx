@@ -7,6 +7,7 @@ import { LenderTimelineSection } from './LenderTimelineSection'
 import { TimelineSpreadsheetView } from './TimelineSpreadsheetView'
 import { TimelineDetailPanel } from './TimelineDetailPanel'
 import { FundAllModal } from '../draws/FundAllModal'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 export type TimelineViewMode = 'spreadsheet' | 'gantt'
 
@@ -237,12 +238,11 @@ export function BuilderTimeline({
       {/* Header with Filter and View Toggle */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
-          <h3 className="font-semibold text-base" style={{ color: 'var(--text-primary)' }}>
+          <h3 className="font-semibold text-base text-text-primary">
             Builder Timeline
           </h3>
           <span 
-            className="text-xs px-1.5 py-0.5 rounded-full"
-            style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+            className="text-xs px-1.5 py-0.5 rounded-full bg-background-hover text-text-muted"
           >
             {filteredProjects.length} loan{filteredProjects.length !== 1 ? 's' : ''}
             {hiddenProjectsCount > 0 && showOnlyFunded && (
@@ -283,7 +283,7 @@ export function BuilderTimeline({
                 accentColor: 'var(--accent)'
               }}
             />
-            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+            <span className="text-xs text-text-secondary">
               Show only funded
             </span>
           </label>
@@ -334,12 +334,11 @@ export function BuilderTimeline({
       {!hasActiveLoans ? (
         <div className="card-ios text-center py-8">
           <div
-            className="w-10 h-10 rounded-full mx-auto mb-3 flex items-center justify-center"
-            style={{ background: 'var(--bg-hover)' }}
+            className="w-10 h-10 rounded-full mx-auto mb-3 flex items-center justify-center bg-background-hover"
           >
             <svg
-              className="w-5 h-5"
-              style={{ color: 'var(--text-muted)' }}
+              className="w-5 h-5 text-text-muted"
+
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -352,22 +351,21 @@ export function BuilderTimeline({
               />
             </svg>
           </div>
-          <p className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+          <p className="font-medium text-sm text-text-primary">
             No active loans
           </p>
-          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs mt-1 text-text-muted">
             Activate a loan to see it in the timeline
           </p>
         </div>
       ) : !hasFilteredData ? (
         <div className="card-ios text-center py-8">
           <div
-            className="w-10 h-10 rounded-full mx-auto mb-3 flex items-center justify-center"
-            style={{ background: 'var(--bg-hover)' }}
+            className="w-10 h-10 rounded-full mx-auto mb-3 flex items-center justify-center bg-background-hover"
           >
             <svg
-              className="w-5 h-5"
-              style={{ color: 'var(--text-muted)' }}
+              className="w-5 h-5 text-text-muted"
+
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -380,11 +378,11 @@ export function BuilderTimeline({
               />
             </svg>
           </div>
-          <p className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+          <p className="font-medium text-sm text-text-primary">
             No loans with draw history
           </p>
-          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-            Uncheck "Show only funded" to see all {activeProjects.length} active loans
+          <p className="text-xs mt-1 text-text-muted">
+            Uncheck &ldquo;Show only funded&rdquo; to see all {activeProjects.length} active loans
           </p>
         </div>
       ) : (
@@ -440,15 +438,15 @@ export function BuilderTimeline({
         >
           <div className="flex items-center gap-4">
             <div style={{ fontFamily: 'var(--font-mono)' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Budget </span>
-              <span className="font-bold" style={{ color: 'var(--text-primary)' }}>
+              <span className="text-text-muted">Budget </span>
+              <span className="font-bold text-text-primary">
                 {formatCurrency(totals.totalBudget)}
               </span>
             </div>
             <div className="w-px h-4" style={{ background: 'var(--border)' }} />
             <div style={{ fontFamily: 'var(--font-mono)' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Drawn </span>
-              <span className="font-bold" style={{ color: 'var(--accent)' }}>
+              <span className="text-text-muted">Drawn </span>
+              <span className="font-bold text-accent">
                 {formatCurrency(totals.totalDrawn)}
               </span>
             </div>
@@ -456,8 +454,8 @@ export function BuilderTimeline({
               <>
                 <div className="w-px h-4" style={{ background: 'var(--border)' }} />
                 <div style={{ fontFamily: 'var(--font-mono)' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Staged </span>
-                  <span className="font-bold" style={{ color: 'var(--warning)' }}>
+                  <span className="text-text-muted">Staged </span>
+                  <span className="font-bold text-warning">
                     {formatCurrency(totals.totalStaged)}
                   </span>
                 </div>
@@ -467,7 +465,7 @@ export function BuilderTimeline({
 
           <div className="flex items-center gap-3">
             {/* Keyboard hints */}
-            <div className="hidden md:flex items-center gap-1.5 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+            <div className="hidden md:flex items-center gap-1.5 text-[10px] text-text-muted">
               <span className="px-1 py-0.5 rounded border" style={{ borderColor: 'var(--border)' }}>←→</span>
               <span>Navigate</span>
               <span className="px-1 py-0.5 rounded border" style={{ borderColor: 'var(--border)' }}>Enter</span>
@@ -476,15 +474,14 @@ export function BuilderTimeline({
 
             {/* Export placeholder */}
             <button
-              className="flex items-center gap-1 px-2 py-1 rounded opacity-50 cursor-not-allowed"
+              className="flex items-center gap-1 px-2 py-1 rounded opacity-50 cursor-not-allowed bg-background-hover"
               disabled
               title="Export coming soon"
-              style={{ background: 'var(--bg-hover)' }}
             >
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              <span style={{ color: 'var(--text-muted)' }}>Export</span>
+              <span className="text-text-muted">Export</span>
             </button>
           </div>
         </motion.div>
@@ -516,12 +513,3 @@ export function BuilderTimeline({
   )
 }
 
-// Helper function
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}

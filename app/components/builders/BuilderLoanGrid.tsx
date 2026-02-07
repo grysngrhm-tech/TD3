@@ -76,9 +76,9 @@ export function BuilderLoanGrid({ projects, builder }: BuilderLoanGridProps) {
     <div className="space-y-6">
       {/* Section Header */}
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>
+        <h3 className="font-semibold text-lg text-text-primary">
           Loans
-          <span className="text-sm font-normal ml-2" style={{ color: 'var(--text-muted)' }}>
+          <span className="text-sm font-normal ml-2 text-text-muted">
             {totalProjects} total
           </span>
         </h3>
@@ -104,16 +104,14 @@ export function BuilderLoanGrid({ projects, builder }: BuilderLoanGridProps) {
       {/* Project Grid */}
       {filteredProjects.length === 0 ? (
         <div 
-          className="text-center py-12 rounded-ios-sm"
-          style={{ background: 'var(--bg-card)' }}
+          className="text-center py-12 rounded-ios-sm bg-background-card"
         >
           <div
-            className="w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center"
-            style={{ background: 'var(--bg-hover)' }}
+            className="w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center bg-background-hover"
           >
             <svg
-              className="w-6 h-6"
-              style={{ color: 'var(--text-muted)' }}
+              className="w-6 h-6 text-text-muted"
+              
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -126,10 +124,10 @@ export function BuilderLoanGrid({ projects, builder }: BuilderLoanGridProps) {
               />
             </svg>
           </div>
-          <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+          <p className="font-medium text-text-primary">
             No {selectedStage} loans
           </p>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-sm mt-1 text-text-muted">
             {selectedStage === 'pending'
               ? 'Create a new loan to start origination'
               : selectedStage === 'active'

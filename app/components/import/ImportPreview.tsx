@@ -6,6 +6,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { FileUploader } from './FileUploader'
 import { SheetSelector } from './SheetSelector'
 import { SpreadsheetViewer } from '../ui/SpreadsheetViewer'
+import { LoadingSpinner } from '../ui/LoadingSpinner'
 import { 
   getWorkbookInfo, 
   parseSheet, 
@@ -17,6 +18,7 @@ import {
 } from '@/lib/spreadsheet'
 import type { SpreadsheetData, ColumnMapping, WorkbookInfo, Invoice, RowRange, RowRangeWithAnalysis, RowAnalysis } from '@/lib/spreadsheet'
 import { supabase } from '@/lib/supabase'
+import { findBestBudgetMatch } from '@/lib/fuzzyMatching'
 import type { Budget, DrawRequest, DrawRequestLine } from '@/types/custom'
 
 type Builder = {
@@ -70,100 +72,6 @@ const PROCESSING_TASKS = [
   "Double-checking the math one more time...",
   "Applying the finishing touches with care...",
 ]
-
-// Levenshtein distance for fuzzy string matching
-function levenshteinDistance(a: string, b: string): number {
-  const matrix: number[][] = []
-  
-  for (let i = 0; i <= b.length; i++) {
-    matrix[i] = [i]
-  }
-  for (let j = 0; j <= a.length; j++) {
-    matrix[0][j] = j
-  }
-  
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1]
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
-        )
-      }
-    }
-  }
-  
-  return matrix[b.length][a.length]
-}
-
-// Fuzzy match scoring function - returns 0-1 score
-function fuzzyMatchScore(input: string, target: string): number {
-  if (!input || !target) return 0
-  
-  const a = input.toLowerCase().trim()
-  const b = target.toLowerCase().trim()
-  
-  if (!a || !b) return 0
-  
-  // Exact match = 1.0
-  if (a === b) return 1.0
-  
-  // One contains the other = 0.9
-  if (a.includes(b) || b.includes(a)) return 0.9
-  
-  // Tokenized word matching - handles "Framing Labor" vs "Framing - Labor" 
-  const aWords = a.split(/[\s\-_,&]+/).filter(w => w.length > 1)
-  const bWords = b.split(/[\s\-_,&]+/).filter(w => w.length > 1)
-  
-  if (aWords.length > 0 && bWords.length > 0) {
-    // Count words that match or are contained in each other
-    const matchedAWords = aWords.filter(aw => 
-      bWords.some(bw => bw.includes(aw) || aw.includes(bw) || levenshteinDistance(aw, bw) <= 1)
-    )
-    const matchedBWords = bWords.filter(bw => 
-      aWords.some(aw => aw.includes(bw) || bw.includes(aw) || levenshteinDistance(aw, bw) <= 1)
-    )
-    
-    const wordScore = (matchedAWords.length + matchedBWords.length) / (aWords.length + bWords.length)
-    if (wordScore >= 0.5) return 0.65 + (wordScore * 0.25) // Returns 0.65-0.9
-  }
-  
-  // Levenshtein distance for shorter strings (handles typos)
-  if (a.length < 30 && b.length < 30) {
-    const distance = levenshteinDistance(a, b)
-    const maxLen = Math.max(a.length, b.length)
-    const similarity = 1 - (distance / maxLen)
-    if (similarity >= 0.7) return similarity * 0.8 // Returns 0.56-0.8
-  }
-  
-  return 0
-}
-
-// Find best matching budget with score threshold
-function findBestBudgetMatch(
-  category: string, 
-  budgets: { id: string; builder_category_raw: string | null; category: string }[] | null,
-  threshold: number = 0.6
-): { budget: typeof budgets extends (infer T)[] ? T : never; score: number } | null {
-  if (!budgets || budgets.length === 0) return null
-  
-  let bestMatch: { budget: typeof budgets[0]; score: number } | null = null
-  
-  for (const b of budgets) {
-    const builderScore = fuzzyMatchScore(category, b.builder_category_raw || '')
-    const stdScore = fuzzyMatchScore(category, b.category)
-    const score = Math.max(builderScore, stdScore)
-    
-    if (score >= threshold && (!bestMatch || score > bestMatch.score)) {
-      bestMatch = { budget: b, score }
-    }
-  }
-  
-  return bestMatch
-}
 
 export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselectedProjectId, preselectedBuilderId, initialFile }: ImportPreviewProps) {
   const DEFAULT_PREVIEW_ROWS = 100
@@ -236,7 +144,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       setInitialFileProcessed(true)
       handleFileSelect(initialFile)
     }
-  }, [isOpen, initialFile, initialFileProcessed, file])
+  }, [isOpen, initialFile, initialFileProcessed, file, handleFileSelect])
 
   // Adapt preview row count to the sheet size so long budgets are visible/editable.
   useEffect(() => {
@@ -293,8 +201,8 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       setDeleteExistingBudget(false)
       setProtectedBudgets([])
     }
-  }, [selectedProjectId, importType])
-  
+  }, [selectedProjectId, importType, checkExistingBudget])
+
   // Countdown timer effect - decrements every second while importing
   useEffect(() => {
     if (countdownSeconds === null || countdownSeconds <= 0) return
@@ -333,7 +241,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
     }
   }
   
-  const checkExistingBudget = async (projectId: string) => {
+  const checkExistingBudget = useCallback(async (projectId: string) => {
     try {
       // Get total budget count
       const { count, error } = await supabase
@@ -407,8 +315,8 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
       setExistingBudgetCount(0)
       setProtectedBudgets([])
     }
-  }
-  
+  }, [])
+
   const fetchBuilders = async () => {
     setLoadingProjects(true)
     try {
@@ -1030,24 +938,23 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.98 }}
-                className="fixed z-50 inset-3 rounded-ios flex flex-col overflow-hidden"
-                style={{ background: 'var(--bg-secondary)' }}
+                className="fixed z-50 inset-3 rounded-ios flex flex-col overflow-hidden bg-background-secondary"
               >
             {/* Compact Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
               <div className="flex items-center gap-3">
-                <Dialog.Title className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <Dialog.Title className="text-base font-semibold text-text-primary">
                   {importType === 'budget' ? 'Import Budget' : 'Import Draw'}
                 </Dialog.Title>
                 {step === 'preview' && (
-                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-accent-glow text-accent">
                     {detectedCount} columns detected
                   </span>
                 )}
               </div>
               <Dialog.Close asChild>
                 <button className="w-8 h-8 rounded-ios-xs flex items-center justify-center hover:bg-[var(--bg-hover)]">
-                  <svg className="w-4 h-4" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -1069,8 +976,8 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                     
                     {loading && (
                       <div className="flex items-center justify-center mt-6">
-                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)' }} />
-                        <span className="ml-2 text-sm" style={{ color: 'var(--text-secondary)' }}>Processing...</span>
+                        <LoadingSpinner size="md" />
+                        <span className="ml-2 text-sm text-text-secondary">Processing...</span>
                       </div>
                     )}
                     
@@ -1091,19 +998,18 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                     className="flex-1 flex flex-col min-h-0"
                   >
                     {/* Context Bar - read-only display */}
-                    <div className="flex items-center gap-3 px-4 py-2 border-b text-xs" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>
+                    <div className="flex items-center gap-3 px-4 py-2 border-b text-xs border-border-subtle bg-background-card">
+                      <span className="text-text-muted">
                         {importType === 'budget' ? 'Importing budget for:' : 'Importing draw for:'}
                       </span>
-                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      <span className="font-medium text-text-primary">
                         {selectedProject?.builder?.company_name || builders.find(b => b.id === selectedBuilderId)?.company_name || '—'} 
                         {' — '}
                         {selectedProject?.project_code || selectedProject?.name || '—'}
                       </span>
                       {importType === 'draw' && (
                         <span 
-                          className="px-2 py-0.5 rounded-full font-medium" 
-                          style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}
+                          className="px-2 py-0.5 rounded-full font-medium bg-accent-glow text-accent"
                         >
                           Draw #{drawNumber}
                         </span>
@@ -1121,7 +1027,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                               className="rounded"
                               style={{ accentColor: 'var(--warning)' }}
                             />
-                            <span style={{ color: 'var(--warning)' }}>
+                            <span className="text-warning">
                               Replace existing budget ({existingBudgetCount} items)
                             </span>
                           </label>
@@ -1138,33 +1044,33 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                           background: 'rgba(245, 158, 11, 0.1)'
                         }}
                       >
-                        <svg className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-warning"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium" style={{ color: 'var(--warning)' }}>
+                          <p className="text-sm font-medium text-warning">
                             {protectedBudgets.length} budget categor{protectedBudgets.length === 1 ? 'y' : 'ies'} cannot be replaced
                           </p>
-                          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                          <p className="text-xs mt-1 text-text-muted">
                             These categories have funded draws and will be preserved:
                           </p>
                           <ul className="mt-2 space-y-1">
                             {protectedBudgets.slice(0, 5).map((budget) => (
-                              <li key={budget.id} className="text-xs flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--warning)' }} />
+                              <li key={budget.id} className="text-xs flex items-center gap-2 text-text-secondary">
+                                <span className="w-1.5 h-1.5 rounded-full bg-warning" />
                                 <span className="font-medium">{budget.builder_category_raw || budget.category || 'Unknown'}</span>
-                                <span style={{ color: 'var(--text-muted)' }}>
+                                <span className="text-text-muted">
                                   (${budget.funded_amount.toLocaleString()} funded)
                                 </span>
                               </li>
                             ))}
                             {protectedBudgets.length > 5 && (
-                              <li className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                              <li className="text-xs text-text-muted">
                                 ...and {protectedBudgets.length - 5} more
                               </li>
                             )}
                           </ul>
-                          <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                          <p className="text-xs mt-2 text-text-muted">
                             New budget data will be added alongside these protected categories.
                           </p>
                         </div>
@@ -1172,19 +1078,19 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                     )}
                     
                     {/* Compact Info Bar */}
-                    <div className="flex items-center gap-2 px-4 py-2 border-b text-xs" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <div className="flex items-center gap-2 px-4 py-2 border-b border-border-subtle text-xs">
                       {/* File + Sheet */}
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-4 h-4 flex-shrink-0 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        <span className="truncate" style={{ color: 'var(--text-secondary)' }}>{file?.name}</span>
-                        <button onClick={handleReset} className="text-xs font-medium" style={{ color: 'var(--accent)' }}>Change</button>
+                        <span className="truncate text-text-secondary">{file?.name}</span>
+                        <button onClick={handleReset} className="text-xs font-medium text-accent">Change</button>
                         
                         {workbookInfo && workbookInfo.sheets.length > 1 && (
                           <>
                             <div className="w-px h-4 mx-2" style={{ background: 'var(--border)' }} />
-                            <span style={{ color: 'var(--text-muted)' }}>Sheet:</span>
+                            <span className="text-text-muted">Sheet:</span>
                             <select
                               value={selectedSheet}
                               onChange={(e) => handleSheetChange(e.target.value)}
@@ -1202,16 +1108,16 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                       {/* Compact Stats */}
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1">
-                          <span style={{ color: 'var(--text-muted)' }}>Items:</span>
-                          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatNumber(stats?.rowsWithCategory || 0)}</span>
+                          <span className="text-text-muted">Items:</span>
+                          <span className="font-medium text-text-primary">{formatNumber(stats?.rowsWithCategory || 0)}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <span style={{ color: 'var(--text-muted)' }}>Total:</span>
-                          <span className="font-medium" style={{ color: 'var(--accent)' }}>{formatCurrency(stats?.totalAmount || 0)}</span>
+                          <span className="text-text-muted">Total:</span>
+                          <span className="font-medium text-accent">{formatCurrency(stats?.totalAmount || 0)}</span>
                         </div>
                         {(stats?.emptyCategories || 0) > 0 && (
                           <div className="flex items-center gap-1">
-                            <span style={{ color: 'var(--warning)' }}>⚠ {stats?.emptyCategories} empty</span>
+                            <span className="text-warning">⚠ {stats?.emptyCategories} empty</span>
                           </div>
                         )}
                       </div>
@@ -1230,7 +1136,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                     <div className="flex-1 min-h-0 p-3">
                       {loading ? (
                         <div className="flex items-center justify-center h-full">
-                          <div className="animate-spin rounded-full h-6 w-6 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)' }} />
+                          <LoadingSpinner size="md" />
                         </div>
                       ) : (
                         <SpreadsheetViewer
@@ -1247,7 +1153,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
 
                     {/* If we cap large sheets, offer an explicit "show all" escape hatch */}
                     {!loading && data && data.rows.length > maxRowsToDisplay && (
-                      <div className="mx-4 mb-2 flex items-center justify-between gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+                      <div className="mx-4 mb-2 flex items-center justify-between gap-3 text-xs text-text-muted">
                         <span>
                           Showing {maxRowsToDisplay.toLocaleString()} of {data.rows.length.toLocaleString()} rows
                         </span>
@@ -1277,7 +1183,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
 
             {/* Compact Footer */}
             {step === 'preview' && (
-              <div className="flex items-center justify-between px-4 py-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border-subtle">
                 {/* Left side: Back button or spacer when importing */}
                 {importing && initialCountdown !== null && countdownSeconds !== null ? (
                   <div className="flex items-center justify-end gap-3 flex-1 mr-4">
@@ -1299,8 +1205,8 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                               animate={{ opacity: 1, x: 0 }}
                               exit={{ opacity: 0, x: -10 }}
                               transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                              className="text-xs text-right"
-                              style={{ color: 'var(--text-muted)' }}
+                              className="text-xs text-right text-text-muted"
+                              
                             >
                               {PROCESSING_TASKS[taskIndex]}
                             </motion.div>
@@ -1320,12 +1226,11 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                       }}
                     >
                       <div 
-                        className="w-1.5 h-1.5 rounded-full animate-pulse"
-                        style={{ background: 'var(--accent)' }}
+                        className="w-1.5 h-1.5 rounded-full animate-pulse bg-accent"
                       />
                       <span 
-                        className="text-xs font-mono font-medium tabular-nums"
-                        style={{ color: 'var(--accent-700)' }}
+                        className="text-xs font-mono font-medium tabular-nums text-accent-700"
+                        
                       >
                         {countdownSeconds > 0 
                           ? `${Math.floor(countdownSeconds / 60)}:${String(countdownSeconds % 60).padStart(2, '0')}`
@@ -1338,8 +1243,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                   <button 
                     onClick={handleReset} 
                     disabled={importing || importSuccess} 
-                    className="px-4 py-2 text-sm rounded-ios-sm transition-colors" 
-                    style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)' }}
+                    className="px-4 py-2 text-sm rounded-ios-sm transition-colors bg-background-card text-text-secondary"
                   >
                     Back
                   </button>
@@ -1357,7 +1261,7 @@ export function ImportPreview({ isOpen, onClose, onSuccess, importType, preselec
                 >
                   {importing ? (
                     <>
-                      <div className="animate-spin rounded-full h-3 w-3 border-2 border-t-transparent border-white" />
+                      <LoadingSpinner size="xs" variant="white" />
                       Processing...
                     </>
                   ) : importSuccess ? (

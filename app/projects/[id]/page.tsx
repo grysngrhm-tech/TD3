@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { LoanPageTabs } from '@/app/components/projects/LoanPageTabs'
 import { useNavigation } from '@/app/context/NavigationContext'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 import type { Project, Budget, DrawRequest, DrawRequestLine, LifecycleStage, Builder, Lender } from '@/types/custom'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 type ProjectWithLifecycle = Project & {
   lifecycle_stage: LifecycleStage
@@ -30,18 +32,7 @@ export default function ProjectDetailPage() {
   const [drawLines, setDrawLines] = useState<DrawLineWithBudget[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadProject()
-  }, [projectId])
-
-  // Update page title when project loads
-  useEffect(() => {
-    if (project) {
-      setCurrentPageTitle(project.project_code || project.name)
-    }
-  }, [project, setCurrentPageTitle])
-
-  async function loadProject() {
+  const loadProject = useCallback(async () => {
     try {
       // Fetch project
       const { data: projectData, error: projectError } = await supabase
@@ -128,17 +119,18 @@ export default function ProjectDetailPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [projectId])
 
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null) return '—'
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
+  useEffect(() => {
+    loadProject()
+  }, [loadProject])
+
+  // Update page title when project loads
+  useEffect(() => {
+    if (project) {
+      setCurrentPageTitle(project.project_code || project.name)
+    }
+  }, [project, setCurrentPageTitle])
 
   const getStageLabel = (stage: LifecycleStage) => {
     switch (stage) {
@@ -169,7 +161,7 @@ export default function ProjectDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)' }} />
+        <LoadingSpinner />
       </div>
     )
   }
@@ -178,18 +170,17 @@ export default function ProjectDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-3.5rem)]">
         <div 
-          className="w-16 h-16 rounded-full mb-4 flex items-center justify-center"
-          style={{ background: 'var(--bg-card)' }}
+          className="w-16 h-16 rounded-full mb-4 flex items-center justify-center bg-background-card"
         >
-          <svg className="w-8 h-8" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-8 h-8 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
-        <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+        <h2 className="text-xl font-semibold mb-2 text-text-primary">
           Project Not Found
         </h2>
-        <p style={{ color: 'var(--text-muted)' }}>
-          This project may have been deleted or you don't have access.
+        <p className="text-text-muted">
+          This project may have been deleted or you don&apos;t have access.
         </p>
       </div>
     )
@@ -199,15 +190,15 @@ export default function ProjectDetailPage() {
   const totalSpent = budgets.reduce((sum, b) => sum + (b.spent_amount || 0), 0)
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)]" style={{ background: 'var(--bg-primary)' }}>
+    <div className="min-h-[calc(100vh-3.5rem)] bg-background-primary">
       {/* Header */}
-      <div className="border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-secondary)' }}>
+      <div className="border-b border-border-subtle bg-background-secondary">
         <div className="max-w-6xl mx-auto px-6 py-6">
           {/* Project title and stage */}
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                <h1 className="text-2xl font-bold text-text-primary">
                   {project.project_code || project.name}
                 </h1>
                 <span 
@@ -218,13 +209,13 @@ export default function ProjectDetailPage() {
                 </span>
               </div>
               {/* Builder link, lender, and address */}
-              <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+              <div className="flex items-center gap-2 text-sm text-text-muted">
                 {builder && (
                   <>
                     <button
                       onClick={() => router.push(`/builders/${builder.id}`)}
-                      className="hover:underline transition-colors"
-                      style={{ color: 'var(--accent)' }}
+                      className="hover:underline transition-colors text-accent"
+                      
                     >
                       {builder.company_name}
                     </button>
@@ -244,8 +235,8 @@ export default function ProjectDetailPage() {
             {/* Quick stats */}
             <div className="flex items-center gap-6">
               <div className="text-right">
-                <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Loan Amount</div>
-                <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                <div className="text-sm text-text-muted">Loan Amount</div>
+                <div className="text-xl font-bold text-text-primary">
                   {formatCurrency(project.loan_amount)}
                 </div>
               </div>
@@ -253,8 +244,8 @@ export default function ProjectDetailPage() {
                 <>
                   <div className="w-px h-10" style={{ background: 'var(--border)' }} />
                   <div className="text-right">
-                    <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Drawn</div>
-                    <div className="text-xl font-bold" style={{ color: 'var(--accent)' }}>
+                    <div className="text-sm text-text-muted">Drawn</div>
+                    <div className="text-xl font-bold text-accent">
                       {formatCurrency(totalSpent)}
                     </div>
                   </div>

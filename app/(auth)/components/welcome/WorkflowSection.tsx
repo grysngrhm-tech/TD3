@@ -119,8 +119,7 @@ const cardVariants = {
 export function WorkflowSection() {
   return (
     <section
-      className="relative flex flex-col items-center justify-start px-4 py-16 md:py-24"
-      style={{ background: 'var(--bg-primary)' }}
+      className="relative flex flex-col items-center justify-start px-4 py-16 md:py-24 bg-background-primary"
     >
       <div className="w-full max-w-6xl mx-auto">
         {/* Section Header */}
@@ -138,15 +137,15 @@ export function WorkflowSection() {
             The Workflow
           </span>
           <h2
-            className="text-2xl md:text-3xl lg:text-4xl font-semibold max-w-2xl mx-auto leading-tight mb-4"
-            style={{ color: 'var(--text-primary)' }}
+            className="text-2xl md:text-3xl lg:text-4xl font-semibold max-w-2xl mx-auto leading-tight mb-4 text-text-primary"
+            
           >
             From budget to funded.{' '}
-            <span style={{ color: 'var(--accent)' }}>Fully visible.</span>
+            <span className="text-accent">Fully visible.</span>
           </h2>
           <p
-            className="text-base md:text-lg max-w-2xl mx-auto"
-            style={{ color: 'var(--text-secondary)' }}
+            className="text-base md:text-lg max-w-2xl mx-auto text-text-secondary"
+            
           >
             TD3 guides each draw through a structured, end-to-end workflow
             designed for accuracy, transparency, and efficient funding
@@ -177,11 +176,11 @@ export function WorkflowSection() {
                   </span>
                 </div>
                 <svg
-                  className="w-5 h-5 flex-shrink-0"
+                  className="w-5 h-5 flex-shrink-0 text-accent"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
-                  style={{ color: 'var(--accent)' }}
+                  
                 >
                   {stage.icon}
                 </svg>
@@ -189,16 +188,16 @@ export function WorkflowSection() {
 
               {/* Title */}
               <h3
-                className="text-base font-semibold leading-snug"
-                style={{ color: 'var(--text-primary)' }}
+                className="text-base font-semibold leading-snug text-text-primary"
+                
               >
                 {stage.title}
               </h3>
 
               {/* Description */}
               <p
-                className="text-sm leading-relaxed"
-                style={{ color: 'var(--text-secondary)' }}
+                className="text-sm leading-relaxed text-text-secondary"
+                
               >
                 {stage.description}
               </p>

@@ -19,88 +19,13 @@ import type {
 } from '@/types/custom'
 import { supabase as defaultSupabase } from '@/lib/supabase'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { levenshteinDistance, fuzzyMatchScore } from '@/lib/fuzzyMatching'
 
 // Re-export thresholds and weights for external use
 export { MATCHING_THRESHOLDS, MATCHING_WEIGHTS } from '@/types/custom'
 
-// ============================================
-// STRING MATCHING UTILITIES
-// ============================================
-
-/**
- * Levenshtein distance for fuzzy string matching
- */
-export function levenshteinDistance(a: string, b: string): number {
-  const matrix: number[][] = []
-
-  for (let i = 0; i <= b.length; i++) {
-    matrix[i] = [i]
-  }
-  for (let j = 0; j <= a.length; j++) {
-    matrix[0][j] = j
-  }
-
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1]
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
-        )
-      }
-    }
-  }
-
-  return matrix[b.length][a.length]
-}
-
-/**
- * Fuzzy match scoring function - returns 0-1 score
- */
-export function fuzzyMatchScore(input: string, target: string): number {
-  if (!input || !target) return 0
-
-  const a = input.toLowerCase().trim()
-  const b = target.toLowerCase().trim()
-
-  if (!a || !b) return 0
-
-  // Exact match = 1.0
-  if (a === b) return 1.0
-
-  // One contains the other = 0.9
-  if (a.includes(b) || b.includes(a)) return 0.9
-
-  // Tokenized word matching - handles "Framing Labor" vs "Framing - Labor"
-  const aWords = a.split(/[\s\-_,&]+/).filter(w => w.length > 1)
-  const bWords = b.split(/[\s\-_,&]+/).filter(w => w.length > 1)
-
-  if (aWords.length > 0 && bWords.length > 0) {
-    // Count words that match or are contained in each other
-    const matchedAWords = aWords.filter(aw =>
-      bWords.some(bw => bw.includes(aw) || aw.includes(bw) || levenshteinDistance(aw, bw) <= 1)
-    )
-    const matchedBWords = bWords.filter(bw =>
-      aWords.some(aw => aw.includes(bw) || bw.includes(aw) || levenshteinDistance(aw, bw) <= 1)
-    )
-
-    const wordScore = (matchedAWords.length + matchedBWords.length) / (aWords.length + bWords.length)
-    if (wordScore >= 0.5) return 0.65 + (wordScore * 0.25) // Returns 0.65-0.9
-  }
-
-  // Levenshtein distance for shorter strings (handles typos)
-  if (a.length < 30 && b.length < 30) {
-    const distance = levenshteinDistance(a, b)
-    const maxLen = Math.max(a.length, b.length)
-    const similarity = 1 - (distance / maxLen)
-    if (similarity >= 0.7) return similarity * 0.8 // Returns 0.56-0.8
-  }
-
-  return 0
-}
+// Re-export fuzzy matching utilities for backwards compatibility
+export { levenshteinDistance, fuzzyMatchScore } from '@/lib/fuzzyMatching'
 
 /**
  * Normalize vendor name for consistent matching

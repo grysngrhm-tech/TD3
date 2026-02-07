@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { BuilderInfoCard } from '@/app/components/builders/BuilderInfoCard'
 import { BuilderLoanGrid } from '@/app/components/builders/BuilderLoanGrid'
 import { BuilderTimeline, type ProjectWithDraws, type DrawWithProject } from '@/app/components/builders/BuilderTimeline'
 import { useNavigation } from '@/app/context/NavigationContext'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 import { calculateLoanIncome, calculateIRR } from '@/lib/calculations'
 import type { Builder, LifecycleStage, DrawRequest, Project, Lender } from '@/types/custom'
 
@@ -46,18 +47,7 @@ export default function BuilderDetailPage() {
   const [stagedDraws, setStagedDraws] = useState<DrawWithProject[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadBuilder()
-  }, [builderId])
-
-  // Update page title when builder loads
-  useEffect(() => {
-    if (builder) {
-      setCurrentPageTitle(builder.company_name)
-    }
-  }, [builder, setCurrentPageTitle])
-
-  async function loadBuilder() {
+  const loadBuilder = useCallback(async () => {
     try {
       // Fetch builder
       const { data: builderData, error: builderError } = await supabase
@@ -176,15 +166,23 @@ export default function BuilderDetailPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [builderId])
+
+  useEffect(() => {
+    loadBuilder()
+  }, [loadBuilder])
+
+  // Update page title when builder loads
+  useEffect(() => {
+    if (builder) {
+      setCurrentPageTitle(builder.company_name)
+    }
+  }, [builder, setCurrentPageTitle])
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
-        <div
-          className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent"
-          style={{ borderColor: 'var(--accent)' }}
-        />
+        <LoadingSpinner />
       </div>
     )
   }
@@ -193,12 +191,11 @@ export default function BuilderDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-3.5rem)]">
         <div
-          className="w-16 h-16 rounded-full mb-4 flex items-center justify-center"
-          style={{ background: 'var(--bg-card)' }}
+          className="w-16 h-16 rounded-full mb-4 flex items-center justify-center bg-background-card"
         >
           <svg
-            className="w-8 h-8"
-            style={{ color: 'var(--text-muted)' }}
+            className="w-8 h-8 text-text-muted"
+            
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -211,32 +208,31 @@ export default function BuilderDetailPage() {
             />
           </svg>
         </div>
-        <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+        <h2 className="text-xl font-semibold mb-2 text-text-primary">
           Builder Not Found
         </h2>
-        <p style={{ color: 'var(--text-muted)' }}>
-          This builder may have been deleted or you don't have access.
+        <p className="text-text-muted">
+          This builder may have been deleted or you don&apos;t have access.
         </p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)]" style={{ background: 'var(--bg-primary)' }}>
+    <div className="min-h-[calc(100vh-3.5rem)] bg-background-primary">
       {/* Header */}
       <div
-        className="border-b"
-        style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-secondary)' }}
+        className="border-b border-border-subtle bg-background-secondary"
       >
         <div className="max-w-6xl mx-auto px-6 py-6">
           {/* Builder title */}
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+              <h1 className="text-2xl font-bold text-text-primary">
                 {builder.company_name}
               </h1>
               {builder.borrower_name && (
-                <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-sm mt-1 text-text-muted">
                   {builder.borrower_name}
                 </p>
               )}
@@ -245,19 +241,19 @@ export default function BuilderDetailPage() {
             {/* Quick stats and actions */}
             <div className="flex items-center gap-6">
               <div className="text-right">
-                <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                <div className="text-sm text-text-muted">
                   Total Loans
                 </div>
-                <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                <div className="text-xl font-bold text-text-primary">
                   {projects.length}
                 </div>
               </div>
               <div className="w-px h-10" style={{ background: 'var(--border)' }} />
               <div className="text-right">
-                <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                <div className="text-sm text-text-muted">
                   Active
                 </div>
-                <div className="text-xl font-bold" style={{ color: 'var(--accent)' }}>
+                <div className="text-xl font-bold text-accent">
                   {projects.filter((p) => p.lifecycle_stage === 'active').length}
                 </div>
               </div>
