@@ -15,7 +15,7 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
     return (
       <section
         ref={ref}
-        className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-4 pb-20"
+        className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-4 pb-16"
         style={{ background: 'var(--bg-primary)' }}
       >
         {/* Background gradient + ambient glow */}
