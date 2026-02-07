@@ -25,10 +25,10 @@ export function ActivityFeed({
       <div className="space-y-3">
         {[...Array(5)].map((_, i) => (
           <div key={i} className="flex items-start gap-3 p-3">
-            <div className="w-8 h-8 rounded-full animate-pulse" style={{ background: 'var(--bg-hover)' }} />
+            <div className="w-8 h-8 rounded-full animate-pulse bg-background-hover" />
             <div className="flex-1 space-y-2">
-              <div className="h-4 w-3/4 rounded animate-pulse" style={{ background: 'var(--bg-hover)' }} />
-              <div className="h-3 w-1/2 rounded animate-pulse" style={{ background: 'var(--bg-hover)' }} />
+              <div className="h-4 w-3/4 rounded animate-pulse bg-background-hover" />
+              <div className="h-3 w-1/2 rounded animate-pulse bg-background-hover" />
             </div>
           </div>
         ))}
@@ -40,11 +40,11 @@ export function ActivityFeed({
     return (
       <div className="text-center py-12">
         <svg
-          className="w-12 h-12 mx-auto mb-4"
+          className="w-12 h-12 mx-auto mb-4 text-text-muted"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
-          style={{ color: 'var(--text-muted)' }}
+          
         >
           <path
             strokeLinecap="round"
@@ -53,14 +53,14 @@ export function ActivityFeed({
             d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        <p style={{ color: 'var(--text-muted)' }}>{emptyMessage}</p>
+        <p className="text-text-muted">{emptyMessage}</p>
       </div>
     )
   }
 
   return (
     <div>
-      <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+      <div className="divide-y divide-border-subtle">
         {activities.map((activity) => (
           <ActivityItem
             key={activity.id}

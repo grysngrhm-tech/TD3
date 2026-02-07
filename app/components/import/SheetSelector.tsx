@@ -30,8 +30,8 @@ export function SheetSelector({ sheets, selectedSheet, onSheetChange }: SheetSel
         }}
       >
         <svg 
-          className="w-5 h-5 flex-shrink-0" 
-          style={{ color: 'var(--accent)' }} 
+          className="w-5 h-5 flex-shrink-0 text-accent" 
+           
           fill="none" 
           viewBox="0 0 24 24" 
           stroke="currentColor"
@@ -40,23 +40,23 @@ export function SheetSelector({ sheets, selectedSheet, onSheetChange }: SheetSel
         </svg>
         
         <div className="flex-1 text-left">
-          <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs uppercase tracking-wider text-text-muted">
             Sheet
           </p>
-          <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+          <p className="font-medium text-text-primary">
             {selected?.name}
           </p>
         </div>
 
         <div className="text-right">
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-sm text-text-muted">
             {selected?.rowCount} rows
           </p>
         </div>
 
         <svg 
-          className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          style={{ color: 'var(--text-muted)' }} 
+          className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''} text-text-muted`}
+           
           fill="none" 
           viewBox="0 0 24 24" 
           stroke="currentColor"
@@ -103,7 +103,7 @@ export function SheetSelector({ sheets, selectedSheet, onSheetChange }: SheetSel
                   >
                     <div className="flex items-center gap-3">
                       {isSelected && (
-                        <svg className="w-4 h-4" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-4 h-4 text-accent"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       )}
@@ -114,7 +114,7 @@ export function SheetSelector({ sheets, selectedSheet, onSheetChange }: SheetSel
                         {sheet.name}
                       </span>
                     </div>
-                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    <span className="text-sm text-text-muted">
                       {sheet.rowCount} rows × {sheet.columnCount} cols
                     </span>
                   </button>

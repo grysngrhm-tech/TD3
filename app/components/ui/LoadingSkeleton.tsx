@@ -147,8 +147,7 @@ export function ProjectTileSkeleton() {
 export function StatsBarSkeleton() {
   return (
     <div
-      className="flex items-center gap-6 p-4 rounded-lg"
-      style={{ background: 'var(--bg-card)' }}
+      className="flex items-center gap-6 p-4 rounded-lg bg-background-card"
     >
       {/* Stat items */}
       {[1, 2, 3].map((i) => (
@@ -224,8 +223,8 @@ export function LoadingSpinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
 
   return (
     <motion.div
-      className={`${sizeClasses[size]} border-2 border-current border-t-transparent rounded-full`}
-      style={{ color: 'var(--accent)' }}
+      className={`${sizeClasses[size]} border-2 border-current border-t-transparent rounded-full text-accent`}
+      
       animate={{ rotate: 360 }}
       transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
     />
@@ -239,7 +238,7 @@ export function FullPageLoader({ message = 'Loading...' }: { message?: string })
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
       <LoadingSpinner size="lg" />
-      <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+      <p className="text-sm text-text-muted">
         {message}
       </p>
     </div>

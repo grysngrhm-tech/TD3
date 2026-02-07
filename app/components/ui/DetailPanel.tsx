@@ -1,9 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import * as Tabs from '@radix-ui/react-tabs'
 import { supabase } from '@/lib/supabase'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 type Budget = {
   id: string
@@ -49,16 +51,10 @@ export function DetailPanel({ projectId, onClose }: DetailPanelProps) {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
 
-  useEffect(() => {
-    if (projectId) {
-      loadProjectDetails()
-    }
-  }, [projectId])
-
-  async function loadProjectDetails() {
+  const loadProjectDetails = useCallback(async () => {
     if (!projectId) return
     setLoading(true)
-    
+
     try {
       // Load project
       const { data: projectData } = await supabase
@@ -89,16 +85,13 @@ export function DetailPanel({ projectId, onClose }: DetailPanelProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [projectId])
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
+  useEffect(() => {
+    if (projectId) {
+      loadProjectDetails()
+    }
+  }, [projectId, loadProjectDetails])
 
   const totalBudget = budgets.reduce((sum, b) => sum + (b.current_amount || 0), 0)
   const totalSpent = budgets.reduce((sum, b) => sum + (b.spent_amount || 0), 0)
@@ -123,17 +116,16 @@ export function DetailPanel({ projectId, onClose }: DetailPanelProps) {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed right-0 top-14 bottom-0 w-full max-w-2xl z-50 overflow-hidden flex flex-col"
-            style={{ background: 'var(--bg-secondary)' }}
+            className="fixed right-0 top-14 bottom-0 w-full max-w-2xl z-50 overflow-hidden flex flex-col bg-background-secondary"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center justify-between p-6 border-b border-border-subtle">
               <div>
-                <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <h2 className="text-xl font-semibold text-text-primary">
                   {project?.project_code || project?.name || 'Loading...'}
                 </h2>
                 {project?.address && (
-                  <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{project.address}</p>
+                  <p className="text-sm mt-1 text-text-muted">{project.address}</p>
                 )}
               </div>
               <button
@@ -141,7 +133,7 @@ export function DetailPanel({ projectId, onClose }: DetailPanelProps) {
                 aria-label="Close panel"
                 className="w-10 h-10 rounded-ios-sm flex items-center justify-center transition-colors hover:bg-[var(--bg-hover)]"
               >
-                <svg className="w-5 h-5" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-5 h-5 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -149,7 +141,7 @@ export function DetailPanel({ projectId, onClose }: DetailPanelProps) {
 
             {/* Tabs */}
             <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-              <Tabs.List className="flex border-b px-6" style={{ borderColor: 'var(--border-subtle)' }}>
+              <Tabs.List className="flex border-b border-border-subtle px-6">
                 {['overview', 'budget', 'draws', 'documents'].map((tab) => (
                   <Tabs.Trigger
                     key={tab}
@@ -163,8 +155,7 @@ export function DetailPanel({ projectId, onClose }: DetailPanelProps) {
                     {activeTab === tab && (
                       <motion.div
                         layoutId="activeTab"
-                        className="absolute bottom-0 left-0 right-0 h-0.5"
-                        style={{ background: 'var(--accent)' }}
+                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent"
                       />
                     )}
                   </Tabs.Trigger>
@@ -174,7 +165,7 @@ export function DetailPanel({ projectId, onClose }: DetailPanelProps) {
               <div className="flex-1 overflow-y-auto">
                 {loading ? (
                   <div className="flex items-center justify-center h-64">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: 'var(--accent)' }} />
+                    <LoadingSpinner />
                   </div>
                 ) : (
                   <>
@@ -183,17 +174,17 @@ export function DetailPanel({ projectId, onClose }: DetailPanelProps) {
                       {/* Quick Stats */}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="card-ios">
-                          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Total Budget</div>
-                          <div className="text-2xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>
+                          <div className="text-sm text-text-muted">Total Budget</div>
+                          <div className="text-2xl font-bold mt-1 text-text-primary">
                             {formatCurrency(totalBudget)}
                           </div>
                         </div>
                         <div className="card-ios">
-                          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Total Drawn</div>
-                          <div className="text-2xl font-bold mt-1" style={{ color: 'var(--accent)' }}>
+                          <div className="text-sm text-text-muted">Total Drawn</div>
+                          <div className="text-2xl font-bold mt-1 text-accent">
                             {formatCurrency(totalSpent)}
                           </div>
-                          <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                          <div className="text-xs mt-1 text-text-muted">
                             {percentSpent.toFixed(1)}% of budget
                           </div>
                         </div>
@@ -202,8 +193,8 @@ export function DetailPanel({ projectId, onClose }: DetailPanelProps) {
                       {/* Progress */}
                       <div className="card-ios">
                         <div className="flex justify-between mb-2">
-                          <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Draw Progress</span>
-                          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{draws.length} draws</span>
+                          <span className="text-sm font-medium text-text-secondary">Draw Progress</span>
+                          <span className="text-sm text-text-muted">{draws.length} draws</span>
                         </div>
                         <div className="progress-bar h-3">
                           <div 
@@ -215,30 +206,30 @@ export function DetailPanel({ projectId, onClose }: DetailPanelProps) {
 
                       {/* Project Details */}
                       <div className="card-ios space-y-4">
-                        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Project Details</h3>
+                        <h3 className="font-semibold text-text-primary">Project Details</h3>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
-                            <div style={{ color: 'var(--text-muted)' }}>Builder</div>
-                            <div style={{ color: 'var(--text-primary)' }}>{project?.builder_name || '-'}</div>
+                            <div className="text-text-muted">Builder</div>
+                            <div className="text-text-primary">{project?.builder_name || '-'}</div>
                           </div>
                           <div>
-                            <div style={{ color: 'var(--text-muted)' }}>Borrower</div>
-                            <div style={{ color: 'var(--text-primary)' }}>{project?.borrower_name || '-'}</div>
+                            <div className="text-text-muted">Borrower</div>
+                            <div className="text-text-primary">{project?.borrower_name || '-'}</div>
                           </div>
                           <div>
-                            <div style={{ color: 'var(--text-muted)' }}>Subdivision</div>
-                            <div style={{ color: 'var(--text-primary)' }}>{project?.subdivision_name || '-'}</div>
+                            <div className="text-text-muted">Subdivision</div>
+                            <div className="text-text-primary">{project?.subdivision_name || '-'}</div>
                           </div>
                           <div>
-                            <div style={{ color: 'var(--text-muted)' }}>Loan Amount</div>
-                            <div style={{ color: 'var(--text-primary)' }}>{project?.loan_amount ? formatCurrency(project.loan_amount) : '-'}</div>
+                            <div className="text-text-muted">Loan Amount</div>
+                            <div className="text-text-primary">{project?.loan_amount ? formatCurrency(project.loan_amount) : '-'}</div>
                           </div>
                           <div>
-                            <div style={{ color: 'var(--text-muted)' }}>Interest Rate</div>
-                            <div style={{ color: 'var(--text-primary)' }}>{project?.interest_rate_annual ? `${(project.interest_rate_annual * 100).toFixed(1)}%` : '-'}</div>
+                            <div className="text-text-muted">Interest Rate</div>
+                            <div className="text-text-primary">{project?.interest_rate_annual ? `${(project.interest_rate_annual * 100).toFixed(1)}%` : '-'}</div>
                           </div>
                           <div>
-                            <div style={{ color: 'var(--text-muted)' }}>Status</div>
+                            <div className="text-text-muted">Status</div>
                             <span className={`badge badge-${project?.status || 'draft'}`}>
                               {project?.status?.replace('_', ' ') || 'Unknown'}
                             </span>
@@ -266,7 +257,7 @@ export function DetailPanel({ projectId, onClose }: DetailPanelProps) {
                                 <tr key={budget.id} className="table-row">
                                   <td className="table-cell font-medium">{budget.category}</td>
                                   <td className="table-cell text-right">{formatCurrency(budget.current_amount)}</td>
-                                  <td className="table-cell text-right" style={{ color: 'var(--accent)' }}>
+                                  <td className="table-cell text-right text-accent">
                                     {budget.spent_amount > 0 ? formatCurrency(budget.spent_amount) : '-'}
                                   </td>
                                   <td className="table-cell text-right" style={{ 
@@ -279,10 +270,10 @@ export function DetailPanel({ projectId, onClose }: DetailPanelProps) {
                             })}
                           </tbody>
                           <tfoot>
-                            <tr style={{ background: 'var(--bg-hover)' }}>
+                            <tr className="bg-background-hover">
                               <td className="table-cell font-semibold">Total</td>
                               <td className="table-cell text-right font-semibold">{formatCurrency(totalBudget)}</td>
-                              <td className="table-cell text-right font-semibold" style={{ color: 'var(--accent)' }}>
+                              <td className="table-cell text-right font-semibold text-accent">
                                 {formatCurrency(totalSpent)}
                               </td>
                               <td className="table-cell text-right font-semibold">
@@ -298,29 +289,29 @@ export function DetailPanel({ projectId, onClose }: DetailPanelProps) {
                     <Tabs.Content value="draws" className="p-6 space-y-4">
                       {draws.length === 0 ? (
                         <div className="text-center py-12">
-                          <p style={{ color: 'var(--text-muted)' }}>No draws yet</p>
+                          <p className="text-text-muted">No draws yet</p>
                         </div>
                       ) : (
                         draws.map((draw) => (
                           <div key={draw.id} className="card-ios">
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-3">
-                                <span className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                <span className="text-lg font-semibold text-text-primary">
                                   Draw #{draw.draw_number}
                                 </span>
                                 <span className={`badge badge-${draw.status || 'draft'}`}>
                                   {draw.status || 'draft'}
                                 </span>
                               </div>
-                              <span className="text-lg font-bold" style={{ color: 'var(--accent)' }}>
+                              <span className="text-lg font-bold text-accent">
                                 {formatCurrency(draw.total_amount)}
                               </span>
                             </div>
-                            <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                            <div className="text-sm text-text-muted">
                               {draw.request_date ? new Date(draw.request_date).toLocaleDateString() : 'No date'}
                             </div>
                             {draw.notes && (
-                              <p className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>
+                              <p className="text-sm mt-2 text-text-secondary">
                                 {draw.notes}
                               </p>
                             )}
@@ -332,11 +323,11 @@ export function DetailPanel({ projectId, onClose }: DetailPanelProps) {
                     {/* Documents Tab */}
                     <Tabs.Content value="documents" className="p-6">
                       <div className="drop-zone">
-                        <svg className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-12 h-12 mx-auto mb-4 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                         </svg>
-                        <p className="font-medium" style={{ color: 'var(--text-primary)' }}>Drop files here</p>
-                        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>or click to browse</p>
+                        <p className="font-medium text-text-primary">Drop files here</p>
+                        <p className="text-sm mt-1 text-text-muted">or click to browse</p>
                       </div>
                     </Tabs.Content>
                   </>

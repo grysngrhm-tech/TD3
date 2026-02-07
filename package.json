@@ -9,7 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "prepare": "husky"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
@@ -31,6 +32,9 @@
     "react-dom": "^18.2.0",
     "xlsx-js-style": "^1.2.0"
   },
+  "lint-staged": {
+    "*.{ts,tsx}": "next lint --fix --file"
+  },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.0",
@@ -39,6 +43,8 @@
     "dotenv": "^17.2.3",
     "eslint": "^8.55.0",
     "eslint-config-next": "14.2.21",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
     "postcss": "^8.4.32",
     "sharp": "^0.34.5",
     "tailwindcss": "^3.3.6",

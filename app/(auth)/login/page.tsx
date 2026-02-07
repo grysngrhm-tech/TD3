@@ -42,11 +42,11 @@ function LoginSkeleton() {
     <div className="min-h-screen flex items-center justify-center">
       <div className="w-full max-w-md px-4">
         <div className="card-ios p-8 animate-pulse">
-          <div className="w-20 h-20 rounded-2xl mx-auto mb-6" style={{ background: 'var(--bg-hover)' }} />
-          <div className="h-10 rounded mb-2 mx-auto w-64" style={{ background: 'var(--bg-hover)' }} />
-          <div className="h-6 rounded mx-auto w-48 mb-8" style={{ background: 'var(--bg-hover)' }} />
-          <div className="h-12 rounded mb-4" style={{ background: 'var(--bg-hover)' }} />
-          <div className="h-12 rounded" style={{ background: 'var(--bg-hover)' }} />
+          <div className="w-20 h-20 rounded-2xl mx-auto mb-6 bg-background-hover" />
+          <div className="h-10 rounded mb-2 mx-auto w-64 bg-background-hover" />
+          <div className="h-6 rounded mx-auto w-48 mb-8 bg-background-hover" />
+          <div className="h-12 rounded mb-4 bg-background-hover" />
+          <div className="h-12 rounded bg-background-hover" />
         </div>
       </div>
     </div>

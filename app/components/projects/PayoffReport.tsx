@@ -8,6 +8,7 @@ import type { Project, DrawRequest } from '@/types/custom'
 import type { ViewMode } from '@/app/components/ui/ViewModeSelector'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/app/components/ui/Toast'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 import { ChartHeader } from '@/app/components/ui/ChartInfoTooltip'
 import { CHART_TOOLTIPS } from '@/lib/constants'
 import {
@@ -25,6 +26,7 @@ import {
   generateFeeSchedule,
   type LoanTerms,
 } from '@/lib/loanTerms'
+import { formatCurrency, formatCurrencyWhole, formatRate, formatDate } from '@/lib/formatters'
 
 // Credit type for payoff adjustments
 type PayoffCredit = {
@@ -57,42 +59,6 @@ type PayoffReportProps = {
   // Credits for payoff adjustments
   credits?: PayoffCredit[]
   onCreditsChange?: (credits: PayoffCredit[]) => void
-}
-
-// =============================================================================
-// FORMATTERS
-// =============================================================================
-
-const formatCurrency = (amount: number | null) => {
-  if (amount === null || amount === undefined) return '—'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount)
-}
-
-const formatCurrencyWhole = (amount: number | null) => {
-  if (amount === null || amount === undefined) return '—'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
-
-const formatRate = (rate: number) => `${(rate * 100).toFixed(2)}%`
-
-const formatDate = (date: Date | string | null) => {
-  if (!date) return '—'
-  const d = typeof date === 'string' ? new Date(date) : date
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
 }
 
 // =============================================================================
@@ -257,12 +223,12 @@ export function PayoffReport({
       {/* Info banner for fee clock start date */}
       {noFeeStartDate && (
         <div className="card-ios flex items-start gap-3" style={{ borderLeft: '4px solid var(--warning)' }}>
-          <svg className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--warning)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-warning"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           <div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>No Funded Draws Yet</div>
-            <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            <div className="font-medium text-text-primary">No Funded Draws Yet</div>
+            <div className="text-sm text-text-muted">
               The fee clock starts when the first draw is funded. Fee escalation and interest projections will become available after the first draw is funded.
             </div>
           </div>
@@ -357,23 +323,22 @@ function PayoffStatementView({
   return (
     <div className="card-ios">
       {/* Header */}
-      <div className="flex justify-between items-start mb-6 pb-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+      <div className="flex justify-between items-start mb-6 pb-4 border-b border-border-subtle">
         <div>
-          <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          <h2 className="text-xl font-bold text-text-primary">
             Payoff Statement
           </h2>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-sm mt-1 text-text-muted">
             {project.name}
           </p>
         </div>
         <div className="text-right">
-          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Good Through</div>
+          <div className="text-sm text-text-muted">Good Through</div>
           <input
             type="date"
             value={payoffDate}
             onChange={(e) => setPayoffDate(e.target.value)}
-            className="input text-sm mt-1"
-            style={{ background: 'var(--bg-secondary)' }}
+            className="input text-sm mt-1 bg-background-secondary"
           />
         </div>
       </div>
@@ -390,7 +355,7 @@ function PayoffStatementView({
           <svg className="w-5 h-5" style={{ color: urgencyColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <span style={{ color: 'var(--text-primary)' }}>
+          <span className="text-text-primary">
             {daysToMaturity < 0 
               ? `Loan matured ${Math.abs(daysToMaturity)} days ago`
               : `Maturity in ${daysToMaturity} days`
@@ -400,36 +365,36 @@ function PayoffStatementView({
       )}
       
       {/* Loan Info */}
-      <div className="grid grid-cols-2 gap-4 mb-6 p-4 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
+      <div className="grid grid-cols-2 gap-4 mb-6 p-4 rounded-lg bg-background-secondary">
         <div>
-          <div className="text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
+          <div className="text-xs uppercase tracking-wider mb-1 text-text-muted">
             Borrower
           </div>
-          <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+          <div className="font-medium text-text-primary">
             {project.borrower_name || '—'}
           </div>
         </div>
         <div>
-          <div className="text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
+          <div className="text-xs uppercase tracking-wider mb-1 text-text-muted">
             Property
           </div>
-          <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+          <div className="font-medium text-text-primary">
             {project.address || '—'}
           </div>
         </div>
         <div>
-          <div className="text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
+          <div className="text-xs uppercase tracking-wider mb-1 text-text-muted">
             Loan Number
           </div>
-          <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+          <div className="font-medium text-text-primary">
             {project.project_code || '—'}
           </div>
         </div>
         <div>
-          <div className="text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
+          <div className="text-xs uppercase tracking-wider mb-1 text-text-muted">
             Maturity Date
           </div>
-          <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+          <div className="font-medium text-text-primary">
             {formatDate(project.maturity_date)}
           </div>
         </div>
@@ -438,25 +403,25 @@ function PayoffStatementView({
       {/* Payoff Breakdown Table */}
       <table className="w-full mb-6">
         <tbody>
-          <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <td className="py-3" style={{ color: 'var(--text-secondary)' }}>Principal Balance</td>
-            <td className="py-3 text-right font-medium" style={{ color: 'var(--text-primary)' }}>
+          <tr className="border-b border-border-subtle">
+            <td className="py-3 text-text-secondary">Principal Balance</td>
+            <td className="py-3 text-right font-medium text-text-primary">
               {formatCurrency(payoff.principalBalance)}
             </td>
           </tr>
-          <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <td className="py-3" style={{ color: 'var(--text-secondary)' }}>
+          <tr className="border-b border-border-subtle">
+            <td className="py-3 text-text-secondary">
               Accrued Interest ({payoff.daysOfInterest} days @ {formatCurrency(payoff.perDiem)}/day)
             </td>
-            <td className="py-3 text-right font-medium" style={{ color: 'var(--warning)' }}>
+            <td className="py-3 text-right font-medium text-warning">
               {formatCurrency(payoff.accruedInterest)}
             </td>
           </tr>
-          <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <td className="py-3" style={{ color: 'var(--text-secondary)' }}>
+          <tr className="border-b border-border-subtle">
+            <td className="py-3 text-text-secondary">
               Finance Fee ({payoff.feeRatePct} of loan)
               {payoff.isExtension && (
-                <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'var(--error-muted)', color: 'var(--error)' }}>
+                <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-error-muted text-error">
                   Extension
                 </span>
               )}
@@ -465,20 +430,20 @@ function PayoffStatementView({
               {formatCurrency(payoff.financeFee)}
             </td>
           </tr>
-          <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <td className="py-3" style={{ color: 'var(--text-secondary)' }}>Document Fee</td>
-            <td className="py-3 text-right font-medium" style={{ color: 'var(--text-primary)' }}>
+          <tr className="border-b border-border-subtle">
+            <td className="py-3 text-text-secondary">Document Fee</td>
+            <td className="py-3 text-right font-medium text-text-primary">
               {formatCurrency(payoff.documentFee)}
             </td>
           </tr>
           {credits.length > 0 && (
             <>
               {credits.map((credit) => (
-                <tr key={credit.id} className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <td className="py-3" style={{ color: 'var(--text-secondary)' }}>
+                <tr key={credit.id} className="border-b border-border-subtle">
+                  <td className="py-3 text-text-secondary">
                     Less: {credit.description || 'Credit'}
                   </td>
-                  <td className="py-3 text-right font-medium" style={{ color: 'var(--success)' }}>
+                  <td className="py-3 text-right font-medium text-success">
                     ({formatCurrency(credit.amount)})
                   </td>
                 </tr>
@@ -488,10 +453,10 @@ function PayoffStatementView({
         </tbody>
         <tfoot>
           <tr>
-            <td className="py-4 text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+            <td className="py-4 text-lg font-bold text-text-primary">
               Total Payoff Amount
             </td>
-            <td className="py-4 text-right text-2xl font-bold" style={{ color: 'var(--accent)' }}>
+            <td className="py-4 text-right text-2xl font-bold text-accent">
               {formatCurrency(payoff.totalPayoff)}
             </td>
           </tr>
@@ -501,12 +466,12 @@ function PayoffStatementView({
       {/* Per Diem Notice */}
       <div className="p-4 rounded-lg" style={{ background: 'var(--info-muted)', border: '1px solid var(--info)' }}>
         <div className="flex items-start gap-3">
-          <svg className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: 'var(--info)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-5 h-5 mt-0.5 flex-shrink-0 text-info"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <div>
-            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>Per Diem Interest</div>
-            <div className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+            <div className="font-medium text-text-primary">Per Diem Interest</div>
+            <div className="text-sm mt-1 text-text-secondary">
               For dates beyond {formatDate(payoff.goodThroughDate)}, add <strong>{formatCurrency(payoff.perDiem)}</strong> per day.
             </div>
           </div>
@@ -559,11 +524,11 @@ function ChartDashboard({
     return (
       <div className="card-ios flex items-center justify-center" style={{ height: 400 }}>
         <div className="text-center">
-          <svg className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-12 h-12 mx-auto mb-3 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
-          <p style={{ color: 'var(--text-muted)' }}>No projection data available</p>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Fee clock starts when first draw is funded</p>
+          <p className="text-text-muted">No projection data available</p>
+          <p className="text-sm mt-1 text-text-muted">Fee clock starts when first draw is funded</p>
         </div>
       </div>
     )
@@ -662,7 +627,7 @@ function FeeEscalationChart({
                 className="p-2 rounded-lg shadow-lg"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
               >
-                <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                <div className="font-medium text-text-primary">
                   Month {String(point.data.x).replace('M', '')}
                 </div>
                 <div className="text-sm" style={{ color: data.isExtension ? 'var(--error)' : 'var(--warning)' }}>
@@ -791,13 +756,13 @@ function PayoffProjectionChart({
               className="p-3 rounded-lg shadow-lg"
               style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
             >
-              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+              <div className="text-xs mb-1 text-text-muted">
                 {point.data.xFormatted}
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full" style={{ background: point.serieColor }} />
-                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{point.serieId}:</span>
-                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                <span className="text-sm text-text-secondary">{point.serieId}:</span>
+                <span className="font-medium text-text-primary">
                   {formatCurrencyWhole(Number(point.data.y))}
                 </span>
               </div>
@@ -928,8 +893,8 @@ function WhatIfComparisonChart({
       />
       
       {/* Custom Date Picker */}
-      <div className="px-4 py-2 border-b flex items-center gap-3" style={{ borderColor: 'var(--border-subtle)' }}>
-        <label className="text-xs" style={{ color: 'var(--text-muted)' }}>
+      <div className="px-4 py-2 border-b border-border-subtle flex items-center gap-3">
+        <label className="text-xs text-text-muted">
           Compare custom date:
         </label>
         <input
@@ -943,8 +908,8 @@ function WhatIfComparisonChart({
         {customDate && (
           <button
             onClick={() => onCustomDateChange('')}
-            className="text-xs px-2 py-1 rounded hover:bg-[var(--bg-hover)] transition-colors"
-            style={{ color: 'var(--text-muted)' }}
+            className="text-xs px-2 py-1 rounded hover:bg-[var(--bg-hover)] transition-colors text-text-muted"
+            
           >
             Clear
           </button>
@@ -1007,17 +972,17 @@ function WhatIfComparisonChart({
               className="p-3 rounded-lg shadow-lg"
               style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
             >
-              <div className="font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+              <div className="font-medium mb-1 text-text-primary">
                 {indexValue}
               </div>
-              <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              <div className="text-sm text-text-secondary">
                 {id}: {formatCurrencyWhole(value)}
               </div>
-              <div className="text-sm font-semibold mt-1" style={{ color: 'var(--accent)' }}>
+              <div className="text-sm font-semibold mt-1 text-accent">
                 Total: {formatCurrencyWhole(data.total)}
               </div>
               {data.delta > 0 && (
-                <div className="text-xs mt-1" style={{ color: 'var(--error)' }}>
+                <div className="text-xs mt-1 text-error">
                   +{formatCurrencyWhole(data.delta)} vs today
                 </div>
               )}
@@ -1074,13 +1039,13 @@ function CompleteLoanSection({
       style={{ borderLeft: '4px solid var(--success)' }}
     >
       <div className="mb-4">
-        <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-          <svg className="w-5 h-5" style={{ color: 'var(--success)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <h3 className="font-semibold flex items-center gap-2 text-text-primary">
+          <svg className="w-5 h-5 text-success"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           Complete Loan
         </h3>
-        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-sm mt-1 text-text-muted">
           Record payoff to mark loan as paid and transition to historic status
         </p>
       </div>
@@ -1088,39 +1053,37 @@ function CompleteLoanSection({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
         {/* Payoff Amount */}
         <div>
-          <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+          <label className="block text-xs mb-1 text-text-muted">
             Payoff Amount
           </label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>$</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">$</span>
             <input
               type="number"
               value={payoffAmount}
               onChange={(e) => setPayoffAmount(e.target.value)}
               placeholder={payoff.totalPayoff.toFixed(2)}
-              className="input w-full pl-7"
-              style={{ background: 'var(--bg-secondary)' }}
+              className="input w-full pl-7 bg-background-secondary"
             />
           </div>
-          <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+          <div className="text-xs mt-1 text-text-muted">
             Calculated: {formatCurrency(payoff.totalPayoff)}
           </div>
         </div>
         
         {/* Payoff Date */}
         <div>
-          <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+          <label className="block text-xs mb-1 text-text-muted">
             Payoff Date
           </label>
           <input
             type="date"
             value={payoffDate}
             onChange={(e) => setPayoffDate(e.target.value)}
-            className="input w-full"
-            style={{ background: 'var(--bg-secondary)' }}
+            className="input w-full bg-background-secondary"
           />
         </div>
-        
+
         {/* Approval Checkbox */}
         <div className="flex items-center">
           <label className="flex items-start gap-2 cursor-pointer">
@@ -1132,10 +1095,10 @@ function CompleteLoanSection({
               style={{ accentColor: 'var(--success)' }}
             />
             <div>
-              <span className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+              <span className="font-medium text-sm text-text-primary">
                 Payoff Confirmed
               </span>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-xs text-text-muted">
                 I confirm the payoff has been received
               </p>
             </div>
@@ -1157,7 +1120,7 @@ function CompleteLoanSection({
       >
         {completing ? (
           <>
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent border-white" />
+            <LoadingSpinner size="sm" variant="white" />
             Completing...
           </>
         ) : (
@@ -1213,20 +1176,20 @@ function CreditsManager({
     <div className="card-ios">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <svg className="w-5 h-5" style={{ color: 'var(--info)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <h3 className="font-semibold flex items-center gap-2 text-text-primary">
+            <svg className="w-5 h-5 text-info"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             Credits & Adjustments
           </h3>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-sm mt-0.5 text-text-muted">
             Apply credits to reduce payoff amount
           </p>
         </div>
         {totalCredits > 0 && (
           <div className="text-right">
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Total Credits</div>
-            <div className="text-lg font-bold" style={{ color: 'var(--success)' }}>
+            <div className="text-xs text-text-muted">Total Credits</div>
+            <div className="text-lg font-bold text-success">
               -{formatCurrency(totalCredits)}
             </div>
           </div>
@@ -1239,25 +1202,24 @@ function CreditsManager({
           {credits.map((credit) => (
             <div
               key={credit.id}
-              className="flex items-center justify-between p-3 rounded-lg"
-              style={{ background: 'var(--bg-secondary)' }}
+              className="flex items-center justify-between p-3 rounded-lg bg-background-secondary"
             >
               <div>
-                <div className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+                <div className="font-medium text-sm text-text-primary">
                   {credit.description}
                 </div>
-                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                <div className="text-xs text-text-muted">
                   Credit applied to payoff
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className="font-semibold" style={{ color: 'var(--success)' }}>
+                <span className="font-semibold text-success">
                   -{formatCurrency(credit.amount)}
                 </span>
                 <button
                   onClick={() => handleRemoveCredit(credit.id)}
-                  className="p-1 rounded hover:bg-[var(--bg-hover)] transition-colors"
-                  style={{ color: 'var(--text-muted)' }}
+                  className="p-1 rounded hover:bg-[var(--bg-hover)] transition-colors text-text-muted"
+                  
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1278,10 +1240,10 @@ function CreditsManager({
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
-            <div className="p-4 rounded-lg border" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
+            <div className="p-4 rounded-lg border bg-background-secondary border-border">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <div>
-                  <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+                  <label className="block text-xs mb-1 text-text-muted">
                     Description
                   </label>
                   <input
@@ -1293,11 +1255,11 @@ function CreditsManager({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+                  <label className="block text-xs mb-1 text-text-muted">
                     Amount
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">$</span>
                     <input
                       type="number"
                       value={newAmount}
@@ -1330,8 +1292,7 @@ function CreditsManager({
         ) : (
           <button
             onClick={() => setIsAdding(true)}
-            className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg border border-dashed transition-colors hover:bg-[var(--bg-hover)]"
-            style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+            className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg border border-dashed transition-colors hover:bg-[var(--bg-hover)] border-border text-text-muted"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1381,13 +1342,13 @@ function PayoffLetterGenerator({
     <div className="card-ios">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <svg className="w-5 h-5" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <h3 className="font-semibold flex items-center gap-2 text-text-primary">
+            <svg className="w-5 h-5 text-accent"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             Title Company Payoff Letter
           </h3>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-sm mt-0.5 text-text-muted">
             Generate a formal payoff statement for title companies
           </p>
         </div>

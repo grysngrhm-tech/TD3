@@ -42,13 +42,13 @@ export default function NewLoanPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)]" style={{ background: 'var(--bg-primary)' }}>
+    <div className="min-h-[calc(100vh-3.5rem)] bg-background-primary">
       {/* Header */}
-      <div className="border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-secondary)' }}>
+      <div className="border-b border-border-subtle bg-background-secondary">
         <div className="max-w-6xl mx-auto px-6 py-6">
           {/* Title */}
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            <h1 className="text-2xl font-bold text-text-primary">
               New Loan
             </h1>
             <span 
@@ -58,7 +58,7 @@ export default function NewLoanPage() {
               In Origination
             </span>
           </div>
-          <p className="mt-1" style={{ color: 'var(--text-muted)' }}>
+          <p className="mt-1 text-text-muted">
             Fill in the loan details to get started
           </p>
         </div>

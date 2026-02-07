@@ -4,6 +4,7 @@ import { useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import type { DrawRequest, Project } from '@/types/custom'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 type TimelineDetailPanelProps = {
   draw: DrawRequest | null
@@ -52,15 +53,6 @@ export function TimelineDetailPanel({
       document.body.style.overflow = ''
     }
   }, [draw])
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '—'
@@ -135,18 +127,18 @@ export function TimelineDetailPanel({
               }}
             >
               <div>
-                <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <h2 className="text-lg font-semibold text-text-primary">
                   Draw #{draw.draw_number}
                 </h2>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-sm text-text-muted">
                   {project.project_code || project.name}
                 </p>
               </div>
               
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg hover:opacity-70 transition-opacity"
-                style={{ color: 'var(--text-muted)' }}
+                className="p-2 rounded-lg hover:opacity-70 transition-opacity text-text-muted"
+                
                 aria-label="Close panel"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -166,7 +158,7 @@ export function TimelineDetailPanel({
                   {statusStyle.label}
                 </span>
                 {draw.funded_at && (
-                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  <span className="text-sm text-text-muted">
                     {formatDate(draw.funded_at)}
                   </span>
                 )}
@@ -180,7 +172,7 @@ export function TimelineDetailPanel({
                   border: '1px solid var(--border-subtle)'
                 }}
               >
-                <div className="text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
+                <div className="text-sm mb-1 text-text-muted">
                   Total Amount
                 </div>
                 <div 
@@ -196,7 +188,7 @@ export function TimelineDetailPanel({
 
               {/* Details Grid */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <h3 className="text-sm font-semibold text-text-primary">
                   Details
                 </h3>
                 
@@ -228,7 +220,7 @@ export function TimelineDetailPanel({
               {/* Notes */}
               {draw.notes && (
                 <div className="space-y-2">
-                  <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  <h3 className="text-sm font-semibold text-text-primary">
                     Notes
                   </h3>
                   <div 
@@ -245,7 +237,7 @@ export function TimelineDetailPanel({
 
               {/* Quick Links */}
               <div className="space-y-2">
-                <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <h3 className="text-sm font-semibold text-text-primary">
                   Quick Links
                 </h3>
                 <div className="flex flex-wrap gap-2">
@@ -297,8 +289,8 @@ export function TimelineDetailPanel({
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="px-4 py-3 flex justify-between items-center">
-      <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{label}</span>
-      <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{value}</span>
+      <span className="text-sm text-text-muted">{label}</span>
+      <span className="text-sm font-medium text-text-primary">{value}</span>
     </div>
   )
 }

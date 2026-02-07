@@ -145,12 +145,12 @@ export function ProjectTile({
             {projectCode}
           </h3>
           {builderName && (
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-sm text-text-muted">
               {builderId && !hideBuilderLink ? (
                 <motion.button
                   onClick={handleBuilderClick}
-                  className="transition-colors"
-                  style={{ color: 'var(--accent)' }}
+                  className="transition-colors text-accent"
+                  
                   whileHover={{ textDecoration: 'underline' }}
                 >
                   {builderName}
@@ -174,7 +174,7 @@ export function ProjectTile({
 
       {/* Address */}
       {address && (
-        <p className="text-sm mb-4 truncate" style={{ color: 'var(--text-secondary)' }}>
+        <p className="text-sm mb-4 truncate text-text-secondary">
           {address}
         </p>
       )}
@@ -202,7 +202,7 @@ export function ProjectTile({
           {ltvRatio !== null ? (
             <>
               <div className="flex justify-between items-baseline">
-                <span className="text-sm" style={{ color: 'var(--text-muted)' }}>LTV Ratio</span>
+                <span className="text-sm text-text-muted">LTV Ratio</span>
                 <span 
                   className="font-semibold financial-value" 
                   style={{ color: getLtvColor(ltvRatio), fontSize: 'var(--text-lg)' }}
@@ -236,7 +236,7 @@ export function ProjectTile({
             </>
           ) : (
             <div className="flex justify-between items-baseline">
-              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Loan Amount</span>
+              <span className="text-sm text-text-muted">Loan Amount</span>
               <span 
                 className="font-semibold financial-value" 
                 style={{ color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}
@@ -251,7 +251,7 @@ export function ProjectTile({
             className="flex justify-between items-baseline pt-2" 
             style={{ borderTop: '1px solid var(--border-subtle)' }}
           >
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Budget</span>
+            <span className="text-sm text-text-muted">Budget</span>
             <span 
               className="font-medium financial-value"
               style={{ color: totalBudget > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}
@@ -266,7 +266,7 @@ export function ProjectTile({
         <div className="space-y-3">
           {/* Budget Info */}
           <div className="flex justify-between items-baseline">
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Budget</span>
+            <span className="text-sm text-text-muted">Budget</span>
             <span 
               className="font-semibold financial-value" 
               style={{ color: 'var(--text-primary)', fontSize: 'var(--text-lg)' }}
@@ -297,10 +297,10 @@ export function ProjectTile({
 
           {/* Drawn Amount */}
           <div className="flex justify-between items-baseline">
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            <span className="text-sm text-text-muted">
               {percentSpent.toFixed(1)}% drawn
             </span>
-            <span className="font-medium financial-value" style={{ color: 'var(--accent)' }}>
+            <span className="font-medium financial-value text-accent">
               {formatCurrency(totalSpent)}
             </span>
           </div>
@@ -311,7 +311,7 @@ export function ProjectTile({
         <div className="space-y-3">
           {/* Total Income */}
           <div className="flex justify-between items-baseline">
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            <span className="text-sm text-text-muted">
               Total Income
             </span>
             <span 
@@ -324,7 +324,7 @@ export function ProjectTile({
 
           {/* IRR */}
           <div className="flex justify-between items-baseline">
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            <span className="text-sm text-text-muted">
               IRR
             </span>
             <span 
@@ -347,15 +347,15 @@ export function ProjectTile({
             }}
           >
             <svg 
-              className="w-3.5 h-3.5 mr-1.5" 
-              style={{ color: 'var(--success)' }} 
+              className="w-3.5 h-3.5 mr-1.5 text-success" 
+               
               fill="none" 
               viewBox="0 0 24 24" 
               stroke="currentColor"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <span className="text-xs font-semibold" style={{ color: 'var(--success)' }}>
+            <span className="text-xs font-semibold text-success">
               Complete
             </span>
           </div>

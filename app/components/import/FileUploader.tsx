@@ -109,13 +109,13 @@ export function FileUploader({
             </svg>
           </motion.div>
           
-          <p className="text-lg font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+          <p className="text-lg font-medium mb-1 text-text-primary">
             {isDragging ? 'Drop your file here' : 'Drop Excel or CSV file here'}
           </p>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-sm text-text-muted">
             or click to browse
           </p>
-          <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs mt-3 text-text-muted">
             Supports .xlsx, .xls, .csv up to 10MB
           </p>
         </div>
@@ -125,8 +125,8 @@ export function FileUploader({
         <motion.p
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-3 text-sm text-center"
-          style={{ color: 'var(--error)' }}
+          className="mt-3 text-sm text-center text-error"
+          
         >
           {error}
         </motion.p>

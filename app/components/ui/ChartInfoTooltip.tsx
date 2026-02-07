@@ -107,22 +107,21 @@ export function ChartInfoTooltip({
 
               {/* Title */}
               <div
-                className="font-semibold text-sm mb-1.5"
-                style={{ color: 'var(--text-primary)' }}
+                className="font-semibold text-sm mb-1.5 text-text-primary"
+                
               >
                 {title}
               </div>
 
               {/* Description */}
-              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              <p className="text-xs leading-relaxed text-text-secondary">
                 {description}
               </p>
 
               {/* Formula (optional) */}
               {formula && (
                 <div
-                  className="mt-2 p-2 rounded text-xs font-mono"
-                  style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}
+                  className="mt-2 p-2 rounded text-xs font-mono bg-background-secondary text-text-muted"
                 >
                   {formula}
                 </div>
@@ -153,14 +152,13 @@ export function ChartHeader({
 }) {
   return (
     <div
-      className="px-4 py-3 border-b flex items-start justify-between"
-      style={{ borderColor: 'var(--border-subtle)' }}
+      className="px-4 py-3 border-b border-border-subtle flex items-start justify-between"
     >
       <div>
-        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+        <h3 className="font-semibold text-text-primary">
           {title}
         </h3>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-xs mt-0.5 text-text-muted">
           {subtitle}
         </p>
       </div>

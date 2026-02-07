@@ -109,7 +109,7 @@ export function BudgetSparkline({
               boxShadow: 'var(--elevation-2)',
             }}
           >
-            <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+            <div className="text-xs font-medium text-text-primary">
               {point.data.xFormatted}
             </div>
             <div className="text-xs font-bold" style={{ color: lineColor }}>
@@ -165,8 +165,7 @@ export function MiniSparkline({
 }) {
   return (
     <div 
-      className="relative h-1 w-16 rounded-full overflow-hidden"
-      style={{ background: 'var(--bg-hover)' }}
+      className="relative h-1 w-16 rounded-full overflow-hidden bg-background-hover"
     >
       <div 
         className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"

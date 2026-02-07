@@ -105,19 +105,19 @@ export function ActivityItem({ activity, showUser = false }: ActivityItemProps) 
       <div className="flex-1 min-w-0">
         {/* User name (admin view) */}
         {showUser && userInfo && (
-          <div className="text-xs font-medium mb-0.5" style={{ color: 'var(--text-secondary)' }}>
+          <div className="text-xs font-medium mb-0.5 text-text-secondary">
             {userInfo.full_name || userInfo.email}
           </div>
         )}
 
         {/* Description */}
-        <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
+        <p className="text-sm text-text-primary">
           {activity.description}
         </p>
 
         {/* Entity label */}
         {activity.entity_label && (
-          <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs mt-0.5 truncate text-text-muted">
             {activity.entity_type && ENTITY_TYPE_LABELS[activity.entity_type]}: {activity.entity_label}
           </p>
         )}
@@ -127,8 +127,7 @@ export function ActivityItem({ activity, showUser = false }: ActivityItemProps) 
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {activity.device_type && DeviceIcons[activity.device_type] && (
               <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs"
-                style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-background-hover text-text-muted"
               >
                 {DeviceIcons[activity.device_type]}
                 {activity.browser}
@@ -136,8 +135,7 @@ export function ActivityItem({ activity, showUser = false }: ActivityItemProps) 
             )}
             {activity.location_city && activity.location_country && (
               <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs"
-                style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-background-hover text-text-muted"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -151,7 +149,7 @@ export function ActivityItem({ activity, showUser = false }: ActivityItemProps) 
       </div>
 
       {/* Timestamp */}
-      <div className="flex-shrink-0 text-xs" style={{ color: 'var(--text-muted)' }}>
+      <div className="flex-shrink-0 text-xs text-text-muted">
         {formatRelativeTime(activity.created_at)}
       </div>
     </div>

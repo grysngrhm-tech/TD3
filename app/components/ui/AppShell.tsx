@@ -22,7 +22,7 @@ export function AppShell({ children }: AppShellProps) {
   const showHeader = !HEADERLESS_ROUTES.some(route => pathname?.startsWith(route))
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg-primary)' }}>
+    <div className="min-h-screen bg-background-primary">
       {showHeader && <Header />}
       <main style={showHeader ? { paddingTop: 'var(--header-height)' } : undefined}>
         {children}

@@ -9,7 +9,8 @@ import type { Project, DrawRequest } from '@/types/custom'
 import type { ViewMode } from '@/app/components/ui/ViewModeSelector'
 import { ChartHeader } from '@/app/components/ui/ChartInfoTooltip'
 import { CHART_TOOLTIPS } from '@/lib/constants'
-import { 
+import { formatCurrency, formatCurrencyWhole as formatCurrencyCompact, formatDate, formatDateShort, formatRate } from '@/lib/formatters'
+import {
   calculateAmortizationSchedule,
   calculatePerDiem,
   calculateTotalPayoff,
@@ -30,50 +31,6 @@ type AmortizationTableProps = {
   drawLines: DrawLineWithDate[]
   viewMode: ViewMode
   payoffDate?: Date | null
-}
-
-const formatCurrency = (amount: number | null) => {
-  if (amount === null || amount === undefined) return '—'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount)
-}
-
-const formatCurrencyCompact = (amount: number | null) => {
-  if (amount === null || amount === undefined) return '—'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
-
-const formatDate = (date: Date | string | null) => {
-  if (!date) return '—'
-  const d = typeof date === 'string' ? new Date(date) : date
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
-const formatDateShort = (date: Date | string | null) => {
-  if (!date) return '—'
-  const d = typeof date === 'string' ? new Date(date) : date
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  })
-}
-
-const formatRate = (rate: number | null) => {
-  if (rate === null || rate === undefined) return '—'
-  return `${(rate * 100).toFixed(2)}%`
 }
 
 /**
@@ -160,11 +117,11 @@ export function AmortizationTable({
     return (
       <div className="card-ios flex items-center justify-center" style={{ height: 300 }}>
         <div className="text-center">
-          <svg className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-12 h-12 mx-auto mb-3 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p style={{ color: 'var(--text-muted)' }}>No draw data available</p>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-text-muted">No draw data available</p>
+          <p className="text-sm mt-1 text-text-muted">
             {!effectiveFeeStartDate 
               ? 'Fee clock starts when the first draw is funded'
               : 'Draw funds to see amortization schedule'
@@ -181,8 +138,8 @@ export function AmortizationTable({
       
       {/* Amortization Table */}
       <div className="card-ios p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-          <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Interest Accrual Schedule</h3>
+        <div className="px-4 py-3 border-b border-border-subtle">
+          <h3 className="font-semibold text-text-primary">Interest Accrual Schedule</h3>
         </div>
 
         <div className="overflow-x-auto">
@@ -220,22 +177,20 @@ export function AmortizationTable({
                     <div className="flex items-center gap-2">
                       {row.type === 'draw' && (
                         <span 
-                          className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold"
-                          style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}
+                          className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold bg-accent-muted text-accent"
                         >
                           {row.drawNumber || '#'}
                         </span>
                       )}
                       {row.type === 'month_end' && (
                         <span 
-                          className="w-6 h-6 rounded-full flex items-center justify-center text-xs"
-                          style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}
+                          className="w-6 h-6 rounded-full flex items-center justify-center text-xs bg-background-secondary text-text-muted"
                         >
                           📅
                         </span>
                       )}
                       {row.type === 'payoff' && (
-                        <svg className="w-5 h-5" style={{ color: 'var(--success)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-5 h-5 text-success"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       )}
@@ -253,39 +208,39 @@ export function AmortizationTable({
                   <td className="table-cell text-right" style={{ color: row.type === 'draw' ? 'var(--accent)' : 'var(--text-muted)' }}>
                     {row.drawAmount > 0 ? formatCurrency(row.drawAmount) : '—'}
                   </td>
-                  <td className="table-cell text-right" style={{ color: 'var(--text-muted)' }}>
+                  <td className="table-cell text-right text-text-muted">
                     {row.days > 0 ? row.days : '—'}
                   </td>
                   <td className="table-cell text-right" style={{ color: row.accruedInterest > 0 ? 'var(--warning)' : 'var(--text-muted)' }}>
                     {row.accruedInterest > 0 ? formatCurrency(row.accruedInterest) : '—'}
                   </td>
-                  <td className="table-cell text-right" style={{ color: 'var(--warning)' }}>
+                  <td className="table-cell text-right text-warning">
                     {formatCurrency(row.totalInterest)}
                   </td>
-                  <td className="table-cell text-right" style={{ color: 'var(--text-primary)' }}>
+                  <td className="table-cell text-right text-text-primary">
                     {formatCurrency(row.principal)}
                   </td>
-                  <td className="table-cell text-right font-semibold" style={{ color: 'var(--accent)' }}>
+                  <td className="table-cell text-right font-semibold text-accent">
                     {formatCurrency(row.totalBalance)}
                   </td>
                 </motion.tr>
               ))}
             </tbody>
-            <tfoot style={{ background: 'var(--bg-hover)' }}>
+            <tfoot className="bg-background-hover">
               <tr>
                 <td className="table-cell font-semibold" colSpan={2}>Total</td>
-                <td className="table-cell text-right font-semibold" style={{ color: 'var(--accent)' }}>
+                <td className="table-cell text-right font-semibold text-accent">
                   {formatCurrency(summary.principal)}
                 </td>
                 <td className="table-cell text-right font-semibold">{summary.totalDays}</td>
                 <td className="table-cell"></td>
-                <td className="table-cell text-right font-semibold" style={{ color: 'var(--warning)' }}>
+                <td className="table-cell text-right font-semibold text-warning">
                   {formatCurrency(summary.totalInterest)}
                 </td>
-                <td className="table-cell text-right font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <td className="table-cell text-right font-semibold text-text-primary">
                   {formatCurrency(summary.principal)}
                 </td>
-                <td className="table-cell text-right font-semibold" style={{ color: 'var(--accent)' }}>
+                <td className="table-cell text-right font-semibold text-accent">
                   {formatCurrency(summary.totalBalance)}
                 </td>
               </tr>
@@ -296,31 +251,31 @@ export function AmortizationTable({
 
       {/* Payoff Summary */}
       <div className="card-ios" style={{ borderLeft: '4px solid var(--success)' }}>
-        <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Payoff Summary</h3>
+        <h3 className="font-semibold mb-4 text-text-primary">Payoff Summary</h3>
         <div className="space-y-2">
           <div className="flex justify-between">
-            <span style={{ color: 'var(--text-muted)' }}>Principal (Draws)</span>
-            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(payoffTotals.principal)}</span>
+            <span className="text-text-muted">Principal (Draws)</span>
+            <span className="font-medium text-text-primary">{formatCurrency(payoffTotals.principal)}</span>
           </div>
           <div className="flex justify-between">
-            <span style={{ color: 'var(--text-muted)' }}>Interest Accrued (Compound)</span>
-            <span className="font-medium" style={{ color: 'var(--warning)' }}>{formatCurrency(payoffTotals.interest)}</span>
+            <span className="text-text-muted">Interest Accrued (Compound)</span>
+            <span className="font-medium text-warning">{formatCurrency(payoffTotals.interest)}</span>
           </div>
-          <div className="flex justify-between pb-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Total Balance</span>
-            <span className="font-medium" style={{ color: 'var(--accent)' }}>{formatCurrency(payoffTotals.totalBalance)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span style={{ color: 'var(--text-muted)' }}>Origination Fee</span>
-            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(payoffTotals.originationFee)}</span>
+          <div className="flex justify-between pb-2 border-b border-border-subtle">
+            <span className="text-text-muted">Total Balance</span>
+            <span className="font-medium text-accent">{formatCurrency(payoffTotals.totalBalance)}</span>
           </div>
           <div className="flex justify-between">
-            <span style={{ color: 'var(--text-muted)' }}>Doc Fee</span>
-            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(payoffTotals.docFee)}</span>
+            <span className="text-text-muted">Origination Fee</span>
+            <span className="font-medium text-text-primary">{formatCurrency(payoffTotals.originationFee)}</span>
           </div>
-          <div className="pt-2 border-t flex justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
-            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Total Payoff</span>
-            <span className="font-bold text-lg" style={{ color: 'var(--success)' }}>{formatCurrency(payoffTotals.total)}</span>
+          <div className="flex justify-between">
+            <span className="text-text-muted">Doc Fee</span>
+            <span className="font-medium text-text-primary">{formatCurrency(payoffTotals.docFee)}</span>
+          </div>
+          <div className="pt-2 border-t border-border-subtle flex justify-between">
+            <span className="font-semibold text-text-primary">Total Payoff</span>
+            <span className="font-bold text-lg text-success">{formatCurrency(payoffTotals.total)}</span>
           </div>
         </div>
       </div>
@@ -357,11 +312,11 @@ function ChartDashboard({
     return (
       <div className="card-ios flex items-center justify-center" style={{ height: 400 }}>
         <div className="text-center">
-          <svg className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-12 h-12 mx-auto mb-3 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
-          <p style={{ color: 'var(--text-muted)' }}>No draw data available</p>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Draw funds to see charts</p>
+          <p className="text-text-muted">No draw data available</p>
+          <p className="text-sm mt-1 text-text-muted">Draw funds to see charts</p>
         </div>
       </div>
     )
@@ -494,13 +449,13 @@ function BalanceGrowthChart({
                 boxShadow: 'var(--elevation-2)',
               }}
             >
-              <div className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+              <div className="font-medium text-sm text-text-primary">
                 {point.data.xFormatted}
               </div>
               <div className="flex items-center gap-2 mt-1">
                 <div className="w-3 h-3 rounded-full" style={{ background: point.serieColor }} />
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{point.serieId}:</span>
-                <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <span className="text-xs text-text-muted">{point.serieId}:</span>
+                <span className="text-xs font-semibold text-text-primary">
                   {formatCurrencyCompact(Number(point.data.y))}
                 </span>
               </div>
@@ -542,7 +497,7 @@ function DrawTimelineChart({ drawLines }: { drawLines: DrawLineWithDate[] }) {
     return (
       <div className="card-ios flex items-center justify-center" style={{ height: 320 }}>
         <div className="text-center">
-          <p style={{ color: 'var(--text-muted)' }}>No draw data</p>
+          <p className="text-text-muted">No draw data</p>
         </div>
       </div>
     )
@@ -590,13 +545,13 @@ function DrawTimelineChart({ drawLines }: { drawLines: DrawLineWithDate[] }) {
                 boxShadow: 'var(--elevation-2)',
               }}
             >
-              <div className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+              <div className="font-medium text-sm text-text-primary">
                 {data.draw}
               </div>
-              <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+              <div className="text-xs mt-1 text-text-muted">
                 {data.date}
               </div>
-              <div className="text-sm font-semibold mt-1" style={{ color: 'var(--accent)' }}>
+              <div className="text-sm font-semibold mt-1 text-accent">
                 {formatCurrencyCompact(value)}
               </div>
             </div>
@@ -686,11 +641,11 @@ function InterestAnalysisChart({
               >
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full" style={{ background: datum.color }} />
-                  <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                  <span className="text-sm text-text-primary">
                     {datum.id}: {formatCurrencyCompact(datum.value)}
                   </span>
                 </div>
-                <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                <div className="text-xs mt-1 text-text-muted">
                   {((datum.value / payoffTotals.total) * 100).toFixed(1)}% of total
                 </div>
               </div>
@@ -705,33 +660,33 @@ function InterestAnalysisChart({
         
         {/* Stats Panel */}
         <div className="flex flex-col justify-center pr-4 space-y-2">
-          <div className="p-2.5 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Interest Rate</div>
-            <div className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
+          <div className="p-2.5 rounded-lg bg-background-secondary">
+            <div className="text-xs text-text-muted">Interest Rate</div>
+            <div className="text-base font-bold text-text-primary">
               {formatRate(project.interest_rate_annual || 0)}
             </div>
           </div>
-          <div className="p-2.5 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Per Diem</div>
-            <div className="text-base font-bold" style={{ color: 'var(--info)' }}>
+          <div className="p-2.5 rounded-lg bg-background-secondary">
+            <div className="text-xs text-text-muted">Per Diem</div>
+            <div className="text-base font-bold text-info">
               {formatCurrency(payoffTotals.perDiem)}
             </div>
           </div>
-          <div className="p-2.5 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Finance Fee ({formatRate(project.origination_fee_pct || 0.02)})</div>
-            <div className="text-base font-bold" style={{ color: 'var(--info)' }}>
+          <div className="p-2.5 rounded-lg bg-background-secondary">
+            <div className="text-xs text-text-muted">Finance Fee ({formatRate(project.origination_fee_pct || 0.02)})</div>
+            <div className="text-base font-bold text-info">
               {formatCurrency(payoffTotals.originationFee)}
             </div>
           </div>
-          <div className="p-2.5 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Doc Fee</div>
-            <div className="text-base font-bold" style={{ color: 'var(--success)' }}>
+          <div className="p-2.5 rounded-lg bg-background-secondary">
+            <div className="text-xs text-text-muted">Doc Fee</div>
+            <div className="text-base font-bold text-success">
               {formatCurrency(payoffTotals.docFee)}
             </div>
           </div>
-          <div className="p-2.5 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Days Outstanding</div>
-            <div className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
+          <div className="p-2.5 rounded-lg bg-background-secondary">
+            <div className="text-xs text-text-muted">Days Outstanding</div>
+            <div className="text-base font-bold text-text-primary">
               {summary.totalDays}
             </div>
           </div>

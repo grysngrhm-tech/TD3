@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logAuditEvent } from '@/lib/audit'
 import { DOCUMENT_TYPES, DocumentType, Document } from '@/types/custom'
 import { toast } from '@/app/components/ui/Toast'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 
 type DocumentUploadSectionProps = {
   projectId: string
@@ -19,11 +20,7 @@ export function DocumentUploadSection({ projectId, onDocumentChange }: DocumentU
   const [loading, setLoading] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    loadDocuments()
-  }, [projectId])
-
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('documents')
@@ -39,7 +36,11 @@ export function DocumentUploadSection({ projectId, onDocumentChange }: DocumentU
     } finally {
       setLoading(false)
     }
-  }
+  }, [projectId])
+
+  useEffect(() => {
+    loadDocuments()
+  }, [loadDocuments])
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -245,13 +246,13 @@ export function DocumentUploadSection({ projectId, onDocumentChange }: DocumentU
   const getFileIcon = (mimeType: string | null) => {
     if (mimeType?.includes('pdf')) {
       return (
-        <svg className="w-5 h-5" style={{ color: 'var(--error)' }} fill="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5 text-error"  fill="currentColor" viewBox="0 0 24 24">
           <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4z"/>
         </svg>
       )
     }
     return (
-      <svg className="w-5 h-5" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg className="w-5 h-5 text-accent"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
       </svg>
     )
@@ -267,13 +268,13 @@ export function DocumentUploadSection({ projectId, onDocumentChange }: DocumentU
 
   return (
     <div className="card-ios">
-      <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Documents</h3>
+      <h3 className="font-semibold mb-4 text-text-primary">Documents</h3>
 
       {/* Upload Section */}
       <div className="space-y-3 mb-6">
         {/* Document Type Selector */}
         <div>
-          <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
+          <label className="block text-sm mb-1 text-text-muted">
             Document Type
           </label>
           <select
@@ -311,11 +312,8 @@ export function DocumentUploadSection({ projectId, onDocumentChange }: DocumentU
           
           {uploading ? (
             <div className="flex flex-col items-center gap-2">
-              <div 
-                className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent"
-                style={{ borderColor: 'var(--accent)' }}
-              />
-              <p style={{ color: 'var(--text-muted)' }}>Uploading...</p>
+              <LoadingSpinner />
+              <p className="text-text-muted">Uploading...</p>
             </div>
           ) : (
             <>
@@ -333,13 +331,13 @@ export function DocumentUploadSection({ projectId, onDocumentChange }: DocumentU
                   d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                 />
               </svg>
-              <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+              <p className="font-medium text-text-primary">
                 {dragActive ? 'Drop files here' : 'Drag & drop files'}
               </p>
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-sm text-text-muted">
                 or click to browse
               </p>
-              <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-xs mt-2 text-text-muted">
                 PDF, JPG, PNG, WebP • Max 10MB
               </p>
             </>
@@ -350,36 +348,32 @@ export function DocumentUploadSection({ projectId, onDocumentChange }: DocumentU
       {/* Document List */}
       {loading ? (
         <div className="text-center py-6">
-          <div 
-            className="animate-spin rounded-full h-6 w-6 border-2 border-t-transparent mx-auto"
-            style={{ borderColor: 'var(--accent)' }}
-          />
+          <LoadingSpinner size="md" className="mx-auto" />
         </div>
       ) : documentsByType.length === 0 ? (
-        <div className="text-center py-6" style={{ color: 'var(--text-muted)' }}>
+        <div className="text-center py-6 text-text-muted">
           <p>No documents uploaded yet</p>
         </div>
       ) : (
         <div className="space-y-4">
           {documentsByType.map(group => (
             <div key={group.id}>
-              <h4 className="text-sm font-medium mb-2" style={{ color: 'var(--text-muted)' }}>
+              <h4 className="text-sm font-medium mb-2 text-text-muted">
                 {group.label}
               </h4>
               <div className="space-y-2">
                 {group.documents.map(doc => (
                   <div 
                     key={doc.id}
-                    className="flex items-center justify-between p-3 rounded-lg group"
-                    style={{ background: 'var(--bg-hover)' }}
+                    className="flex items-center justify-between p-3 rounded-lg group bg-background-hover"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       {getFileIcon(doc.mime_type)}
                       <div className="min-w-0">
-                        <p className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                        <p className="font-medium truncate text-text-primary">
                           {doc.file_name}
                         </p>
-                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        <p className="text-xs text-text-muted">
                           {formatFileSize(doc.file_size)}
                         </p>
                       </div>
@@ -390,8 +384,8 @@ export function DocumentUploadSection({ projectId, onDocumentChange }: DocumentU
                           href={doc.file_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-2 rounded-lg hover:opacity-70 transition-opacity"
-                          style={{ color: 'var(--accent)' }}
+                          className="p-2 rounded-lg hover:opacity-70 transition-opacity text-accent"
+                          
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -400,8 +394,8 @@ export function DocumentUploadSection({ projectId, onDocumentChange }: DocumentU
                       )}
                       <button
                         onClick={() => handleDelete(doc)}
-                        className="p-2 rounded-lg opacity-0 group-hover:opacity-100 hover:opacity-70 transition-opacity"
-                        style={{ color: 'var(--error)' }}
+                        className="p-2 rounded-lg opacity-0 group-hover:opacity-100 hover:opacity-70 transition-opacity text-error"
+                        
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

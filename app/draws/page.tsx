@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useNavigation } from '@/app/context/NavigationContext'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 import { DrawRequest } from '@/types/custom'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 type DrawWithProject = DrawRequest & { project_name?: string }
 
@@ -54,15 +56,6 @@ export default function DrawsPage() {
         return normalized === statusFilter
       })
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
-
   const getStatusClass = (status: string) => {
     const classes: Record<string, string> = {
       draft: 'status-draft',
@@ -91,10 +84,7 @@ export default function DrawsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div 
-          className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent"
-          style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
-        />
+        <LoadingSpinner />
       </div>
     )
   }
@@ -104,8 +94,8 @@ export default function DrawsPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Draw Requests</h1>
-          <p className="mt-1" style={{ color: 'var(--text-muted)' }}>Manage construction draw requests</p>
+          <h1 className="text-2xl font-bold text-text-primary">Draw Requests</h1>
+          <p className="mt-1 text-text-muted">Manage construction draw requests</p>
         </div>
         <Link href="/draws/new" className="btn-primary">
           + New Draw Request
@@ -144,7 +134,7 @@ export default function DrawsPage() {
       {/* Draws Table */}
       <div className="card p-0 overflow-hidden">
         {filteredDraws.length === 0 ? (
-          <p className="text-center py-12" style={{ color: 'var(--text-muted)' }}>No draw requests found</p>
+          <p className="text-center py-12 text-text-muted">No draw requests found</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -167,7 +157,7 @@ export default function DrawsPage() {
                   >
                     <td className="table-cell font-medium">{draw.project_name || 'Unknown'}</td>
                     <td className="table-cell">#{draw.draw_number}</td>
-                    <td className="table-cell" style={{ color: 'var(--text-secondary)' }}>
+                    <td className="table-cell text-text-secondary">
                       {draw.request_date ? new Date(draw.request_date).toLocaleDateString() : '-'}
                     </td>
                     <td className="table-cell text-right font-medium financial-value">
@@ -178,14 +168,14 @@ export default function DrawsPage() {
                         {draw.status === 'paid' ? 'funded' : (draw.status || 'draft')}
                       </span>
                     </td>
-                    <td className="table-cell text-sm max-w-xs truncate" style={{ color: 'var(--text-muted)' }}>
+                    <td className="table-cell text-sm max-w-xs truncate text-text-muted">
                       {draw.notes || '-'}
                     </td>
                     <td className="table-cell">
                       <Link
                         href={`/draws/${draw.id}`}
-                        className="text-sm font-medium transition-colors"
-                        style={{ color: 'var(--accent)' }}
+                        className="text-sm font-medium transition-colors text-accent"
+                        
                       >
                         View →
                       </Link>

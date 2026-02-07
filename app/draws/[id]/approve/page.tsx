@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useNavigation } from '@/app/context/NavigationContext'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
 
 export default function ApproveDrawPage() {
   const params = useParams()
@@ -22,10 +23,7 @@ export default function ApproveDrawPage() {
 
   return (
     <div className="flex items-center justify-center h-64">
-      <div
-        className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent"
-        style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
-      />
+      <LoadingSpinner />
     </div>
   )
 }

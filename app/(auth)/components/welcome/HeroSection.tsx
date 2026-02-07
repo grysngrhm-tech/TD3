@@ -15,8 +15,7 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
     return (
       <section
         ref={ref}
-        className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-4 pb-16"
-        style={{ background: 'var(--bg-primary)' }}
+        className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-4 pb-16 bg-background-primary"
       >
         {/* Background gradient + ambient glow */}
         <div className="absolute inset-0 pointer-events-none">
@@ -80,8 +79,8 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-            className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-bold mb-4 tracking-tight uppercase whitespace-normal sm:whitespace-nowrap leading-tight"
-            style={{ color: 'var(--text-primary)' }}
+            className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-bold mb-4 tracking-tight uppercase whitespace-normal sm:whitespace-nowrap leading-tight text-text-primary"
+            
           >
             Construction Finance.
             <br />
@@ -126,8 +125,8 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
                 <span className="relative text-sm font-bold text-white">TD3</span>
               </div>
               <span
-                className="text-lg font-semibold"
-                style={{ color: 'var(--text-primary)' }}
+                className="text-lg font-semibold text-text-primary"
+                
               >
                 Sign in to continue
               </span>
@@ -143,7 +142,7 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
           transition={{ duration: 0.6, delay: 0.8 }}
           className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
         >
-          <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+          <span className="text-xs font-medium text-text-muted">
             Scroll to explore
           </span>
           <motion.div
@@ -151,8 +150,8 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
             transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
           >
             <svg
-              className="w-5 h-5"
-              style={{ color: 'var(--text-muted)' }}
+              className="w-5 h-5 text-text-muted"
+              
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"

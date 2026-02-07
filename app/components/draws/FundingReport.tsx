@@ -2,6 +2,7 @@
 
 import { useRef } from 'react'
 import type { Builder, DrawRequest, Project, WireBatch } from '@/types/custom'
+import { formatCurrency, formatDateLong as formatDate, formatDateTime } from '@/lib/formatters'
 
 type DrawWithProject = DrawRequest & {
   project?: Project | null
@@ -30,35 +31,6 @@ type FundingReportProps = {
  */
 export function FundingReport({ batch, onPrint }: FundingReportProps) {
   const reportRef = useRef<HTMLDivElement>(null)
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount)
-  }
-
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return 'N/A'
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  }
-
-  const formatDateTime = (dateStr: string | null) => {
-    if (!dateStr) return 'N/A'
-    return new Date(dateStr).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
 
   const handlePrint = () => {
     if (onPrint) {
@@ -93,54 +65,54 @@ export function FundingReport({ batch, onPrint }: FundingReportProps) {
         }}
       >
         {/* Header */}
-        <div className="text-center mb-6 pb-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-          <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+        <div className="text-center mb-6 pb-4 border-b border-border-subtle">
+          <h2 className="text-xl font-bold text-text-primary">
             Wire Funding Request
           </h2>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-sm mt-1 text-text-muted">
             Batch #{batch.id.slice(0, 8).toUpperCase()}
           </p>
-          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs mt-1 text-text-muted">
             Submitted: {formatDateTime(batch.submitted_at || batch.created_at)}
           </p>
         </div>
 
         {/* Builder / Wire Destination */}
         <div className="mb-6">
-          <h3 className="text-sm font-semibold mb-3 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+          <h3 className="text-sm font-semibold mb-3 uppercase tracking-wide text-text-muted">
             Wire Destination
           </h3>
           <div 
             className="p-4 rounded-lg"
             style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
           >
-            <p className="font-bold text-lg mb-2" style={{ color: 'var(--text-primary)' }}>
+            <p className="font-bold text-lg mb-2 text-text-primary">
               {batch.builder?.company_name}
             </p>
             {batch.builder?.borrower_name && (
-              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+              <p className="text-sm mb-3 text-text-secondary">
                 Attn: {batch.builder.borrower_name}
               </p>
             )}
             
             <dl className="grid grid-cols-2 gap-y-2 gap-x-6 text-sm">
               <div>
-                <dt className="font-medium" style={{ color: 'var(--text-muted)' }}>Bank Name</dt>
-                <dd style={{ color: 'var(--text-primary)' }}>{batch.builder?.bank_name || 'N/A'}</dd>
+                <dt className="font-medium text-text-muted">Bank Name</dt>
+                <dd className="text-text-primary">{batch.builder?.bank_name || 'N/A'}</dd>
               </div>
               <div>
-                <dt className="font-medium" style={{ color: 'var(--text-muted)' }}>Account Name</dt>
-                <dd style={{ color: 'var(--text-primary)' }}>{batch.builder?.bank_account_name || 'N/A'}</dd>
+                <dt className="font-medium text-text-muted">Account Name</dt>
+                <dd className="text-text-primary">{batch.builder?.bank_account_name || 'N/A'}</dd>
               </div>
               <div>
-                <dt className="font-medium" style={{ color: 'var(--text-muted)' }}>Routing Number</dt>
-                <dd className="font-mono" style={{ color: 'var(--text-primary)' }}>
+                <dt className="font-medium text-text-muted">Routing Number</dt>
+                <dd className="font-mono text-text-primary">
                   {batch.builder?.bank_routing_number || 'N/A'}
                 </dd>
               </div>
               <div>
-                <dt className="font-medium" style={{ color: 'var(--text-muted)' }}>Account Number</dt>
-                <dd className="font-mono" style={{ color: 'var(--text-primary)' }}>
+                <dt className="font-medium text-text-muted">Account Number</dt>
+                <dd className="font-mono text-text-primary">
                   {batch.builder?.bank_account_number || 'N/A'}
                 </dd>
               </div>
@@ -150,7 +122,7 @@ export function FundingReport({ batch, onPrint }: FundingReportProps) {
 
         {/* Draw Details */}
         <div className="mb-6">
-          <h3 className="text-sm font-semibold mb-3 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+          <h3 className="text-sm font-semibold mb-3 uppercase tracking-wide text-text-muted">
             Draw Details ({batch.draws?.length || 0} draws)
           </h3>
           <div 
@@ -159,22 +131,22 @@ export function FundingReport({ batch, onPrint }: FundingReportProps) {
           >
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ background: 'var(--bg-secondary)' }}>
-                  <th className="text-left px-4 py-2 font-medium" style={{ color: 'var(--text-muted)' }}>
+                <tr className="bg-background-secondary">
+                  <th className="text-left px-4 py-2 font-medium text-text-muted">
                     Project
                   </th>
-                  <th className="text-left px-4 py-2 font-medium" style={{ color: 'var(--text-muted)' }}>
+                  <th className="text-left px-4 py-2 font-medium text-text-muted">
                     Draw #
                   </th>
-                  <th className="text-left px-4 py-2 font-medium" style={{ color: 'var(--text-muted)' }}>
+                  <th className="text-left px-4 py-2 font-medium text-text-muted">
                     Request Date
                   </th>
-                  <th className="text-right px-4 py-2 font-medium" style={{ color: 'var(--text-muted)' }}>
+                  <th className="text-right px-4 py-2 font-medium text-text-muted">
                     Amount
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+              <tbody className="divide-y divide-border-subtle">
                 {batch.draws?.map((draw, idx) => (
                   <tr 
                     key={draw.id}
@@ -183,18 +155,18 @@ export function FundingReport({ batch, onPrint }: FundingReportProps) {
                       borderColor: 'var(--border-subtle)'
                     }}
                   >
-                    <td className="px-4 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>
+                    <td className="px-4 py-2 font-medium text-text-primary">
                       {draw.project?.project_code || draw.project?.name || 'Unknown'}
                     </td>
-                    <td className="px-4 py-2" style={{ color: 'var(--text-secondary)' }}>
+                    <td className="px-4 py-2 text-text-secondary">
                       #{draw.draw_number}
                     </td>
-                    <td className="px-4 py-2" style={{ color: 'var(--text-secondary)' }}>
+                    <td className="px-4 py-2 text-text-secondary">
                       {formatDate(draw.request_date)}
                     </td>
                     <td 
-                      className="px-4 py-2 text-right font-mono font-medium"
-                      style={{ color: 'var(--text-primary)' }}
+                      className="px-4 py-2 text-right font-mono font-medium text-text-primary"
+                      
                     >
                       {formatCurrency(draw.total_amount)}
                     </td>
@@ -202,13 +174,13 @@ export function FundingReport({ batch, onPrint }: FundingReportProps) {
                 ))}
               </tbody>
               <tfoot>
-                <tr style={{ background: 'var(--bg-secondary)' }}>
-                  <td colSpan={3} className="px-4 py-3 text-right font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <tr className="bg-background-secondary">
+                  <td colSpan={3} className="px-4 py-3 text-right font-semibold text-text-primary">
                     Total Wire Amount:
                   </td>
                   <td 
-                    className="px-4 py-3 text-right font-mono font-bold text-lg"
-                    style={{ color: 'var(--success)' }}
+                    className="px-4 py-3 text-right font-mono font-bold text-lg text-success"
+                    
                   >
                     {formatCurrency(batch.total_amount)}
                   </td>
@@ -223,20 +195,20 @@ export function FundingReport({ batch, onPrint }: FundingReportProps) {
           className="p-4 rounded-lg text-center"
           style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid var(--warning)' }}
         >
-          <p className="text-sm font-medium" style={{ color: 'var(--warning)' }}>
+          <p className="text-sm font-medium text-warning">
             Awaiting Wire Confirmation
           </p>
-          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs mt-1 text-text-muted">
             Please send wire and record the confirmation details below
           </p>
         </div>
 
         {/* Footer */}
-        <div className="mt-6 pt-4 border-t text-center" style={{ borderColor: 'var(--border-subtle)' }}>
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+        <div className="mt-6 pt-4 border-t border-border-subtle text-center">
+          <p className="text-xs text-text-muted">
             Generated by TD3 Construction Loan Management
           </p>
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs text-text-muted">
             {new Date().toLocaleString()}
           </p>
         </div>

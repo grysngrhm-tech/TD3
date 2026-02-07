@@ -321,34 +321,34 @@ export function SpreadsheetViewer({
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         {/* Legend - columns and row classifications */}
         <div className="flex items-center gap-3 text-xs">
-          <span style={{ color: 'var(--text-muted)' }}>Legend:</span>
+          <span className="text-text-muted">Legend:</span>
           <div className="flex items-center gap-1">
             <div className="w-2.5 h-2.5 rounded-sm" style={{ background: BORDER_COLORS.category }} />
-            <span style={{ color: 'var(--text-secondary)' }}>Category</span>
+            <span className="text-text-secondary">Category</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-2.5 h-2.5 rounded-sm" style={{ background: BORDER_COLORS.amount }} />
-            <span style={{ color: 'var(--text-secondary)' }}>Amount</span>
+            <span className="text-text-secondary">Amount</span>
           </div>
-          <span style={{ color: 'var(--border)' }}>|</span>
+          <span className="text-border">|</span>
           <div className="flex items-center gap-1">
             <span className="text-[8px] px-1 rounded font-bold" style={{ background: 'rgb(107, 114, 128)', color: 'white' }}>H</span>
-            <span style={{ color: 'var(--text-muted)' }}>Header</span>
+            <span className="text-text-muted">Header</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="text-[8px] px-1 rounded font-bold" style={{ background: 'rgb(239, 68, 68)', color: 'white' }}>T</span>
-            <span style={{ color: 'var(--text-muted)' }}>Total</span>
+            <span className="text-text-muted">Total</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="text-[8px] px-1 rounded font-bold" style={{ background: 'rgb(249, 115, 22)', color: 'white' }}>C</span>
-            <span style={{ color: 'var(--text-muted)' }}>Closing</span>
+            <span className="text-text-muted">Closing</span>
           </div>
         </div>
 
         {/* Row Range Controls */}
         {rowRange && (
           <div className="flex items-center gap-2 text-xs">
-            <span style={{ color: 'var(--text-muted)' }}>Rows:</span>
+            <span className="text-text-muted">Rows:</span>
             <input
               type="number"
               min={0}
@@ -362,7 +362,7 @@ export function SpreadsheetViewer({
                 color: 'var(--text-primary)'
               }}
             />
-            <span style={{ color: 'var(--text-muted)' }}>to</span>
+            <span className="text-text-muted">to</span>
             <input
               type="number"
               min={0}
@@ -419,7 +419,7 @@ export function SpreadsheetViewer({
                   boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
                 }}
               >
-                <div className="font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Keyboard Shortcuts</div>
+                <div className="font-medium mb-1 text-text-primary">Keyboard Shortcuts</div>
                 <div>↑↓ &nbsp;Adjust start row</div>
                 <div>⇧↑↓ Adjust end row</div>
                 <div>R &nbsp;&nbsp;&nbsp;Reset selection</div>
@@ -430,7 +430,7 @@ export function SpreadsheetViewer({
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto rounded-ios-xs border min-h-0" style={{ borderColor: 'var(--border)' }}>
+      <div className="flex-1 overflow-auto rounded-ios-xs border border-border min-h-0">
         <table className="w-full text-xs border-collapse">
           <thead className="sticky top-0 z-10">
             <tr>
@@ -559,10 +559,10 @@ export function SpreadsheetViewer({
                       {(isStartRow || isEndRow) && (
                         <span
                           data-drag-handle
-                          className="cursor-ns-resize opacity-40 group-hover:opacity-100 transition-opacity text-[10px]"
+                          className="cursor-ns-resize opacity-40 group-hover:opacity-100 transition-opacity text-[10px] text-accent"
                           onMouseDown={(e) => handleDragStart(isStartRow ? 'start' : 'end', e)}
                           title={isStartRow ? 'Drag to adjust start row' : 'Drag to adjust end row'}
-                          style={{ color: 'var(--accent)' }}
+                          
                         >
                           ≡
                         </span>
@@ -618,7 +618,7 @@ export function SpreadsheetViewer({
 
       {/* Row count */}
       {data.rows.length > maxRows && (
-        <p className="text-[10px] mt-1 text-center" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-[10px] mt-1 text-center text-text-muted">
           Showing {maxRows} of {data.rows.length} rows
         </p>
       )}
@@ -650,16 +650,16 @@ export function SpreadsheetViewer({
               }}
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Map Column</span>
+                <span className="text-sm font-medium text-text-primary">Map Column</span>
                 <button onClick={() => setSelectedColumn(null)} className="p-1 rounded hover:bg-[var(--bg-hover)]">
-                  <svg className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-3.5 h-3.5 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
               
-              <div className="text-xs mb-3 p-2 rounded" style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
-                "{data.headers[selectedColumn]}"
+              <div className="text-xs mb-3 p-2 rounded bg-background-secondary text-text-secondary">
+                &ldquo;{data.headers[selectedColumn]}&rdquo;
               </div>
 
               <div className="space-y-1">
@@ -685,7 +685,7 @@ export function SpreadsheetViewer({
                       <div className="w-3 h-3 rounded-sm" style={{ background: dotColor }} />
                       <span>{type === 'category' ? 'Category' : type === 'amount' ? 'Amount' : 'Ignore'}</span>
                       {isSelected && (
-                        <svg className="w-3 h-3 ml-auto" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-3 h-3 ml-auto text-accent"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       )}

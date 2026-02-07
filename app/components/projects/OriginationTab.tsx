@@ -10,6 +10,8 @@ import { toast } from '@/app/components/ui/Toast'
 import { SubdivisionCombobox } from '@/app/components/ui/SubdivisionCombobox'
 import { generateProjectCode } from '@/lib/projectCode'
 import { supabase } from '@/lib/supabase'
+import { LoadingSpinner } from '@/app/components/ui/LoadingSpinner'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 // Default term sheet values
 const DEFAULT_TERMS = {
@@ -187,16 +189,6 @@ export function OriginationTab({
   const projectCode = useMemo(() => {
     return generateProjectCode(formData.subdivision_name, formData.lot_number)
   }, [formData.subdivision_name, formData.lot_number])
-
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null || amount === undefined) return '—'
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
 
   // Calculate metrics
   const totalBudget = budgets.reduce((sum, b) => sum + (b.current_amount || 0), 0)
@@ -446,8 +438,8 @@ export function OriginationTab({
       
       return (
         <div>
-          <div style={{ color: 'var(--text-muted)' }}>{label}</div>
-          <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+          <div className="text-text-muted">{label}</div>
+          <div className="font-medium text-text-primary">
             {displayValue}
           </div>
         </div>
@@ -457,13 +449,13 @@ export function OriginationTab({
     // Edit mode - input field
     return (
       <div>
-        <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
+        <label className="block text-sm mb-1 text-text-muted">
           {label}
-          {isRequired && <span style={{ color: 'var(--error)' }}> *</span>}
+          {isRequired && <span className="text-error"> *</span>}
         </label>
         <div className="relative">
           {type === 'currency' && (
-            <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>$</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">$</span>
           )}
           <input
             type={type === 'text' ? 'text' : 'number'}
@@ -478,14 +470,14 @@ export function OriginationTab({
             }}
           />
           {type === 'percent' && (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>%</span>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted">%</span>
           )}
         </div>
         {error && (
-          <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>{error}</p>
+          <p className="text-xs mt-1 text-error">{error}</p>
         )}
         {helperText && !error && (
-          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{helperText}</p>
+          <p className="text-xs mt-1 text-text-muted">{helperText}</p>
         )}
       </div>
     )
@@ -498,8 +490,8 @@ export function OriginationTab({
     if (!isEditing) {
       return (
         <div>
-          <div style={{ color: 'var(--text-muted)' }}>Subdivision</div>
-          <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+          <div className="text-text-muted">Subdivision</div>
+          <div className="font-medium text-text-primary">
             {formData.subdivision_name || '—'}
           </div>
         </div>
@@ -514,7 +506,7 @@ export function OriginationTab({
           placeholder="Search or create subdivision..."
         />
         {error && (
-          <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>{error}</p>
+          <p className="text-xs mt-1 text-error">{error}</p>
         )}
       </div>
     )
@@ -526,13 +518,13 @@ export function OriginationTab({
       // View mode - show builder name as link
       return (
         <div>
-          <div style={{ color: 'var(--text-muted)' }}>Builder</div>
-          <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+          <div className="text-text-muted">Builder</div>
+          <div className="font-medium text-text-primary">
             {selectedBuilder ? (
               <button
                 onClick={() => router.push(`/builders/${selectedBuilder.id}`)}
-                className="hover:underline transition-colors"
-                style={{ color: 'var(--accent)' }}
+                className="hover:underline transition-colors text-accent"
+                
               >
                 {selectedBuilder.company_name}
               </button>
@@ -547,7 +539,7 @@ export function OriginationTab({
     // Edit mode - searchable dropdown
     return (
       <div className="relative">
-        <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
+        <label className="block text-sm mb-1 text-text-muted">
           Builder
         </label>
         <button
@@ -583,7 +575,7 @@ export function OriginationTab({
             {/* Builder list */}
             <div className="max-h-48 overflow-y-auto">
               {filteredBuilders.length === 0 ? (
-                <div className="p-3 text-sm text-center" style={{ color: 'var(--text-muted)' }}>
+                <div className="p-3 text-sm text-center text-text-muted">
                   No builders found
                 </div>
               ) : (
@@ -598,17 +590,17 @@ export function OriginationTab({
                     }}
                   >
                     <div>
-                      <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      <div className="font-medium text-text-primary">
                         {builder.company_name}
                       </div>
                       {builder.borrower_name && (
-                        <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                        <div className="text-sm text-text-muted">
                           {builder.borrower_name}
                         </div>
                       )}
                     </div>
                     {builder.id === formData.builder_id && (
-                      <svg className="w-4 h-4" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-4 h-4 text-accent"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     )}
@@ -626,8 +618,8 @@ export function OriginationTab({
                     handleInputChange('builder_id', '')
                     setBuilderSearchOpen(false)
                   }}
-                  className="w-full text-sm p-2 rounded transition-colors"
-                  style={{ color: 'var(--text-muted)' }}
+                  className="w-full text-sm p-2 rounded transition-colors text-text-muted"
+                  
                 >
                   Clear selection
                 </button>
@@ -645,8 +637,8 @@ export function OriginationTab({
       // View mode - show lender name
       return (
         <div>
-          <div style={{ color: 'var(--text-muted)' }}>Lender</div>
-          <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+          <div className="text-text-muted">Lender</div>
+          <div className="font-medium text-text-primary">
             {selectedLender ? selectedLender.name : '—'}
           </div>
         </div>
@@ -656,7 +648,7 @@ export function OriginationTab({
     // Edit mode - searchable dropdown
     return (
       <div className="relative">
-        <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
+        <label className="block text-sm mb-1 text-text-muted">
           Lender
         </label>
         <button
@@ -692,7 +684,7 @@ export function OriginationTab({
             {/* Lender list */}
             <div className="max-h-48 overflow-y-auto">
               {filteredLenders.length === 0 ? (
-                <div className="p-3 text-sm text-center" style={{ color: 'var(--text-muted)' }}>
+                <div className="p-3 text-sm text-center text-text-muted">
                   No lenders found
                 </div>
               ) : (
@@ -711,15 +703,15 @@ export function OriginationTab({
                     }}
                   >
                     <div>
-                      <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      <div className="font-medium text-text-primary">
                         {lender.name}
                       </div>
-                      <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                      <div className="text-sm text-text-muted">
                         {lender.code}
                       </div>
                     </div>
                     {lender.id === formData.lender_id && (
-                      <svg className="w-4 h-4" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-4 h-4 text-accent"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     )}
@@ -737,8 +729,8 @@ export function OriginationTab({
                     handleInputChange('lender_id', '')
                     setLenderSearchOpen(false)
                   }}
-                  className="w-full text-sm p-2 rounded transition-colors"
-                  style={{ color: 'var(--text-muted)' }}
+                  className="w-full text-sm p-2 rounded transition-colors text-text-muted"
+                  
                 >
                   Clear selection
                 </button>
@@ -754,12 +746,12 @@ export function OriginationTab({
   const renderAutoFilledField = (label: string, value: string | null | undefined) => {
     return (
       <div>
-        <div style={{ color: 'var(--text-muted)' }}>{label}</div>
+        <div className="text-text-muted">{label}</div>
         <div className="font-medium" style={{ color: value ? 'var(--text-primary)' : 'var(--text-muted)' }}>
           {value || '—'}
         </div>
         {isEditing && (
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs mt-0.5 text-text-muted">
             Auto-filled from builder
           </p>
         )}
@@ -807,13 +799,13 @@ export function OriginationTab({
       <div className="grid grid-cols-3 gap-4">
         {/* LTV Ratio */}
         <div className="card-ios">
-          <div className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>LTV Ratio</div>
+          <div className="text-sm mb-2 text-text-muted">LTV Ratio</div>
           {ltvRatio !== null ? (
             <>
               <div className="text-3xl font-bold mb-3" style={{ color: getLtvColor(ltvRatio) }}>
                 {ltvRatio.toFixed(1)}%
               </div>
-              <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
+              <div className="relative h-2 rounded-full overflow-hidden bg-background-hover">
                 <div 
                   className="absolute inset-y-0 left-0 rounded-full transition-all"
                   style={{ 
@@ -827,25 +819,25 @@ export function OriginationTab({
                   style={{ left: '75%', background: 'var(--text-muted)', opacity: 0.5 }}
                 />
               </div>
-              <div className="flex justify-between mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+              <div className="flex justify-between mt-1 text-xs text-text-muted">
                 <span>0%</span>
                 <span>75%</span>
                 <span>100%</span>
               </div>
             </>
           ) : (
-            <div className="text-2xl font-bold" style={{ color: 'var(--text-muted)' }}>—</div>
+            <div className="text-2xl font-bold text-text-muted">—</div>
           )}
         </div>
 
         {/* Cost per Sqft */}
         <div className="card-ios">
-          <div className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>Cost / Sq Ft</div>
-          <div className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          <div className="text-sm mb-2 text-text-muted">Cost / Sq Ft</div>
+          <div className="text-3xl font-bold text-text-primary">
             {costPerSqft ? `$${costPerSqft.toFixed(0)}` : '—'}
           </div>
           {squareFootageNum > 0 && (
-            <div className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-sm mt-2 text-text-muted">
               {squareFootageNum.toLocaleString()} sq ft
             </div>
           )}
@@ -853,11 +845,11 @@ export function OriginationTab({
 
         {/* Total Budget */}
         <div className="card-ios">
-          <div className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>Total Budget</div>
-          <div className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          <div className="text-sm mb-2 text-text-muted">Total Budget</div>
+          <div className="text-3xl font-bold text-text-primary">
             {totalBudget > 0 ? formatCurrency(totalBudget) : '—'}
           </div>
-          <div className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>
+          <div className="text-sm mt-2 text-text-muted">
             {budgets.length} line items
           </div>
         </div>
@@ -866,28 +858,28 @@ export function OriginationTab({
       {/* Project Details */}
       <div className="card-ios">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Loan Details</h3>
+          <h3 className="font-semibold text-text-primary">Loan Details</h3>
           {isEditing && (
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              <span style={{ color: 'var(--error)' }}>*</span> Required fields
+            <span className="text-xs text-text-muted">
+              <span className="text-error">*</span> Required fields
             </span>
           )}
         </div>
         
         {/* Section 1: Property Identification */}
         <div className="mb-6">
-          <h4 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>
+          <h4 className="text-xs font-semibold uppercase tracking-wide mb-3 text-text-muted">
             Property Identification
           </h4>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             {/* Project Code - auto-generated */}
             <div>
-              <div style={{ color: 'var(--text-muted)' }}>Project Code</div>
+              <div className="text-text-muted">Project Code</div>
               <div className="text-lg font-semibold font-mono" style={{ color: projectCode ? 'var(--accent)' : 'var(--text-muted)' }}>
                 {projectCode || (isEditing ? 'Auto-generated' : '—')}
               </div>
               {isEditing && !projectCode && (
-                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-xs mt-1 text-text-muted">
                   Generated from Subdivision + Lot
                 </p>
               )}
@@ -899,8 +891,8 @@ export function OriginationTab({
         </div>
 
         {/* Section 2: Builder */}
-        <div className="mb-6 pt-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-          <h4 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>
+        <div className="mb-6 pt-4 border-t border-border-subtle">
+          <h4 className="text-xs font-semibold uppercase tracking-wide mb-3 text-text-muted">
             Builder
           </h4>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -912,8 +904,8 @@ export function OriginationTab({
         </div>
 
         {/* Section 3: Financial Terms */}
-        <div className="mb-6 pt-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-          <h4 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>
+        <div className="mb-6 pt-4 border-t border-border-subtle">
+          <h4 className="text-xs font-semibold uppercase tracking-wide mb-3 text-text-muted">
             Financial Terms
           </h4>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
@@ -924,12 +916,12 @@ export function OriginationTab({
             })}
             {/* Budget Amount - auto-calculated from budget categories */}
             <div>
-              <div style={{ color: 'var(--text-muted)' }}>Budget Amount</div>
+              <div className="text-text-muted">Budget Amount</div>
               <div className="font-medium" style={{ color: totalBudget > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                 {totalBudget > 0 ? formatCurrency(totalBudget) : (budgets.length === 0 ? 'Upload budget' : '—')}
               </div>
               {!isEditing && budgets.length > 0 && (
-                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-xs mt-1 text-text-muted">
                   {budgets.length} line items
                 </p>
               )}
@@ -941,8 +933,8 @@ export function OriginationTab({
         </div>
 
         {/* Section 4: Property Details */}
-        <div className="pt-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-          <h4 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>
+        <div className="pt-4 border-t border-border-subtle">
+          <h4 className="text-xs font-semibold uppercase tracking-wide mb-3 text-text-muted">
             Property Details
           </h4>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
@@ -1024,8 +1016,8 @@ export function OriginationTab({
         >
           <div className="flex justify-between items-start mb-4">
             <div>
-              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Ready to Activate</h3>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+              <h3 className="font-semibold text-text-primary">Ready to Activate</h3>
+              <p className="text-sm mt-1 text-text-muted">
                 Once loan documents are recorded, activate the loan to begin funding draws.
               </p>
             </div>
@@ -1034,28 +1026,25 @@ export function OriginationTab({
           <div className="space-y-4">
             {/* DocuSign Integration Placeholder */}
             <div 
-              className="p-4 rounded-lg border border-dashed flex items-start gap-3"
-              style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}
+              className="p-4 rounded-lg border border-dashed flex items-start gap-3 border-border bg-background-secondary"
             >
-              <div 
-                className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: 'var(--bg-hover)' }}
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-background-hover"
               >
-                <svg className="w-5 h-5" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-5 h-5 text-text-muted"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>DocuSign Integration</span>
+                  <span className="font-medium text-text-primary">DocuSign Integration</span>
                   <span 
-                    className="text-xs px-2 py-0.5 rounded-full"
-                    style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+                    className="text-xs px-2 py-0.5 rounded-full bg-background-hover text-text-muted"
                   >
                     Coming Soon
                   </span>
                 </div>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-sm text-text-muted">
                   Future integration will allow sending loan documents for signature via DocuSign 
                   and automatically update this status when executed.
                 </p>
@@ -1083,7 +1072,7 @@ export function OriginationTab({
                 <div className="w-full border-t" style={{ borderColor: 'var(--border)' }}></div>
               </div>
               <div className="relative flex justify-center">
-                <span className="px-2 text-xs" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)' }}>
+                <span className="px-2 text-xs bg-background-card text-text-muted">
                   or manually confirm
                 </span>
               </div>
@@ -1099,10 +1088,10 @@ export function OriginationTab({
                 style={{ accentColor: 'var(--accent)' }}
               />
               <div>
-                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                <span className="font-medium text-text-primary">
                   Loan Documents Recorded
                 </span>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-sm text-text-muted">
                   DocuSign loan agreement has been executed and recorded
                 </p>
               </div>
@@ -1111,19 +1100,18 @@ export function OriginationTab({
             {/* Info about what happens on activation */}
             {loanDocsRecorded && (
               <div 
-                className="p-3 rounded-lg text-sm"
-                style={{ background: 'var(--bg-secondary)' }}
+                className="p-3 rounded-lg text-sm bg-background-secondary"
               >
                 <div className="flex items-start gap-2">
-                  <svg className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-5 h-5 flex-shrink-0 text-accent"  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <div style={{ color: 'var(--text-secondary)' }}>
+                  <div className="text-text-secondary">
                     <p>When activated:</p>
                     <ul className="list-disc ml-4 mt-1">
                       <li>Loan Agreement goes into effect (rate lock begins)</li>
                       <li>Loan status changes to Active, enabling draw requests</li>
-                      <li className="mt-1" style={{ color: 'var(--text-muted)' }}>
+                      <li className="mt-1 text-text-muted">
                         Note: Fee clock and {formData.loan_term_months || 12}-month term begin upon first draw funding
                       </li>
                     </ul>
@@ -1145,7 +1133,7 @@ export function OriginationTab({
               >
                 {activating ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent border-white" />
+                    <LoadingSpinner size="sm" variant="white" />
                     Activating...
                   </>
                 ) : (

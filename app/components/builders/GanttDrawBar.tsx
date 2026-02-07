@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { DrawRequest, Project } from '@/types/custom'
+import { formatCurrencyWhole as formatFullCurrency, formatDate } from '@/lib/formatters'
 
 type GanttDrawBarProps = {
   draw: DrawRequest
@@ -56,21 +57,6 @@ export function GanttDrawBar({
       return `$${Math.round(amount / 1000)}k`
     }
     return `$${amount}`
-  }
-
-  const formatFullCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
-
-  const formatDate = (date: Date | string | null) => {
-    if (!date) return '—'
-    const d = typeof date === 'string' ? new Date(date) : date
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -196,7 +182,7 @@ export function GanttDrawBar({
               <div className="px-3 py-2.5 space-y-2">
                 {/* Amount - prominent */}
                 <div className="flex justify-between items-center">
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Amount</span>
+                  <span className="text-xs text-text-muted">Amount</span>
                   <span 
                     className="text-sm font-bold"
                     style={{ 
@@ -210,8 +196,8 @@ export function GanttDrawBar({
 
                 {/* Project */}
                 <div className="flex justify-between items-center">
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Project</span>
-                  <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                  <span className="text-xs text-text-muted">Project</span>
+                  <span className="text-xs font-medium text-text-primary">
                     {project.project_code || project.name}
                   </span>
                 </div>
@@ -219,8 +205,8 @@ export function GanttDrawBar({
                 {/* Funded Date */}
                 {draw.funded_at && (
                   <div className="flex justify-between items-center">
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Funded</span>
-                    <span className="text-xs font-medium" style={{ color: 'var(--success)' }}>
+                    <span className="text-xs text-text-muted">Funded</span>
+                    <span className="text-xs font-medium text-success">
                       {formatDate(draw.funded_at)}
                     </span>
                   </div>

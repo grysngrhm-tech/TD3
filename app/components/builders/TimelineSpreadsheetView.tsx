@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import type { Project, DrawRequest, Lender } from '@/types/custom'
 import type { ProjectWithDraws, DrawWithProject } from './BuilderTimeline'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/formatters'
 
 type LenderGroup = {
   lenderId: string
@@ -73,14 +74,6 @@ function formatShortCurrency(amount: number): string {
   return `$${amount}`
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
 
 // ============================================================================
 // MAIN COMPONENT
@@ -255,20 +248,19 @@ export function TimelineSpreadsheetView({
                   <motion.svg
                     animate={{ rotate: isCollapsed ? -90 : 0 }}
                     transition={{ duration: 0.15 }}
-                    className="w-3.5 h-3.5 flex-shrink-0"
-                    style={{ color: 'var(--text-muted)' }}
+                    className="w-3.5 h-3.5 flex-shrink-0 text-text-muted"
+                    
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </motion.svg>
-                  <span className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>
+                  <span className="font-semibold text-sm truncate text-text-primary">
                     {group.lender?.name || 'No Lender Assigned'}
                   </span>
                   <span 
-                    className="text-xs px-1.5 py-0.5 rounded flex-shrink-0"
-                    style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+                    className="text-xs px-1.5 py-0.5 rounded flex-shrink-0 bg-background-hover text-text-muted"
                   >
                     {group.projects.length}
                   </span>
@@ -301,8 +293,8 @@ export function TimelineSpreadsheetView({
                         >
                           <button
                             onClick={() => router.push(`/projects/${project.id}`)}
-                            className="font-medium text-sm hover:underline truncate text-left"
-                            style={{ color: 'var(--text-primary)' }}
+                            className="font-medium text-sm hover:underline truncate text-left text-text-primary"
+                            
                           >
                             {project.project_code || project.name}
                           </button>
@@ -415,8 +407,8 @@ export function TimelineSpreadsheetView({
               {monthColumns.map(month => (
                 <div 
                   key={month.key}
-                  className="flex items-center justify-end px-3 font-medium text-xs"
-                  style={{ color: 'var(--text-muted)' }}
+                  className="flex items-center justify-end px-3 font-medium text-xs text-text-muted"
+                  
                 >
                   {month.label}
                 </div>
@@ -431,8 +423,8 @@ export function TimelineSpreadsheetView({
                 Drawn
               </div>
               <div 
-                className="flex items-center justify-end px-3 font-semibold text-xs uppercase tracking-wide"
-                style={{ color: 'var(--text-secondary)' }}
+                className="flex items-center justify-end px-3 font-semibold text-xs uppercase tracking-wide text-text-secondary"
+                
               >
                 Budget
               </div>
@@ -513,8 +505,8 @@ export function TimelineSpreadsheetView({
                                 {draws.length > 0 ? (
                                   <button
                                     onClick={() => onDrawClick(draws[0], project)}
-                                    className="hover:underline font-medium"
-                                    style={{ color: 'var(--accent)' }}
+                                    className="hover:underline font-medium text-accent"
+                                    
                                   >
                                     {formatShortCurrency(amount)}
                                   </button>

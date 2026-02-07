@@ -29,8 +29,7 @@ const bulletVariants = {
 export function ValueSection() {
   return (
     <section
-      className="relative px-4 py-20 md:py-28"
-      style={{ background: 'var(--bg-secondary)' }}
+      className="relative px-4 py-20 md:py-28 bg-background-secondary"
     >
       {/* Section Header */}
       <div className="max-w-5xl mx-auto text-center mb-12 md:mb-16">
@@ -49,8 +48,8 @@ export function ValueSection() {
           Why TD3?
         </motion.span>
         <motion.p
-          className="text-base md:text-lg max-w-2xl mx-auto leading-relaxed"
-          style={{ color: 'var(--text-secondary)' }}
+          className="text-base md:text-lg max-w-2xl mx-auto leading-relaxed text-text-secondary"
+          
           initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
@@ -81,12 +80,11 @@ export function ValueSection() {
           {/* Card Label */}
           <div className="flex items-center gap-2 mb-5">
             <span
-              className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center"
-              style={{ background: 'var(--error-muted)' }}
+              className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-error-muted"
             >
               <svg
-                className="w-3.5 h-3.5"
-                style={{ color: 'var(--error)' }}
+                className="w-3.5 h-3.5 text-error"
+                
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -100,8 +98,8 @@ export function ValueSection() {
               </svg>
             </span>
             <h3
-              className="text-sm font-semibold uppercase tracking-wider"
-              style={{ color: 'var(--error)' }}
+              className="text-sm font-semibold uppercase tracking-wider text-error"
+              
             >
               The Challenge
             </h3>
@@ -124,12 +122,11 @@ export function ValueSection() {
                 }}
               >
                 <span
-                  className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center mt-0.5"
-                  style={{ background: 'var(--error-muted)' }}
+                  className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center mt-0.5 bg-error-muted"
                 >
                   <svg
-                    className="w-3 h-3"
-                    style={{ color: 'var(--error)' }}
+                    className="w-3 h-3 text-error"
+                    
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -143,8 +140,8 @@ export function ValueSection() {
                   </svg>
                 </span>
                 <span
-                  className="text-sm md:text-base leading-relaxed"
-                  style={{ color: 'var(--text-secondary)' }}
+                  className="text-sm md:text-base leading-relaxed text-text-secondary"
+                  
                 >
                   {bullet}
                 </span>
@@ -174,12 +171,11 @@ export function ValueSection() {
           {/* Card Label */}
           <div className="flex items-center gap-2 mb-5">
             <span
-              className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center"
-              style={{ background: 'var(--success-muted)' }}
+              className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-success-muted"
             >
               <svg
-                className="w-3.5 h-3.5"
-                style={{ color: 'var(--success)' }}
+                className="w-3.5 h-3.5 text-success"
+                
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -193,8 +189,8 @@ export function ValueSection() {
               </svg>
             </span>
             <h3
-              className="text-sm font-semibold uppercase tracking-wider"
-              style={{ color: 'var(--success)' }}
+              className="text-sm font-semibold uppercase tracking-wider text-success"
+              
             >
               The Solution
             </h3>
@@ -217,12 +213,11 @@ export function ValueSection() {
                 }}
               >
                 <span
-                  className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center mt-0.5"
-                  style={{ background: 'var(--success-muted)' }}
+                  className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center mt-0.5 bg-success-muted"
                 >
                   <svg
-                    className="w-3 h-3"
-                    style={{ color: 'var(--success)' }}
+                    className="w-3 h-3 text-success"
+                    
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -236,8 +231,8 @@ export function ValueSection() {
                   </svg>
                 </span>
                 <span
-                  className="text-sm md:text-base leading-relaxed"
-                  style={{ color: 'var(--text-secondary)' }}
+                  className="text-sm md:text-base leading-relaxed text-text-secondary"
+                  
                 >
                   {bullet}
                 </span>
@@ -263,8 +258,8 @@ export function ValueSection() {
           }}
         >
           <p
-            className="text-base md:text-lg font-medium max-w-2xl mx-auto"
-            style={{ color: 'var(--text-primary)' }}
+            className="text-base md:text-lg font-medium max-w-2xl mx-auto text-text-primary"
+            
           >
             &ldquo;Automation supports accuracy and efficiency, while approvals
             and judgment remain human-led.&rdquo;
